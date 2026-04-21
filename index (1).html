@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>肖瑶启言 · 学习中心</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800;900&family=Noto+Sans+SC:wght@400;500;700;900&display=swap');
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      min-height: 100%;
+      background-color: #F8F9FF;
+      font-family: 'Nunito', 'Noto Sans SC', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    #root {
+      width: 100%;
+      min-height: 100vh;
+    }
+
+    /* 安全区域适配 */
+    .pb-safe {
+      padding-bottom: calc(5rem + env(safe-area-inset-bottom, 16px));
+    }
+    .pt-safe {
+      padding-top: env(safe-area-inset-top, 0);
+    }
+
+    /* 隐藏滚动条 */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    /* 动画 */
+    .fade-in-up { animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .scale-in { animation: scaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; }
+    @keyframes scaleIn {
+      from { opacity: 0; transform: scale(0.92); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .active-scale:active { transform: scale(0.97); transition: transform 0.1s; }
+
+    /* 轮播点 */
+    .dot-inactive { width: 6px; height: 6px; border-radius: 9999px; background: rgba(255,255,255,0.4); transition: all 0.3s; }
+    .dot-active { width: 20px; height: 6px; border-radius: 9999px; background: rgba(255,255,255,1); }
+
+    /* 卡片阴影 */
+    .card-shadow {
+      box-shadow: 0 1px 3px rgba(92, 45, 255, 0.04), 0 4px 20px rgba(92, 45, 255, 0.06);
+    }
+    .card-shadow:hover {
+      box-shadow: 0 2px 8px rgba(92, 45, 255, 0.08), 0 12px 32px rgba(92, 45, 255, 0.12);
+    }
+
+    /* 主色 */
+    :root {
+      --primary: #5C2DFF;
+      --secondary: #FF4D80;
+      --tertiary: #FFD600;
+      --neutral: #F8F9FF;
+    }
+
+    /* 新闻横幅渐变(默认) */
+    .banner-gradient {
+      background: linear-gradient(135deg, #5C2DFF 0%, #7B3FFF 50%, #9B5FFF 100%);
+    }
+  </style>
+</head>
+<body class="bg-[#F8F9FF]">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    /* ============================================
+       班级数据 - 9个班
+       如需修改:改这里的数组
+       ============================================ */
+    const CLASSES = [
+      {
+        code: 'adult',
+        name: '成人0基础口语',
+        level: 'ADULT · ZERO BASE',
+        time: '周四下午',
+        icon: 'fa-briefcase',
+        bgColor: 'from-violet-600 to-purple-700',
+        iconBg: 'bg-violet-100',
+        iconColor: 'text-violet-600',
+        file: 'classes/adult.html'
+      },
+      {
+        code: 'swsy',
+        name: '深外素养',
+        level: 'SWSY · ELITE',
+        time: '周四晚上',
+        icon: 'fa-crosshairs',
+        bgColor: 'from-indigo-600 to-violet-700',
+        iconBg: 'bg-indigo-100',
+        iconColor: 'text-indigo-600',
+        file: 'classes/swsy.html'
+      },
+      {
+        code: 'f2',
+        name: 'F2班',
+        level: 'TALENT F2 · FOUNDATION',
+        time: '周五晚上',
+        icon: 'fa-baby',
+        bgColor: 'from-pink-500 to-rose-500',
+        iconBg: 'bg-pink-100',
+        iconColor: 'text-pink-600',
+        file: 'classes/f2.html'
+      },
+      {
+        code: 'a2-1',
+        name: 'A2班(1班)',
+        level: 'TALENT A2 · INTERMEDIATE',
+        time: '周六早上',
+        icon: 'fa-graduation-cap',
+        bgColor: 'from-violet-500 to-purple-600',
+        iconBg: 'bg-violet-100',
+        iconColor: 'text-violet-600',
+        file: 'classes/a2-1.html'
+      },
+      {
+        code: 'a1-plus',
+        name: 'A1+班',
+        level: 'TALENT A1+ · BEGINNER+',
+        time: '周六下午',
+        icon: 'fa-star',
+        bgColor: 'from-amber-400 to-yellow-500',
+        iconBg: 'bg-amber-100',
+        iconColor: 'text-amber-600',
+        file: 'classes/a1-plus.html'
+      },
+      {
+        code: 'ms',
+        name: '初中能力提升',
+        level: 'MIDDLE SCHOOL · ADVANCED',
+        time: '周六下午',
+        icon: 'fa-trophy',
+        bgColor: 'from-purple-600 to-fuchsia-600',
+        iconBg: 'bg-purple-100',
+        iconColor: 'text-purple-600',
+        file: 'classes/ms.html'
+      },
+      {
+        code: 'econ',
+        name: '经济学人班',
+        level: 'ECONOMIST · PREMIUM',
+        time: '周六晚上',
+        icon: 'fa-newspaper',
+        bgColor: 'from-rose-600 to-pink-700',
+        iconBg: 'bg-rose-100',
+        iconColor: 'text-rose-600',
+        file: 'classes/econ.html'
+      },
+      {
+        code: 'a2-plus',
+        name: 'A2+班',
+        level: 'TALENT A2+ · ADVANCED',
+        time: '周日早上',
+        icon: 'fa-rocket',
+        bgColor: 'from-violet-600 to-indigo-700',
+        iconBg: 'bg-violet-100',
+        iconColor: 'text-violet-700',
+        file: 'classes/a2-plus.html'
+      },
+      {
+        code: 'a2-2',
+        name: 'A2班(2班)',
+        level: 'TALENT A2 · INTERMEDIATE',
+        time: '周日下午',
+        icon: 'fa-book',
+        bgColor: 'from-violet-500 to-purple-600',
+        iconBg: 'bg-violet-100',
+        iconColor: 'text-violet-600',
+        file: 'classes/a2-2.html'
+      }
+    ];
+
+    /* ============================================
+       顶部导航栏
+       ============================================ */
+    const TopBar = () => (
+      <div className="pt-safe sticky top-0 z-40 bg-[#F8F9FF]/80 backdrop-blur-lg">
+        <div className="px-5 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-600 to-purple-700 flex items-center justify-center shadow-lg shadow-violet-500/30">
+              <i className="fa-solid fa-graduation-cap text-white text-lg"></i>
+            </div>
+            <div className="flex flex-col leading-tight">
+              <span className="font-black text-violet-700 text-lg">肖瑶启言</span>
+              <span className="text-[10px] text-gray-400 font-semibold tracking-widest">XIAOYAO STUDIO</span>
+            </div>
+          </div>
+          <button 
+            onClick={() => alert('登录功能开发中,敬请期待 ✨')}
+            className="active-scale bg-white px-4 py-2 rounded-full flex items-center gap-1.5 card-shadow"
+          >
+            <i className="fa-solid fa-right-to-bracket text-violet-600 text-xs"></i>
+            <span className="text-violet-700 font-bold text-xs tracking-wider">LOGIN</span>
+          </button>
+        </div>
+      </div>
+    );
+
+    /* ============================================
+       新闻横幅轮播
+       从 news.json 加载数据
+       ============================================ */
+    const NewsBanner = () => {
+      const [news, setNews] = useState([]);
+      const [currentIndex, setCurrentIndex] = useState(0);
+      const [loading, setLoading] = useState(true);
+      const touchStartX = useRef(null);
+      const autoPlayRef = useRef(null);
+
+      // 加载新闻数据
+      useEffect(() => {
+        fetch('news.json')
+          .then(res => res.json())
+          .then(data => {
+            setNews(data);
+            setLoading(false);
+          })
+          .catch(err => {
+            console.error('新闻加载失败', err);
+            setLoading(false);
+          });
+      }, []);
+
+      // 自动轮播
+      useEffect(() => {
+        if (news.length <= 1) return;
+        autoPlayRef.current = setInterval(() => {
+          setCurrentIndex(prev => (prev + 1) % news.length);
+        }, 5000);
+        return () => clearInterval(autoPlayRef.current);
+      }, [news.length]);
+
+      // 手指滑动
+      const handleTouchStart = (e) => {
+        touchStartX.current = e.touches[0].clientX;
+        clearInterval(autoPlayRef.current);
+      };
+      const handleTouchEnd = (e) => {
+        if (touchStartX.current === null) return;
+        const diff = touchStartX.current - e.changedTouches[0].clientX;
+        if (Math.abs(diff) > 50) {
+          if (diff > 0) {
+            setCurrentIndex(prev => (prev + 1) % news.length);
+          } else {
+            setCurrentIndex(prev => (prev - 1 + news.length) % news.length);
+          }
+        }
+        touchStartX.current = null;
+      };
+
+      if (loading) {
+        return (
+          <div className="mx-5 rounded-3xl h-[180px] banner-gradient animate-pulse"></div>
+        );
+      }
+
+      if (news.length === 0) return null;
+
+      const current = news[currentIndex];
+      const bgClass = current.bgColor ? `bg-gradient-to-br ${current.bgColor}` : 'banner-gradient';
+
+      return (
+        <div className="px-5 mb-8 fade-in-up" style={{animationDelay: '0.1s'}}>
+          <div 
+            className={`relative rounded-3xl overflow-hidden ${bgClass} shadow-xl shadow-violet-500/20`}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+          >
+            {/* 装饰球 */}
+            <div className="absolute -top-12 -right-12 w-40 h-40 rounded-full bg-white/10 blur-2xl"></div>
+            <div className="absolute -bottom-16 -left-10 w-48 h-48 rounded-full bg-white/5 blur-3xl"></div>
+
+            {/* 内容 */}
+            <div className="relative p-6 pb-10 min-h-[180px]">
+              {/* 标签 */}
+              {current.tag && (
+                <div className="inline-flex items-center gap-1 bg-white/20 backdrop-blur-sm px-2.5 py-1 rounded-full mb-3">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                  <span className="text-white text-[10px] font-bold tracking-wider">{current.tag}</span>
+                </div>
+              )}
+
+              {/* 标题 */}
+              <h2 className="text-white text-2xl font-black leading-tight mb-1">
+                {current.title}
+              </h2>
+              
+              {/* 副标题 */}
+              {current.subtitle && (
+                <p className="text-white/90 text-sm font-semibold mb-3">
+                  {current.subtitle}
+                </p>
+              )}
+
+              {/* 图片(可选) */}
+              {current.image && (
+                <img 
+                  src={current.image} 
+                  alt="" 
+                  className="w-full h-32 object-cover rounded-xl mb-3"
+                />
+              )}
+
+              {/* 内容 */}
+              <p className="text-white/85 text-sm leading-relaxed line-clamp-3">
+                {current.content}
+              </p>
+
+              {/* 链接(可选) */}
+              {current.link && (
+                <a 
+                  href={current.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 mt-3 text-white text-sm font-bold active-scale"
+                >
+                  <span>了解更多</span>
+                  <i className="fa-solid fa-arrow-right text-xs"></i>
+                </a>
+              )}
+
+              {/* 日期 */}
+              {current.date && (
+                <div className="absolute bottom-4 right-5 text-white/60 text-[10px] font-semibold">
+                  {current.date}
+                </div>
+              )}
+            </div>
+
+            {/* 轮播指示点 */}
+            {news.length > 1 && (
+              <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-1.5">
+                {news.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setCurrentIndex(i)}
+                    className={i === currentIndex ? 'dot-active' : 'dot-inactive'}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    };
+
+    /* ============================================
+       班级卡片
+       ============================================ */
+    const ClassCard = ({ cls, index }) => {
+      const handleClick = () => {
+        // 跳转到班级作业页
+        window.location.href = cls.file;
+      };
+
+      return (
+        <button
+          onClick={handleClick}
+          className="scale-in active-scale bg-white rounded-3xl p-5 card-shadow text-left w-full transition-all"
+          style={{animationDelay: `${0.15 + index * 0.05}s`}}
+        >
+          {/* 图标 */}
+          <div className={`w-14 h-14 rounded-2xl ${cls.iconBg} flex items-center justify-center mb-4`}>
+            <i className={`fa-solid ${cls.icon} ${cls.iconColor} text-xl`}></i>
+          </div>
+
+          {/* 班级名 */}
+          <div className="mb-1">
+            <h3 className="font-black text-gray-900 text-base leading-tight">{cls.name}</h3>
+          </div>
+
+          {/* 级别 */}
+          <p className="text-[10px] font-bold text-gray-400 tracking-widest mb-3">
+            {cls.level}
+          </p>
+
+          {/* 时间 */}
+          <div className="flex items-center gap-1.5 mb-4 text-gray-500">
+            <i className="fa-regular fa-clock text-xs"></i>
+            <span className="text-xs font-semibold">{cls.time}</span>
+          </div>
+
+          {/* 进入按钮 */}
+          <div className={`rounded-full py-2.5 text-center bg-gradient-to-r ${cls.bgColor} shadow-md`}>
+            <span className="text-white text-sm font-bold tracking-wide">进入课堂</span>
+          </div>
+        </button>
+      );
+    };
+
+    /* ============================================
+       班级列表
+       ============================================ */
+    const ClassList = () => (
+      <div className="px-5 mb-6">
+        {/* 标题 */}
+        <div className="flex items-end justify-between mb-5 fade-in-up" style={{animationDelay: '0.15s'}}>
+          <div>
+            <h2 className="text-2xl font-black text-gray-900 mb-0.5">所有班级</h2>
+            <p className="text-sm text-gray-500 font-medium">查看肖瑶启言全部课程</p>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center">
+            <i className="fa-solid fa-table-cells-large text-violet-600"></i>
+          </div>
+        </div>
+
+        {/* 卡片网格 */}
+        <div className="grid grid-cols-2 gap-4">
+          {CLASSES.map((cls, i) => (
+            <ClassCard key={cls.code} cls={cls} index={i} />
+          ))}
+        </div>
+      </div>
+    );
+
+    /* ============================================
+       底部导航
+       ============================================ */
+    const BottomNav = () => {
+      const [active, setActive] = useState('courses');
+
+      const tabs = [
+        { id: 'courses', icon: 'fa-folder-open', label: 'COURSES' },
+        { id: 'hub', icon: 'fa-house', label: 'MY HUB' },
+        { id: 'profile', icon: 'fa-user', label: 'PROFILE' }
+      ];
+
+      const handleClick = (id) => {
+        setActive(id);
+        if (id !== 'courses') {
+          setTimeout(() => {
+            alert('此功能开发中,敬请期待 ✨');
+            setActive('courses');
+          }, 150);
+        }
+      };
+
+      return (
+        <div className="fixed bottom-0 left-0 right-0 z-40 pointer-events-none">
+          <div className="flex justify-center pb-4 px-4" style={{paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 16px))'}}>
+            <div className="bg-white/90 backdrop-blur-xl rounded-full px-2 py-2 pointer-events-auto flex items-center gap-1" style={{boxShadow: '0 10px 40px rgba(92, 45, 255, 0.15), 0 2px 8px rgba(0,0,0,0.04)'}}>
+              {tabs.map(tab => {
+                const isActive = active === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => handleClick(tab.id)}
+                    className={`active-scale flex items-center gap-2 rounded-full transition-all px-4 py-2.5 ${
+                      isActive
+                        ? 'bg-gradient-to-r from-violet-600 to-purple-700 shadow-lg shadow-violet-500/40'
+                        : 'text-gray-400'
+                    }`}
+                  >
+                    <i className={`fa-solid ${tab.icon} text-sm ${isActive ? 'text-white' : ''}`}></i>
+                    {isActive && (
+                      <span className="text-white text-[10px] font-black tracking-wider">{tab.label}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    /* ============================================
+       主应用
+       ============================================ */
+    const App = () => {
+      return (
+        <div className="min-h-screen bg-[#F8F9FF] pb-safe">
+          <TopBar />
+          <div className="pt-2">
+            <NewsBanner />
+            <ClassList />
+          </div>
+          <BottomNav />
+        </div>
+      );
+    };
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
