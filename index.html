@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>肖瑶启言 · 学习中心</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="data.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800;900&family=Noto+Sans+SC:wght@400;500;700;900&display=swap');
+    html, body { margin: 0; padding: 0; width: 100%; min-height: 100%; background-color: #F8F9FF; font-family: 'Nunito', 'Noto Sans SC', sans-serif; -webkit-tap-highlight-color: transparent; }
+    #root { width: 100%; min-height: 100vh; }
+    .pb-safe { padding-bottom: calc(5rem + env(safe-area-inset-bottom, 16px)); }
+    .pt-safe { padding-top: env(safe-area-inset-top, 0); }
+    .fade-in-up { animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    .scale-in { animation: scaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; }
+    @keyframes scaleIn { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
+    .active-scale:active { transform: scale(0.97); transition: transform 0.1s; }
+    .dot-inactive { width: 6px; height: 6px; border-radius: 9999px; background: rgba(255,255,255,0.4); transition: all 0.3s; }
+    .dot-active { width: 20px; height: 6px; border-radius: 9999px; background: rgba(255,255,255,1); }
+    .card-shadow { box-shadow: 0 1px 3px rgba(92, 45, 255, 0.04), 0 4px 20px rgba(92, 45, 255, 0.06); }
+    .modal-overlay { animation: fadeIn 0.3s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .modal-content { animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(30px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  </style>
+</head>
+<body class="bg-[#F8F9FF]">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    const TopBar = ({ user, onLogin, onLogout }) => (
+      <div className="pt-safe sticky top-0 z-40 bg-[#F8F9FF]/80 backdrop-blur-lg">
+        <div className="px-5 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-600 to-purple-700 flex items-center justify-center shadow-lg shadow-violet-500/30">
+              <i className="fa-solid fa-graduation-cap text-white text-lg"></i>
+            </div>
+            <div className="flex flex-col leading-tight">
+              <span className="font-black text-violet-700 text-lg">肖瑶启言</span>
+              <span className="text-[10px] text-gray-400 font-semibold tracking-widest">XIAOYAO STUDIO</span>
+            </div>
+          </div>
+          {user ? (
+            <button onClick={onLogout} className="active-scale bg-white px-4 py-2 rounded-full flex items-center gap-1.5 card-shadow">
+              <i className="fa-solid fa-right-from-bracket text-gray-500 text-xs"></i>
+              <span className="text-gray-600 font-bold text-xs tracking-wider">LOGOUT</span>
+            </button>
+          ) : (
+            <button onClick={onLogin} className="active-scale bg-white px-4 py-2 rounded-full flex items-center gap-1.5 card-shadow">
+              <i className="fa-solid fa-right-to-bracket text-violet-600 text-xs"></i>
+              <span className="text-violet-700 font-bold text-xs tracking-wider">LOGIN</span>
+            </button>
+          )}
+        </div>
+      </div>
+    );
+
+    const NewsBanner = () => {
+      const news = window.XY_NEWS || [];
+      const [currentIndex, setCurrentIndex] = useState(0);
+      const touchStartX = useRef(null);
+      const autoPlayRef = useRef(null);
+
+      useEffect(() => {
+        if (news.length <= 1) return;
+        autoPlayRef.current = setInterval(() => setCurrentIndex(prev => (prev + 1) % news.length), 5000);
+        return () => clearInterval(autoPlayRef.current);
+      }, [news.length]);
+
+      const handleTouchStart = (e) => { touchStartX.current = e.touches[0].clientX; clearInterval(autoPlayRef.current); };
+      const handleTouchEnd = (e) => {
+        if (touchStartX.current === null) return;
+        const diff = touchStartX.current - e.changedTouches[0].clientX;
+        if (Math.abs(diff) > 50) {
+          if (diff > 0) setCurrentIndex(prev => (prev + 1) % news.length);
+          else setCurrentIndex(prev => (prev - 1 + news.length) % news.length);
+        }
+        touchStartX.current = null;
+      };
+
+      if (news.length === 0) return null;
+      const current = news[currentIndex];
+      const bgClass = current.bgColor ? `bg-gradient-to-br ${current.bgColor}` : 'bg-gradient-to-br from-violet-600 to-purple-700';
+
+      return (
+        <div className="px-5 mb-8 fade-in-up" style={{animationDelay: '0.1s'}}>
+          <div className={`relative rounded-3xl overflow-hidden ${bgClass} shadow-xl shadow-violet-500/20`}
+               onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+            <div className="absolute -top-12 -right-12 w-40 h-40 rounded-full bg-white/10 blur-2xl"></div>
+            <div className="absolute -bottom-16 -left-10 w-48 h-48 rounded-full bg-white/5 blur-3xl"></div>
+            <div className="relative p-6 pb-10 min-h-[180px]">
+              {current.tag && (
+                <div className="inline-flex items-center gap-1 bg-white/20 backdrop-blur-sm px-2.5 py-1 rounded-full mb-3">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                  <span className="text-white text-[10px] font-bold tracking-wider">{current.tag}</span>
+                </div>
+              )}
+              <h2 className="text-white text-2xl font-black leading-tight mb-1">{current.title}</h2>
+              {current.subtitle && <p className="text-white/90 text-sm font-semibold mb-3">{current.subtitle}</p>}
+              {current.image && <img src={current.image} alt="" className="w-full h-32 object-cover rounded-xl mb-3" />}
+              <p className="text-white/85 text-sm leading-relaxed line-clamp-3">{current.content}</p>
+              {current.link && (
+                <a href={current.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-3 text-white text-sm font-bold active-scale">
+                  <span>了解更多</span><i className="fa-solid fa-arrow-right text-xs"></i>
+                </a>
+              )}
+              {current.date && <div className="absolute bottom-4 right-5 text-white/60 text-[10px] font-semibold">{current.date}</div>}
+            </div>
+            {news.length > 1 && (
+              <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-1.5">
+                {news.map((_, i) => (
+                  <button key={i} onClick={() => setCurrentIndex(i)} className={i === currentIndex ? 'dot-active' : 'dot-inactive'} />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    };
+
+    const ClassCard = ({ cls, index, onNeedLogin, user, role }) => {
+      const handleClick = () => {
+        if (role === 'teacher') {
+          window.location.href = `class.html?code=${cls.code}`;
+          return;
+        }
+        if (!user) { onNeedLogin(cls); return; }
+        if (user.classes && user.classes.includes(cls.code)) {
+          window.location.href = `class.html?code=${cls.code}`;
+        } else {
+          alert(`你不是"${cls.name}"的学员,无法进入。`);
+        }
+      };
+      const hasAccess = role === 'teacher' || (user && user.classes && user.classes.includes(cls.code));
+
+      return (
+        <button onClick={handleClick}
+          className={`scale-in active-scale bg-white rounded-3xl p-5 card-shadow text-left w-full transition-all relative ${!hasAccess && user ? 'opacity-60' : ''}`}
+          style={{animationDelay: `${0.15 + index * 0.05}s`}}>
+          {user && role === 'student' && !hasAccess && (
+            <div className="absolute top-3 right-3 w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center">
+              <i className="fa-solid fa-lock text-gray-400 text-xs"></i>
+            </div>
+          )}
+          <div className={`w-14 h-14 rounded-2xl ${cls.iconBg} flex items-center justify-center mb-4`}>
+            <i className={`fa-solid ${cls.icon} ${cls.iconColor} text-xl`}></i>
+          </div>
+          <h3 className="font-black text-gray-900 text-base leading-tight mb-1">{cls.name}</h3>
+          <p className="text-[10px] font-bold text-gray-400 tracking-widest mb-3">{cls.level}</p>
+          <div className="flex items-center gap-1.5 mb-4 text-gray-500">
+            <i className="fa-regular fa-clock text-xs"></i>
+            <span className="text-xs font-semibold">{cls.time}</span>
+          </div>
+          <div className={`rounded-full py-2.5 text-center bg-gradient-to-r ${cls.gradient} shadow-md`}>
+            <span className="text-white text-sm font-bold tracking-wide">进入课堂</span>
+          </div>
+        </button>
+      );
+    };
+
+    const ClassList = ({ user, role, onNeedLogin }) => {
+      const classes = window.XY_CLASSES || [];
+      return (
+        <div className="px-5 mb-6">
+          <div className="flex items-end justify-between mb-5 fade-in-up" style={{animationDelay: '0.15s'}}>
+            <div>
+              <h2 className="text-2xl font-black text-gray-900 mb-0.5">所有班级</h2>
+              <p className="text-sm text-gray-500 font-medium">
+                {role === 'teacher' ? '以老师身份查看所有班级' : 
+                 user ? '灰色的班级你暂无权限' : '查看肖瑶启言全部课程'}
+              </p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center">
+              <i className="fa-solid fa-table-cells-large text-violet-600"></i>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            {classes.map((cls, i) => <ClassCard key={cls.code} cls={cls} index={i} user={user} role={role} onNeedLogin={onNeedLogin} />)}
+          </div>
+        </div>
+      );
+    };
+
+    const StudentProfile = ({ user }) => {
+      const myClasses = user.classes.map(code => window.XY_UTILS.getClass(code)).filter(Boolean);
+      const myHomework = [];
+      user.classes.forEach(code => {
+        const latest = window.XY_UTILS.getLatestHomework(code);
+        if (latest) {
+          const cls = window.XY_UTILS.getClass(code);
+          myHomework.push({ ...latest, className: cls.name, classGradient: cls.gradient });
+        }
+      });
+
+      return (
+        <div className="px-5 mb-6 fade-in-up">
+          <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-600 p-6 shadow-xl shadow-violet-500/30 mb-5">
+            <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-white/10 blur-2xl"></div>
+            <div className="absolute -bottom-12 -left-8 w-40 h-40 rounded-full bg-white/5 blur-3xl"></div>
+            <div className="relative flex items-center gap-4">
+              <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
+                <i className="fa-solid fa-user-graduate text-white text-2xl"></i>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-white/70 text-xs font-bold tracking-widest mb-0.5">欢迎回来</div>
+                <div className="text-white text-2xl font-black">{user.name}</div>
+                <div className="text-white/80 text-xs font-semibold mt-1">学员账号:{user.id}</div>
+              </div>
+            </div>
+          </div>
+
+          {myHomework.length > 0 && (
+            <div className="mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                <span className="text-xs font-black text-gray-500 tracking-widest">本周作业 · 待完成</span>
+              </div>
+              <div className="space-y-3">
+                {myHomework.map((hw, i) => (
+                  <button key={hw.id}
+                    onClick={() => window.location.href = `class.html?code=${hw.classCode}`}
+                    className="scale-in active-scale w-full bg-white rounded-2xl p-4 card-shadow text-left flex items-center gap-4"
+                    style={{animationDelay: `${0.1 + i * 0.05}s`}}>
+                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${hw.classGradient} flex items-center justify-center flex-shrink-0`}>
+                      <i className="fa-solid fa-book-open text-white"></i>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs text-gray-400 font-bold mb-0.5">{hw.className}</div>
+                      <div className="text-sm font-black text-gray-900 truncate">Unit {hw.unit} · {hw.title}</div>
+                      <div className="text-[10px] text-gray-400 font-semibold mt-0.5">{hw.date}</div>
+                    </div>
+                    <div className="bg-green-50 text-green-600 px-2.5 py-1 rounded-full text-[10px] font-black tracking-wider flex-shrink-0">NEW</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <i className="fa-solid fa-book-bookmark text-gray-400"></i>
+              <span className="text-xs font-black text-gray-500 tracking-widest">我的班级 ({myClasses.length})</span>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              {myClasses.map((cls, i) => (
+                <button key={cls.code}
+                  onClick={() => window.location.href = `class.html?code=${cls.code}`}
+                  className="scale-in active-scale bg-white rounded-3xl p-5 card-shadow text-left"
+                  style={{animationDelay: `${0.2 + i * 0.05}s`}}>
+                  <div className={`w-12 h-12 rounded-2xl ${cls.iconBg} flex items-center justify-center mb-3`}>
+                    <i className={`fa-solid ${cls.icon} ${cls.iconColor} text-lg`}></i>
+                  </div>
+                  <h3 className="font-black text-gray-900 text-sm leading-tight mb-0.5">{cls.name}</h3>
+                  <p className="text-[10px] font-bold text-gray-400 tracking-wider mb-3">{cls.time}</p>
+                  <div className={`rounded-full py-2 text-center bg-gradient-to-r ${cls.gradient}`}>
+                    <span className="text-white text-xs font-bold">进入</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const TeacherPanel = ({ user }) => (
+      <div className="px-5 mb-6 fade-in-up">
+        <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-gray-900 via-violet-900 to-purple-900 p-6 shadow-xl mb-5">
+          <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-violet-500/20 blur-2xl"></div>
+          <div className="relative flex items-center gap-4 mb-4">
+            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-violet-400 to-purple-500 flex items-center justify-center flex-shrink-0">
+              <i className="fa-solid fa-user-shield text-white text-2xl"></i>
+            </div>
+            <div>
+              <div className="text-violet-300 text-xs font-bold tracking-widest mb-0.5">老师后台 · ADMIN</div>
+              <div className="text-white text-2xl font-black">{user.name}</div>
+            </div>
+          </div>
+          <button onClick={() => window.location.href = 'teacher.html'}
+            className="active-scale w-full bg-white/90 backdrop-blur rounded-2xl py-4 flex items-center justify-center gap-2 hover:bg-white transition-all">
+            <i className="fa-solid fa-gauge-high text-violet-700"></i>
+            <span className="text-violet-700 font-black tracking-wider">进入管理后台</span>
+          </button>
+        </div>
+      </div>
+    );
+
+    const LoginModal = ({ onClose, onSuccess, targetClass }) => {
+      const [id, setId] = useState('');
+      const [password, setPassword] = useState('');
+      const [error, setError] = useState('');
+      const [loading, setLoading] = useState(false);
+
+      const handleLogin = (e) => {
+        if (e) e.preventDefault();
+        setError('');
+        if (!id || !password) { setError('请输入账号和密码'); return; }
+        setLoading(true);
+        setTimeout(() => {
+          const result = window.XY_AUTH.login(id.trim(), password.trim());
+          if (result) onSuccess(result);
+          else { setError('账号或密码错误,请联系老师'); setLoading(false); }
+        }, 400);
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 modal-overlay flex items-end sm:items-center justify-center p-4"
+             style={{background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)'}} onClick={onClose}>
+          <div className="modal-content bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h2 className="text-2xl font-black text-gray-900">登录</h2>
+                <p className="text-xs text-gray-500 font-medium mt-0.5">
+                  {targetClass ? `进入"${targetClass.name}"需要登录` : '欢迎来到肖瑶启言学习中心'}
+                </p>
+              </div>
+              <button onClick={onClose} className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center active-scale">
+                <i className="fa-solid fa-xmark text-gray-500"></i>
+              </button>
+            </div>
+            <form onSubmit={handleLogin}>
+              <div className="mb-3">
+                <label className="text-xs font-bold text-gray-500 tracking-wider mb-1.5 block">账号</label>
+                <div className="relative">
+                  <i className="fa-solid fa-user absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                  <input type="text" value={id} onChange={(e) => { setId(e.target.value); setError(''); }}
+                    placeholder="输入你的账号" autoCapitalize="none" autoComplete="username"
+                    className="w-full bg-gray-50 rounded-xl py-3.5 pl-11 pr-4 text-gray-900 font-bold focus:bg-white focus:ring-2 focus:ring-violet-400 outline-none transition-all" />
+                </div>
+              </div>
+              <div className="mb-4">
+                <label className="text-xs font-bold text-gray-500 tracking-wider mb-1.5 block">密码</label>
+                <div className="relative">
+                  <i className="fa-solid fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                  <input type="password" value={password} onChange={(e) => { setPassword(e.target.value); setError(''); }}
+                    placeholder="输入密码" autoComplete="current-password"
+                    className="w-full bg-gray-50 rounded-xl py-3.5 pl-11 pr-4 text-gray-900 font-bold focus:bg-white focus:ring-2 focus:ring-violet-400 outline-none transition-all" />
+                </div>
+              </div>
+              {error && (
+                <div className="bg-red-50 text-red-600 text-xs font-bold px-4 py-2.5 rounded-xl mb-3 flex items-center gap-2">
+                  <i className="fa-solid fa-circle-exclamation"></i><span>{error}</span>
+                </div>
+              )}
+              <button type="submit" disabled={loading}
+                className="w-full bg-gradient-to-r from-violet-600 to-purple-700 text-white font-black py-4 rounded-xl tracking-wider active-scale shadow-lg shadow-violet-500/30 disabled:opacity-60">
+                {loading ? <span><i className="fa-solid fa-circle-notch fa-spin mr-2"></i>登录中...</span> : <span>立即登录</span>}
+              </button>
+            </form>
+            <div className="mt-4 text-center">
+              <p className="text-xs text-gray-400">忘记账号/密码?请联系肖瑶老师</p>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const BottomNav = ({ user, role }) => {
+      const [active, setActive] = useState('courses');
+      return (
+        <div className="fixed bottom-0 left-0 right-0 z-40 pointer-events-none">
+          <div className="flex justify-center pb-4 px-4" style={{paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 16px))'}}>
+            <div className="bg-white/90 backdrop-blur-xl rounded-full px-2 py-2 pointer-events-auto flex items-center gap-1" style={{boxShadow: '0 10px 40px rgba(92, 45, 255, 0.15), 0 2px 8px rgba(0,0,0,0.04)'}}>
+              <button className="flex items-center gap-2 rounded-full px-4 py-2.5 bg-gradient-to-r from-violet-600 to-purple-700 shadow-lg shadow-violet-500/40">
+                <i className="fa-solid fa-folder-open text-sm text-white"></i>
+                <span className="text-white text-[10px] font-black tracking-wider">COURSES</span>
+              </button>
+              <button className="flex items-center gap-2 rounded-full px-4 py-2.5 text-gray-400" onClick={() => alert('此功能开发中,敬请期待 ✨')}>
+                <i className="fa-solid fa-house text-sm"></i>
+              </button>
+              <button className="flex items-center gap-2 rounded-full px-4 py-2.5 text-gray-400" onClick={() => alert('此功能开发中,敬请期待 ✨')}>
+                <i className="fa-solid fa-user text-sm"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const App = () => {
+      const [auth, setAuth] = useState(null);
+      const [showLogin, setShowLogin] = useState(false);
+      const [targetClass, setTargetClass] = useState(null);
+
+      useEffect(() => {
+        const current = window.XY_AUTH.getCurrentUser();
+        if (current) setAuth(current);
+      }, []);
+
+      const handleLogin = () => { setTargetClass(null); setShowLogin(true); };
+      const handleNeedLogin = (cls) => { setTargetClass(cls); setShowLogin(true); };
+      
+      const handleLoginSuccess = (result) => {
+        setAuth(result);
+        setShowLogin(false);
+        if (targetClass && result.role === 'student' && result.user.classes.includes(targetClass.code)) {
+          window.location.href = `class.html?code=${targetClass.code}`;
+        } else if (targetClass && result.role === 'teacher') {
+          window.location.href = `class.html?code=${targetClass.code}`;
+        }
+      };
+
+      const handleLogout = () => {
+        if (confirm('确定要退出登录吗?')) {
+          window.XY_AUTH.logout();
+          setAuth(null);
+        }
+      };
+
+      const user = auth ? auth.user : null;
+      const role = auth ? auth.role : null;
+
+      return (
+        <div className="min-h-screen bg-[#F8F9FF] pb-safe">
+          <TopBar user={user} onLogin={handleLogin} onLogout={handleLogout} />
+          <div className="pt-2">
+            {role === 'teacher' && <TeacherPanel user={user} />}
+            {role === 'student' && <StudentProfile user={user} />}
+            {!auth && <NewsBanner />}
+            <ClassList user={user} role={role} onNeedLogin={handleNeedLogin} />
+          </div>
+          <BottomNav user={user} role={role} />
+          {showLogin && <LoginModal onClose={() => setShowLogin(false)} onSuccess={handleLoginSuccess} targetClass={targetClass} />}
+        </div>
+      );
+    };
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
