@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>肖瑶启言 · A Language Studio</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- 字体改用系统字体,去掉 Google Fonts 加载(国内慢) -->
+
+  <style>
+    :root {
+      --color-primary: #2F4A3A;      /* 雾森绿 · 稍暖 */
+      --color-primary-deep: #1F3328; /* 更深绿 · 用于对比 */
+      --color-accent: #C0674A;       /* 陶土橙 */
+      --color-accent-soft: #E8B89A;  /* 柔橙 · 点缀 */
+      --color-bg: #FAF7EE;           /* 奶油白 */
+      --color-bg-warm: #EDE5D2;      /* 暖米 · 分区背景 */
+      --color-border: #D6CDB9;       /* 米边 */
+      --color-text: #2C2C2C;         /* 主文字 */
+      --color-text-muted: #5A6B5E;   /* 次文字 · 带绿色调的灰 */
+      --color-text-subtle: #8B9288;  /* 更轻 */
+    }
+    
+    html, body { 
+      margin: 0; padding: 0; width: 100%; min-height: 100%; 
+      background-color: var(--color-bg); 
+      font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', 'Inter', sans-serif; 
+      color: var(--color-text);
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    .font-serif-en { font-family: Georgia, 'Times New Roman', 'STSong', '宋体', serif; font-style: italic; }
+    .font-serif-cn { font-family: 'Songti SC', 'STSong', 'SimSun', '宋体', serif; }
+    .font-sans { font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+
+    .pb-safe { padding-bottom: calc(5rem + env(safe-area-inset-bottom, 16px)); }
+    .pt-safe { padding-top: env(safe-area-inset-top, 0); }
+    
+    .fade-in-up { animation: fadeInUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+    
+    .fade-in { animation: fadeIn 0.8s ease-out forwards; opacity: 0; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    
+    .active-scale:active { transform: scale(0.97); transition: transform 0.1s; }
+    
+    .news-dot-inactive { width: 6px; height: 6px; border-radius: 9999px; background: rgba(250, 247, 238, 0.35); transition: all 0.3s; }
+    .news-dot-active { width: 22px; height: 6px; border-radius: 9999px; background: var(--color-accent-soft); }
+    
+    .modal-overlay { animation: fadeIn 0.3s ease-out; }
+    .modal-content { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(30px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    
+    /* 自定义组件样式 */
+    .honor-card {
+      background: var(--color-bg);
+      border: 0.5px solid var(--color-border);
+      border-radius: 2px;
+      padding: 18px 20px;
+      transition: all 0.3s;
+      position: relative;
+    }
+    .honor-card:active { background: #F5EFE1; }
+    
+    .honor-placeholder {
+      background: linear-gradient(135deg, #F5EFE1 0%, #EDE5D2 100%);
+      border: 1px dashed #B8AE95;
+      border-radius: 2px;
+      padding: 20px;
+      text-align: center;
+      color: var(--color-text-subtle);
+    }
+    
+    .event-card {
+      background: var(--color-bg);
+      border-radius: 10px;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    
+    .class-card {
+      background: var(--color-bg);
+      border: 0.5px solid var(--color-border);
+      border-radius: 10px;
+      padding: 18px 16px;
+      transition: all 0.25s;
+      text-align: left;
+      width: 100%;
+    }
+    .class-card:active { 
+      transform: scale(0.98); 
+      border-color: var(--color-primary);
+      background: #F5EFE1;
+    }
+    
+    .divider-small {
+      width: 28px;
+      height: 1px;
+      background: var(--color-accent);
+    }
+    
+    .section-label {
+      font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 3px;
+      color: var(--color-primary);
+    }
+    
+    .serif-italic-accent {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-style: italic;
+      color: var(--color-accent);
+    }
+  </style>
+</head>
+<body>
+  <div id="root" class="min-h-screen"></div>
+
+  <!-- ============================================= -->
+  <!-- 核心数据(内嵌,绝对不依赖外部加载) -->
+  <!-- ============================================= -->
+  <script>
+    const XY_CLASSES = [
+      { code: 'adult',   name: '成人0基础口语',  level: 'ADULT · ZERO BASE',         time: '周四下午', short: 'Adult · Zero' },
+      { code: 'swsy',    name: '深外素养',       level: 'SWSY · ELITE',              time: '周四晚上', short: 'SWSY · Elite' },
+      { code: 'f2',      name: 'F2班',          level: 'TALENT F2 · FOUNDATION',    time: '周五晚上', short: 'F2 · Foundation' },
+      { code: 'a2-1',    name: 'A2班(1班)',     level: 'TALENT A2 · INTERMEDIATE',  time: '周六早上', short: 'A2 · First' },
+      { code: 'a1-plus', name: 'A1+班',         level: 'TALENT A1+ · BEGINNER+',    time: '周六下午', short: 'A1+ · Rise' },
+      { code: 'ms',      name: '初中能力提升',    level: 'MIDDLE SCHOOL · ADVANCED',  time: '周六下午', short: 'MS · Advanced' },
+      { code: 'econ',    name: '经济学人班',     level: 'ECONOMIST · PREMIUM',       time: '周六晚上', short: 'Economist' },
+      { code: 'a2-plus', name: 'A2+班',         level: 'TALENT A2+ · ADVANCED',     time: '周日早上', short: 'A2+ · Advanced' },
+      { code: 'a2-2',    name: 'A2班(2班)',     level: 'TALENT A2 · INTERMEDIATE',  time: '周日下午', short: 'A2 · Second' }
+    ];
+
+    const XY_STUDENTS = [
+      { id: 'S01', password: '1234', name: '学生S01', classes: ['a2-1'] },
+      { id: 'S02', password: '2345', name: '学生S02', classes: ['a2-1', 'f2'] },
+      { id: 'S03', password: '3456', name: '学生S03', classes: ['swsy'] },
+      { id: 'S04', password: '4567', name: '学生S04', classes: ['a2-plus', 'a1-plus'] }
+    ];
+
+    const XY_TEACHER = { id: 'xiaoyao', password: '929292', name: '肖瑶老师' };
+
+    const XY_HOMEWORK = [
+      { id: 'a2-1-u6-1',   classCode: 'a2-1',    unit: 'U6-1', title: 'The Life Columnist',            date: '2026-04-20', file: 'a2-1/A2_U6-1.html',      status: 'open' },
+      { id: 'a2plus-u6-3', classCode: 'a2-plus', unit: 'U6-3', title: 'Grammar Master',                date: '2026-04-24', file: 'a2-plus/A2_Unit_6-3.html', status: 'closed' },
+      { id: 'a1plus-u6-4', classCode: 'a1-plus', unit: 'U6-4', title: 'Magic Review & Challenge',      date: '2026-04-24', file: 'a1-plus/A1_Unit_6-4.html', status: 'closed' }
+    ];
+
+    // 滚动宣传区:近期动态(你以后更新这里就行)
+    const XY_NEWS = [
+      {
+        tag: 'ISSUE 09',
+        title: '教一个孩子',
+        titleAccent: '说好的英语。',
+        subtitle: '十年,五十个孩子,一间安静的工作室。',
+        content: '我们相信,说话是思考的艺术。'
+      },
+      {
+        tag: 'THIS WEEK',
+        title: '本周教学重点',
+        titleAccent: '情境表达。',
+        subtitle: '让孩子把学过的句型在真实场景里自然说出来。',
+        content: '家长可以在家配合做"角色扮演"小练习。'
+      },
+      {
+        tag: 'NOTE',
+        title: '关于家长',
+        titleAccent: '最想说的。',
+        subtitle: '别焦虑分数,孩子需要时间长成自己。',
+        content: '我们用小班精品、口语输出和专业纠音,把基础真正做扎实。'
+      }
+    ];
+
+    const XY_AUTH = {
+      login: function(id, password) {
+        if (id === XY_TEACHER.id && password === XY_TEACHER.password) {
+          localStorage.setItem('xy_user', JSON.stringify({ id, role: 'teacher' }));
+          return { user: XY_TEACHER, role: 'teacher' };
+        }
+        const student = XY_STUDENTS.find(s => s.id === id && s.password === password);
+        if (student) {
+          localStorage.setItem('xy_user', JSON.stringify({ id: student.id, role: 'student' }));
+          return { user: student, role: 'student' };
+        }
+        return null;
+      },
+      getCurrentUser: function() {
+        try {
+          const data = localStorage.getItem('xy_user');
+          if (!data) return null;
+          const stored = JSON.parse(data);
+          if (stored.role === 'teacher' && stored.id === XY_TEACHER.id) return { user: XY_TEACHER, role: 'teacher' };
+          if (stored.role === 'student') {
+            const s = XY_STUDENTS.find(x => x.id === stored.id);
+            if (s) return { user: s, role: 'student' };
+          }
+          return null;
+        } catch (e) { return null; }
+      },
+      logout: function() { localStorage.removeItem('xy_user'); }
+    };
+
+    const XY_UTILS = {
+      getClass: function(code) { return XY_CLASSES.find(c => c.code === code); },
+      getOpenHomework: function(classCode) {
+        return XY_HOMEWORK.filter(hw => hw.classCode === classCode && hw.status === 'open');
+      },
+      getLatestHomework: function(classCode) {
+        const opens = this.getOpenHomework(classCode);
+        if (opens.length === 0) return null;
+        return opens.sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
+      }
+    };
+  </script>
+
+  <!-- ============================================= -->
+  <!-- 页面渲染 -->
+  <!-- ============================================= -->
+  <script>
+    const root = document.getElementById('root');
+    let newsIndex = 0;
+    let newsTimer = null;
+
+    function escapeHtml(s) {
+      if (s == null) return '';
+      return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    // ============ 顶部导航栏 ============
+    function renderTopBar(auth) {
+      const loginBtn = auth ? `
+        <button id="logout-btn" class="active-scale px-4 py-2 rounded-full flex items-center gap-1.5 font-sans text-xs font-medium" style="background:var(--color-bg);border:0.5px solid var(--color-border);color:var(--color-text-muted);letter-spacing:2px;">
+          <i class="fa-solid fa-right-from-bracket text-[10px]"></i>
+          <span>LOGOUT</span>
+        </button>
+      ` : `
+        <button id="login-btn" class="active-scale px-4 py-2 rounded-full flex items-center gap-1.5 font-sans text-xs font-medium" style="background:var(--color-primary);color:var(--color-bg);letter-spacing:2px;">
+          <i class="fa-solid fa-right-to-bracket text-[10px]"></i>
+          <span>LOGIN</span>
+        </button>
+      `;
+
+      return `
+        <div class="pt-safe sticky top-0 z-40" style="background:rgba(250,247,238,0.85);backdrop-filter:blur(12px);border-bottom:0.5px solid var(--color-border);">
+          <div class="px-5 py-4 flex items-center justify-between">
+            <div class="flex flex-col leading-tight">
+              <div class="section-label" style="font-size:9px;margin-bottom:2px;color:var(--color-accent);">SINCE · 2016</div>
+              <div class="font-serif-en" style="font-size:22px;font-weight:500;color:var(--color-primary);letter-spacing:-0.3px;">Xiaoyao.</div>
+              <div class="font-sans" style="font-size:10px;color:var(--color-text-muted);letter-spacing:2px;margin-top:1px;">肖瑶启言 · LANGUAGE STUDIO</div>
+            </div>
+            ${loginBtn}
+          </div>
+        </div>
+      `;
+    }
+
+    // ============ 主 Hero 区(大标题) ============
+    function renderHero() {
+      return `
+        <div class="px-5 pt-10 pb-8 fade-in-up">
+          <div class="section-label mb-4" style="color:var(--color-accent);">A LANGUAGE STUDIO · EST 2016</div>
+          <div class="font-serif-cn" style="font-size:34px;line-height:1.15;font-weight:500;color:var(--color-primary);letter-spacing:-0.5px;">教一个孩子</div>
+          <div class="font-serif-cn serif-italic-accent" style="font-size:34px;line-height:1.15;font-weight:500;letter-spacing:-0.5px;margin-top:4px;">说好的英语。</div>
+          <div class="divider-small mt-5 mb-5"></div>
+          <div class="font-sans" style="font-size:13px;line-height:1.8;color:var(--color-text-muted);">
+            十年,五十个孩子,一间安静的工作室。<br/>
+            我们相信,说话是思考的艺术。
+          </div>
+        </div>
+      `;
+    }
+
+    // ============ 维特根斯坦引言(品牌宣言) ============
+    function renderPhilosophyQuote() {
+      return `
+        <div class="px-5 mb-8 fade-in-up" style="animation-delay:0.1s;">
+          <div style="background:var(--color-primary);border-radius:4px;padding:28px 24px;text-align:center;position:relative;overflow:hidden;">
+            <div class="section-label" style="color:var(--color-accent-soft);margin-bottom:14px;">— A PHILOSOPHY —</div>
+            <div class="font-serif-en" style="font-size:20px;line-height:1.55;font-style:italic;color:var(--color-bg);letter-spacing:0.3px;">
+              "The limits of my language<br/>
+              mean the limits of my world."
+            </div>
+            <div style="width:20px;height:1px;background:var(--color-accent-soft);margin:14px auto;"></div>
+            <div class="font-sans" style="font-size:11px;color:#C5B5A2;letter-spacing:2px;">LUDWIG WITTGENSTEIN · 维特根斯坦</div>
+            <div class="font-serif-cn" style="font-size:13px;color:var(--color-accent-soft);margin-top:10px;font-style:italic;">语言的边界,就是世界的边界。</div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ============ 滚动宣传区(News Banner) ============
+    function renderNewsBanner() {
+      if (!XY_NEWS.length) return '';
+      const current = XY_NEWS[newsIndex];
+      const dots = XY_NEWS.map((_, i) => 
+        `<button data-news-idx="${i}" class="news-dot ${i === newsIndex ? 'news-dot-active' : 'news-dot-inactive'}"></button>`
+      ).join('');
+
+      return `
+        <div class="px-5 mb-8 fade-in-up" style="animation-delay:0.15s;">
+          <div class="section-label mb-3" style="color:var(--color-text-muted);">— WEEKLY · 动态 —</div>
+          <div id="news-banner" style="background:var(--color-primary-deep);border-radius:6px;padding:24px 22px 32px;position:relative;overflow:hidden;">
+            <div class="section-label" style="color:var(--color-accent-soft);margin-bottom:12px;font-size:10px;">${escapeHtml(current.tag)}</div>
+            <div class="font-serif-cn" style="font-size:24px;line-height:1.25;font-weight:500;color:var(--color-bg);letter-spacing:-0.3px;">${escapeHtml(current.title)}</div>
+            <div class="font-serif-cn serif-italic-accent" style="font-size:24px;line-height:1.25;font-weight:500;letter-spacing:-0.3px;margin-top:3px;color:var(--color-accent-soft);">${escapeHtml(current.titleAccent)}</div>
+            <div style="width:24px;height:1px;background:var(--color-accent-soft);margin:14px 0;"></div>
+            <div class="font-sans" style="font-size:13px;line-height:1.7;color:#C5D0C8;">${escapeHtml(current.subtitle)}</div>
+            <div class="font-sans" style="font-size:13px;line-height:1.7;color:#A5B3AA;margin-top:6px;">${escapeHtml(current.content)}</div>
+            ${XY_NEWS.length > 1 ? `<div style="position:absolute;bottom:14px;left:0;right:0;display:flex;justify-content:center;gap:6px;">${dots}</div>` : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    function startNewsAutoplay() {
+      if (newsTimer) clearInterval(newsTimer);
+      if (XY_NEWS.length <= 1) return;
+      newsTimer = setInterval(() => {
+        newsIndex = (newsIndex + 1) % XY_NEWS.length;
+        updateNewsBanner();
+      }, 5500);
+    }
+
+    // 只更新新闻区(不重绘整页,避免闪烁)
+    function updateNewsBanner() {
+      const banner = document.getElementById('news-banner');
+      if (!banner) return;
+      const current = XY_NEWS[newsIndex];
+      const dots = XY_NEWS.map((_, i) => 
+        `<button data-news-idx="${i}" class="news-dot ${i === newsIndex ? 'news-dot-active' : 'news-dot-inactive'}"></button>`
+      ).join('');
+
+      banner.style.opacity = '0';
+      banner.style.transition = 'opacity 0.3s';
+      setTimeout(() => {
+        banner.innerHTML = `
+          <div class="section-label" style="color:var(--color-accent-soft);margin-bottom:12px;font-size:10px;">${escapeHtml(current.tag)}</div>
+          <div class="font-serif-cn" style="font-size:24px;line-height:1.25;font-weight:500;color:var(--color-bg);letter-spacing:-0.3px;">${escapeHtml(current.title)}</div>
+          <div class="font-serif-cn serif-italic-accent" style="font-size:24px;line-height:1.25;font-weight:500;letter-spacing:-0.3px;margin-top:3px;color:var(--color-accent-soft);">${escapeHtml(current.titleAccent)}</div>
+          <div style="width:24px;height:1px;background:var(--color-accent-soft);margin:14px 0;"></div>
+          <div class="font-sans" style="font-size:13px;line-height:1.7;color:#C5D0C8;">${escapeHtml(current.subtitle)}</div>
+          <div class="font-sans" style="font-size:13px;line-height:1.7;color:#A5B3AA;margin-top:6px;">${escapeHtml(current.content)}</div>
+          ${XY_NEWS.length > 1 ? `<div style="position:absolute;bottom:14px;left:0;right:0;display:flex;justify-content:center;gap:6px;">${dots}</div>` : ''}
+        `;
+        banner.style.opacity = '1';
+        bindNewsDots();
+      }, 300);
+    }
+
+    function bindNewsDots() {
+      document.querySelectorAll('.news-dot').forEach(dot => {
+        dot.addEventListener('click', e => {
+          newsIndex = parseInt(e.target.dataset.newsIdx);
+          updateNewsBanner();
+        });
+      });
+    }
+
+    // ============ 荣誉区(留位置) ============
+    function renderHonors() {
+      return `
+        <div class="px-5 mb-8 fade-in-up" style="animation-delay:0.2s;">
+          <div class="section-label mb-5" style="color:var(--color-primary);">HONORS · 一些痕迹</div>
+          
+          <div class="honor-placeholder mb-3">
+            <div class="font-sans" style="font-size:9px;letter-spacing:2px;color:var(--color-accent);margin-bottom:6px;">01 · TO BE ADDED</div>
+            <div class="font-serif-cn" style="font-size:14px;color:var(--color-text-muted);">荣誉 · 待添加</div>
+            <div class="font-sans" style="font-size:10px;color:var(--color-text-subtle);margin-top:4px;">出版著作 / 媒体采访 / 社会活动</div>
+          </div>
+          
+          <div class="honor-placeholder mb-3">
+            <div class="font-sans" style="font-size:9px;letter-spacing:2px;color:var(--color-accent);margin-bottom:6px;">02 · TO BE ADDED</div>
+            <div class="font-serif-cn" style="font-size:14px;color:var(--color-text-muted);">荣誉 · 待添加</div>
+            <div class="font-sans" style="font-size:10px;color:var(--color-text-subtle);margin-top:4px;">读者签售 / 公益演讲 / 特邀嘉宾</div>
+          </div>
+          
+          <div class="honor-placeholder">
+            <div class="font-sans" style="font-size:9px;letter-spacing:2px;color:var(--color-accent);margin-bottom:6px;">03 · TO BE ADDED</div>
+            <div class="font-serif-cn" style="font-size:14px;color:var(--color-text-muted);">荣誉 · 待添加</div>
+            <div class="font-sans" style="font-size:10px;color:var(--color-text-subtle);margin-top:4px;">视频号 / 自媒体 / 粉丝成就</div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ============ 近期活动(留位置) ============
+    function renderEvents() {
+      return `
+        <div class="px-5 py-6 mb-8 fade-in-up" style="background:var(--color-bg-warm);animation-delay:0.25s;">
+          <div class="section-label mb-4" style="color:var(--color-primary);">近期活动 · DIARY</div>
+          <div class="honor-placeholder" style="background:var(--color-bg);">
+            <i class="fa-regular fa-calendar text-3xl mb-2" style="color:var(--color-text-subtle);"></i>
+            <div class="font-serif-cn" style="font-size:14px;color:var(--color-text-muted);margin-top:8px;">活动信息敬请期待</div>
+            <div class="font-sans" style="font-size:10px;color:var(--color-text-subtle);margin-top:4px;letter-spacing:1px;">UPCOMING EVENTS · TO BE ANNOUNCED</div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ============ 学生 Profile(登录学生看到) ============
+    function renderStudentProfile(user) {
+      const myClasses = user.classes.map(code => XY_UTILS.getClass(code)).filter(Boolean);
+      const myHomework = [];
+      user.classes.forEach(code => {
+        const latest = XY_UTILS.getLatestHomework(code);
+        if (latest) {
+          const cls = XY_UTILS.getClass(code);
+          myHomework.push({ ...latest, className: cls.name, classShort: cls.short });
+        }
+      });
+
+      const hwHtml = myHomework.length > 0 ? `
+        <div class="mb-8">
+          <div class="section-label mb-4" style="color:var(--color-primary);">— THIS WEEK · 本周作业 —</div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            ${myHomework.map((hw, i) => `
+              <button data-hw-goto="${hw.classCode}" class="hw-item active-scale" style="background:var(--color-bg);border:0.5px solid var(--color-border);border-radius:10px;padding:16px;text-align:left;display:flex;align-items:center;gap:14px;animation:fadeInUp 0.6s ease-out ${0.3 + i * 0.08}s both;opacity:0;">
+                <div style="width:40px;height:40px;border-radius:8px;background:var(--color-primary);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                  <i class="fa-solid fa-book-open-reader text-sm" style="color:var(--color-accent-soft);"></i>
+                </div>
+                <div style="flex:1;min-width:0;">
+                  <div class="font-sans" style="font-size:9px;color:var(--color-accent);letter-spacing:2px;margin-bottom:2px;">${escapeHtml(hw.classShort || hw.className).toUpperCase()}</div>
+                  <div class="font-serif-cn" style="font-size:14px;font-weight:500;color:var(--color-primary);">Unit ${escapeHtml(hw.unit)} · ${escapeHtml(hw.title)}</div>
+                  <div class="font-sans" style="font-size:10px;color:var(--color-text-subtle);margin-top:2px;">${escapeHtml(hw.date)}</div>
+                </div>
+                <div style="background:var(--color-accent);color:var(--color-bg);padding:3px 9px;border-radius:10px;font-size:9px;font-weight:500;letter-spacing:1.5px;flex-shrink:0;">NEW</div>
+              </button>
+            `).join('')}
+          </div>
+        </div>
+      ` : `
+        <div class="mb-8" style="background:var(--color-bg-warm);border-radius:10px;padding:16px;display:flex;align-items:center;gap:12px;">
+          <i class="fa-regular fa-clock" style="color:var(--color-accent);"></i>
+          <div>
+            <div class="font-serif-cn" style="font-size:13px;color:var(--color-text-muted);">本周作业准备中,稍待。</div>
+          </div>
+        </div>
+      `;
+
+      return `
+        <div class="px-5 pt-8 pb-4 fade-in-up">
+          <div class="section-label mb-3" style="color:var(--color-accent);">WELCOME BACK</div>
+          <div class="font-serif-cn" style="font-size:30px;font-weight:500;color:var(--color-primary);line-height:1.1;">${escapeHtml(user.name)}</div>
+          <div class="font-sans" style="font-size:11px;color:var(--color-text-muted);letter-spacing:1px;margin-top:4px;">学员账号 · ${escapeHtml(user.id)}</div>
+          <div class="divider-small mt-5 mb-0"></div>
+        </div>
+
+        <div class="px-5 pb-4">
+          ${hwHtml}
+          
+          <div class="mb-8">
+            <div class="section-label mb-4" style="color:var(--color-primary);">— MY CLASSES · 我的班级 (${myClasses.length}) —</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              ${myClasses.map((cls, i) => `
+                <button data-class-goto="${cls.code}" class="class-goto class-card" style="animation:fadeInUp 0.6s ease-out ${0.4 + i * 0.06}s both;opacity:0;">
+                  <div class="font-serif-en" style="font-size:12px;font-style:italic;color:var(--color-accent);">${escapeHtml(cls.short)}</div>
+                  <div class="font-serif-cn" style="font-size:14px;font-weight:500;color:var(--color-primary);margin-top:6px;">${escapeHtml(cls.name)}</div>
+                  <div class="font-sans" style="font-size:10px;color:var(--color-text-subtle);margin-top:4px;letter-spacing:1px;">${escapeHtml(cls.time)}</div>
+                </button>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ============ 老师面板 ============
+    function renderTeacherPanel(user) {
+      return `
+        <div class="px-5 pt-8 pb-6 fade-in-up">
+          <div style="background:var(--color-primary-deep);border-radius:6px;padding:28px 24px;position:relative;overflow:hidden;">
+            <div class="section-label" style="color:var(--color-accent-soft);margin-bottom:10px;">— ADMIN · 老师后台 —</div>
+            <div class="font-serif-cn" style="font-size:26px;font-weight:500;color:var(--color-bg);line-height:1.2;">${escapeHtml(user.name)}</div>
+            <div class="font-sans" style="font-size:11px;color:#A5B3AA;margin-top:4px;letter-spacing:1px;">Welcome back to Xiaoyao Studio.</div>
+            <a href="teacher.html" class="active-scale block mt-5 text-center" style="background:var(--color-accent);color:var(--color-bg);padding:12px;border-radius:6px;font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;font-size:12px;font-weight:500;letter-spacing:3px;">
+              ENTER DASHBOARD
+            </a>
+          </div>
+        </div>
+      `;
+    }
+
+    // ============ 班级列表 ============
+    function renderClassList(auth) {
+      const classes = XY_CLASSES;
+      const user = auth ? auth.user : null;
+      const role = auth ? auth.role : null;
+
+      const subtitle = role === 'teacher' ? 'All Classes · 以老师身份' :
+                       user ? '灰色的班级你暂无权限' : '九个课堂,一种专注';
+
+      const cards = classes.map((cls, i) => {
+        const hasAccess = role === 'teacher' || (user && user.classes && user.classes.includes(cls.code));
+        const lockIcon = (user && role === 'student' && !hasAccess) ? `
+          <div style="position:absolute;top:12px;right:12px;">
+            <i class="fa-solid fa-lock text-[10px]" style="color:var(--color-text-subtle);"></i>
+          </div>` : '';
+        const opacity = (!hasAccess && user) ? '0.55' : '1';
+        return `
+          <button data-class-click="${cls.code}" class="class-card class-card-main" style="opacity:${opacity};animation:fadeInUp 0.6s ease-out ${0.3 + i * 0.04}s both;opacity:0;position:relative;">
+            ${lockIcon}
+            <div class="font-serif-en" style="font-size:13px;font-style:italic;color:var(--color-accent);letter-spacing:0.3px;">${escapeHtml(cls.short)}</div>
+            <div class="font-serif-cn" style="font-size:15px;font-weight:500;color:var(--color-primary);margin-top:8px;line-height:1.3;">${escapeHtml(cls.name)}</div>
+            <div class="font-sans" style="font-size:10px;color:var(--color-text-subtle);margin-top:6px;letter-spacing:1px;">${escapeHtml(cls.time)}</div>
+          </button>
+        `;
+      }).join('');
+
+      return `
+        <div class="px-5 mb-8">
+          <div class="section-label mb-4" style="color:var(--color-primary);">— CLASSES · 九个课堂 —</div>
+          <div class="font-sans mb-5" style="font-size:12px;color:var(--color-text-muted);">${escapeHtml(subtitle)}</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${cards}</div>
+        </div>
+      `;
+    }
+
+    // ============ 页脚 ============
+    function renderFooter() {
+      return `
+        <div class="px-5 py-8 text-center" style="background:var(--color-primary);">
+          <div class="font-serif-en" style="font-size:18px;color:var(--color-bg);font-weight:500;">Xiaoyao.</div>
+          <div class="font-sans" style="font-size:10px;color:var(--color-accent-soft);letter-spacing:3px;margin-top:6px;">EST 2016 · SHENZHEN · CHINA</div>
+          <div style="width:20px;height:1px;background:var(--color-accent-soft);margin:14px auto;"></div>
+          <div class="font-serif-cn" style="font-size:11px;color:#A5B3AA;font-style:italic;">一间安静的语言工作室</div>
+        </div>
+      `;
+    }
+
+    // ============ 登录弹窗 ============
+    let pendingTargetClass = null;
+    function showLoginModal(targetClass) {
+      pendingTargetClass = targetClass || null;
+      const subtitle = targetClass ? `进入"${escapeHtml(targetClass.name)}"需要登录` : '欢迎回来';
+      const html = `
+        <div id="login-modal" class="modal-overlay" style="position:fixed;inset:0;z-index:50;background:rgba(31,51,40,0.55);backdrop-filter:blur(6px);display:flex;align-items:flex-end;justify-content:center;padding:16px;" onclick="if(event.target.id==='login-modal')closeLoginModal()">
+          <div class="modal-content" style="background:var(--color-bg);border-radius:12px 12px 0 0;width:100%;max-width:420px;padding:28px 24px 32px;box-shadow:0 -4px 24px rgba(47,74,58,0.15);">
+            <div class="flex items-start justify-between mb-6">
+              <div>
+                <div class="section-label" style="color:var(--color-accent);margin-bottom:6px;">— SIGN IN —</div>
+                <div class="font-serif-cn" style="font-size:22px;font-weight:500;color:var(--color-primary);line-height:1.2;">${subtitle}</div>
+              </div>
+              <button onclick="closeLoginModal()" class="active-scale" style="width:34px;height:34px;border-radius:50%;background:var(--color-bg-warm);display:flex;align-items:center;justify-content:center;">
+                <i class="fa-solid fa-xmark" style="color:var(--color-text-muted);"></i>
+              </button>
+            </div>
+            <form id="login-form">
+              <div style="margin-bottom:14px;">
+                <label class="font-sans" style="font-size:10px;color:var(--color-primary);letter-spacing:2px;margin-bottom:6px;display:block;font-weight:500;">账号 · ACCOUNT</label>
+                <input type="text" id="login-id" placeholder="输入你的账号" autocapitalize="none" autocomplete="username"
+                  class="font-sans" style="width:100%;padding:12px 14px;background:var(--color-bg-warm);border:0.5px solid var(--color-border);border-radius:8px;color:var(--color-text);font-size:14px;font-weight:500;outline:none;box-sizing:border-box;" />
+              </div>
+              <div style="margin-bottom:18px;">
+                <label class="font-sans" style="font-size:10px;color:var(--color-primary);letter-spacing:2px;margin-bottom:6px;display:block;font-weight:500;">密码 · PASSWORD</label>
+                <input type="password" id="login-pwd" placeholder="输入密码" autocomplete="current-password"
+                  class="font-sans" style="width:100%;padding:12px 14px;background:var(--color-bg-warm);border:0.5px solid var(--color-border);border-radius:8px;color:var(--color-text);font-size:14px;font-weight:500;outline:none;box-sizing:border-box;" />
+              </div>
+              <div id="login-error" style="display:none;background:#F7E4DC;color:#8B3A1F;font-size:11px;padding:10px 12px;border-radius:6px;margin-bottom:14px;font-weight:500;">
+                <i class="fa-solid fa-circle-exclamation mr-1"></i><span id="login-error-text"></span>
+              </div>
+              <button type="submit" id="login-submit" class="active-scale" style="width:100%;background:var(--color-primary);color:var(--color-bg);padding:14px;border-radius:8px;font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;font-size:12px;font-weight:500;letter-spacing:3px;border:none;cursor:pointer;">SIGN IN</button>
+            </form>
+            <div class="font-sans text-center mt-4" style="font-size:10px;color:var(--color-text-subtle);">忘记账号/密码?请联系肖瑶老师</div>
+          </div>
+        </div>
+      `;
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = html;
+      document.body.appendChild(wrapper.firstElementChild);
+      document.getElementById('login-form').addEventListener('submit', handleLoginSubmit);
+      setTimeout(() => document.getElementById('login-id').focus(), 100);
+    }
+
+    window.closeLoginModal = function() {
+      const m = document.getElementById('login-modal');
+      if (m) m.remove();
+    };
+
+    function handleLoginSubmit(e) {
+      e.preventDefault();
+      const id = document.getElementById('login-id').value.trim();
+      const pwd = document.getElementById('login-pwd').value.trim();
+      const errDiv = document.getElementById('login-error');
+      const errText = document.getElementById('login-error-text');
+      const submitBtn = document.getElementById('login-submit');
+
+      if (!id || !pwd) {
+        errText.textContent = '请输入账号和密码';
+        errDiv.style.display = 'block';
+        return;
+      }
+      submitBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i>登录中...';
+      submitBtn.disabled = true;
+
+      setTimeout(() => {
+        const result = XY_AUTH.login(id, pwd);
+        if (result) {
+          closeLoginModal();
+          if (pendingTargetClass) {
+            if (result.role === 'teacher' ||
+                (result.role === 'student' && result.user.classes.includes(pendingTargetClass.code))) {
+              window.location.href = `class.html?code=${pendingTargetClass.code}`;
+              return;
+            }
+          }
+          renderPage();
+        } else {
+          errText.textContent = '账号或密码错误,请联系老师';
+          errDiv.style.display = 'block';
+          submitBtn.innerHTML = 'SIGN IN';
+          submitBtn.disabled = false;
+        }
+      }, 400);
+    }
+
+    // ============ 底部导航 ============
+    function renderBottomNav() {
+      return `
+        <div style="position:fixed;bottom:0;left:0;right:0;z-index:40;pointer-events:none;">
+          <div style="display:flex;justify-content:center;padding:0 16px calc(16px + env(safe-area-inset-bottom, 16px));">
+            <div style="background:var(--color-bg);border:0.5px solid var(--color-border);border-radius:999px;padding:6px;pointer-events:auto;display:flex;align-items:center;gap:4px;box-shadow:0 8px 24px rgba(47,74,58,0.12);">
+              <button class="active-scale" style="display:flex;align-items:center;gap:6px;border-radius:999px;padding:8px 16px;background:var(--color-primary);">
+                <i class="fa-solid fa-folder-open text-xs" style="color:var(--color-accent-soft);"></i>
+                <span class="font-sans" style="font-size:10px;color:var(--color-bg);letter-spacing:2px;font-weight:500;">COURSES</span>
+              </button>
+              <button class="nav-tba active-scale" style="display:flex;align-items:center;border-radius:999px;padding:8px 14px;color:var(--color-text-subtle);">
+                <i class="fa-solid fa-house text-xs"></i>
+              </button>
+              <button class="nav-tba active-scale" style="display:flex;align-items:center;border-radius:999px;padding:8px 14px;color:var(--color-text-subtle);">
+                <i class="fa-solid fa-user text-xs"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ============ 主渲染 ============
+    function renderPage() {
+      const auth = XY_AUTH.getCurrentUser();
+      const user = auth ? auth.user : null;
+      const role = auth ? auth.role : null;
+
+      root.className = 'min-h-screen pb-safe';
+      
+      // 未登录页面布局
+      if (!auth) {
+        root.innerHTML = `
+          ${renderTopBar(auth)}
+          ${renderHero()}
+          ${renderPhilosophyQuote()}
+          ${renderNewsBanner()}
+          ${renderHonors()}
+          ${renderEvents()}
+          ${renderClassList(auth)}
+          ${renderFooter()}
+          ${renderBottomNav()}
+        `;
+      } else if (role === 'teacher') {
+        root.innerHTML = `
+          ${renderTopBar(auth)}
+          ${renderTeacherPanel(user)}
+          ${renderClassList(auth)}
+          ${renderFooter()}
+          ${renderBottomNav()}
+        `;
+      } else {
+        // 学生登录后
+        root.innerHTML = `
+          ${renderTopBar(auth)}
+          ${renderStudentProfile(user)}
+          ${renderClassList(auth)}
+          ${renderFooter()}
+          ${renderBottomNav()}
+        `;
+      }
+
+      // 绑定事件
+      const loginBtn = document.getElementById('login-btn');
+      if (loginBtn) loginBtn.addEventListener('click', () => showLoginModal(null));
+
+      const logoutBtn = document.getElementById('logout-btn');
+      if (logoutBtn) logoutBtn.addEventListener('click', () => {
+        if (confirm('确定要退出登录吗?')) {
+          XY_AUTH.logout();
+          renderPage();
+        }
+      });
+
+      bindNewsDots();
+      startNewsAutoplay();
+
+      document.querySelectorAll('.class-card-main').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const code = btn.dataset.classClick;
+          const cls = XY_UTILS.getClass(code);
+          if (!cls) return;
+          if (role === 'teacher') { window.location.href = `class.html?code=${code}`; return; }
+          if (!user) { showLoginModal(cls); return; }
+          if (user.classes && user.classes.includes(code)) {
+            window.location.href = `class.html?code=${code}`;
+          } else {
+            alert(`你不是"${cls.name}"的学员,无法进入。`);
+          }
+        });
+      });
+
+      document.querySelectorAll('.class-goto').forEach(btn => {
+        btn.addEventListener('click', () => {
+          window.location.href = `class.html?code=${btn.dataset.classGoto}`;
+        });
+      });
+
+      document.querySelectorAll('.hw-item').forEach(btn => {
+        btn.addEventListener('click', () => {
+          window.location.href = `class.html?code=${btn.dataset.hwGoto}`;
+        });
+      });
+
+      document.querySelectorAll('.nav-tba').forEach(btn => {
+        btn.addEventListener('click', () => alert('此功能开发中,敬请期待 ✨'));
+      });
+    }
+
+    renderPage();
+  </script>
+</body>
+</html>
