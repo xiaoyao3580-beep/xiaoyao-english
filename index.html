@@ -54,7 +54,10 @@
 
         .active-scale { transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1); }
         .active-scale:active { transform: scale(0.96); transition: transform 0.05s ease-out; }
+        
+        /* 隐藏滚动条，保留丝滑的横向滚动功能 */
         .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
         /* 丝滑原生级开关样式 */
         .toggle-switch { position: relative; display: inline-block; width: 44px; height: 24px; vertical-align: middle; }
@@ -240,6 +243,7 @@
                 const { data: logs } = await sb.from('growth_logs').select('homework_id, score, stars_earned').eq('student_id', userId);
                 if (logs) {
                     logs.forEach(l => {
+                        if (l.homework_id.startsWith('EXEMP_')) return;
                         if (!this.state.hwScores[l.homework_id] || this.state.hwScores[l.homework_id].score < l.score) {
                             this.state.hwScores[l.homework_id] = { score: l.score, stars: l.stars_earned || 0 };
                         }
@@ -310,7 +314,6 @@
             }
         };
 
-        // Canvas Particle System
         const PetCanvasRenderer = {
             timer: null,
             init() {
@@ -340,7 +343,13 @@
         // SPA Router & Views
         // ==========================================
         const App = {
-            state: { page: 'home', params: {}, teacherForm: { classes: [] }, teacherTab: 'students' },
+            state: { 
+                page: 'home', params: {}, 
+                teacherForm: { classes: [] }, 
+                teacherTab: 'students', 
+                attendance: null,
+                chartConfig: { classCode: '', mode: 'ALL', selectedStudents: [], startDate: '', endDate: '', datasets: null } 
+            },
             navigate(page, params = {}) {
                 const user = XY_AUTH.getCurrentUser();
                 if ((page === 'myhub' || page === 'pet') && (!user || user.role !== 'student')) return this.actions.toggleLoginModal(true);
@@ -367,6 +376,11 @@
                 if (this.state.page === 'pet') {
                     if(!PetManager.state.petId) this.actions.openPetSelection();
                     else PetCanvasRenderer.init();
+                }
+                
+                // 给 Canvas 渲染留出延时
+                if (this.state.page === 'teacher' && this.state.teacherTab === 'analytics' && this.state.chartConfig.datasets) {
+                    setTimeout(() => this.actions.drawCanvasChart(this.state.chartConfig.datasets), 50);
                 }
             },
 
@@ -492,8 +506,6 @@
                         hwHTML = units.map(u => {
                             const unitHws = classHw.filter(h => h.unit === u).map((hw, i) => {
                                 const isArchived = (overrides[hw.id] || hw.status) === 'closed';
-                                
-                                // 【核心展示】读取该作业最高分
                                 const bestRecord = (user.role === 'student' && PetManager.state && PetManager.state.hwScores) ? PetManager.state.hwScores[hw.id] : null;
                                 const isDone = !!bestRecord;
                                 const statusTagHtml = isArchived 
@@ -516,7 +528,23 @@
                     const overrides = getHwOverrides();
                     let openCount = 0; XY_HOMEWORK.forEach(hw => { if ((overrides[hw.id] !== undefined ? overrides[hw.id] : hw.status) === 'open') openCount++; });
 
-                    const tabsHTML = `<div class="flex bg-gray-200/60 p-1 rounded-[16px] mb-6 animate-stagger overflow-x-auto hide-scrollbar"><button onclick="App.state.teacherTab='students'; App.render()" class="flex-1 shrink-0 px-3 py-2.5 text-[12px] font-bold rounded-xl transition-all ${tab === 'students' ? 'bg-white text-[#2D2A4A] shadow' : 'text-gray-500'}">学生管理</button><button onclick="App.state.teacherTab='homework'; App.render()" class="flex-1 shrink-0 px-3 py-2.5 text-[12px] font-bold rounded-xl transition-all ${tab === 'homework' ? 'bg-white text-[#2D2A4A] shadow' : 'text-gray-500'}">作业分发</button><button onclick="App.state.teacherTab='banners'; App.render()" class="flex-1 shrink-0 px-3 py-2.5 text-[12px] font-bold rounded-xl transition-all ${tab === 'banners' ? 'bg-white text-[#2D2A4A] shadow' : 'text-gray-500'}">主页宣传</button><button onclick="App.state.teacherTab='analytics'; App.render()" class="flex-1 shrink-0 px-3 py-2.5 text-[12px] font-bold rounded-xl transition-all ${tab === 'analytics' ? 'bg-white text-[#2D2A4A] shadow' : 'text-gray-500'}">数据分析</button></div>`;
+                    // 【核心修改】Edge-to-Edge 横向胶囊导航
+                    const topTabs = [
+                        {id: 'students', icon: 'fa-user-graduate', label: '学生'},
+                        {id: 'homework', icon: 'fa-book', label: '作业'},
+                        {id: 'banners', icon: 'fa-image', label: '宣传'},
+                        {id: 'attendance', icon: 'fa-calendar-check', label: '考勤'},
+                        {id: 'analytics', icon: 'fa-chart-line', label: '分析'}
+                    ];
+                    
+                    const tabsHTML = `
+                        <div class="flex gap-2 overflow-x-auto hide-scrollbar pb-4 mb-4 -mx-6 px-6 touch-pan-x">
+                            ${topTabs.map(t => {
+                                const active = tab === t.id;
+                                return `<button onclick="App.state.teacherTab='${t.id}'; App.render()" class="shrink-0 px-5 py-2.5 rounded-full text-[13px] font-bold transition-all shadow-sm flex items-center gap-2 active-scale ${active ? 'bg-[#6B48FF] text-white shadow-md shadow-[#6B48FF]/30' : 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50'}"><i class="fa-solid ${t.icon}"></i> ${t.label}</button>`;
+                            }).join('')}
+                        </div>
+                    `;
 
                     // --- 面板 1: 学生管理 ---
                     let studentsPanelHTML = '';
@@ -530,7 +558,6 @@
                         }).join('');
                         studentsPanelHTML += `<div class="mb-5 overflow-hidden rounded-xl border border-gray-100 shadow-sm"><div class="bg-[#F4F2FF] px-4 py-2.5 flex items-center gap-2"><i class="fa-solid ${cls.icon} text-[#6B48FF] text-sm"></i><h3 class="text-xs font-extrabold text-[#6B48FF]">${cls.name} <span class="font-medium opacity-60">(${classStudents.length})</span></h3></div><div>${listHTML}</div></div>`;
                     });
-
                     const studentsPanel = `<div class="tab-content ${tab === 'students' ? 'active' : ''}"><div class="mb-8"><h2 class="text-sm font-extrabold text-[#2D2A4A] mb-4 pl-1">班级名单与进度概览</h2><div class="max-h-[400px] overflow-y-auto hide-scrollbar pb-4">${studentsPanelHTML || '<p class="text-xs text-gray-400">暂无学生数据</p>'}</div></div><h2 class="text-lg font-extrabold text-[#2D2A4A] mb-3 pl-1">添加新学生</h2><div class="card-solid p-5 pb-10"><div class="flex gap-3 mb-4"><div class="flex-1"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">ID (可修改)</label><input type="text" id="form-id" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-[#6B48FF] outline-none focus:border-[#6B48FF]"></div><div class="flex-1"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 flex justify-between">PWD <i class="fa-solid fa-rotate text-[#6B48FF] cursor-pointer active-scale" onclick="App.actions.regenPwd()"></i></label><input type="text" id="form-pwd" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-[#6B48FF] outline-none focus:border-[#6B48FF]"></div></div><div class="mb-4"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">Name</label><input type="text" id="form-name" placeholder="输入姓名" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:border-[#6B48FF]"></div><div class="mb-6"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-2 block">Assign Classes (多选)</label><div class="flex flex-wrap gap-2" id="chip-container">${XY_CLASSES.map(c => `<div onclick="App.actions.toggleChip('${c.code}', this)" class="chip bg-[#F8F8FC] text-gray-500 text-[11px] px-3.5 py-2 rounded-xl">${App.escape(c.name)}</div>`).join('')}</div></div><button onclick="App.actions.saveStudentToDB()" class="w-full bg-[#2D2A4A] text-white font-bold rounded-xl py-3.5 shadow-lg active-scale" id="btn-register">直接添加至云端</button></div></div>`;
 
                     // --- 面板 2: 作业管理 ---
@@ -549,17 +576,179 @@
                         }).join('');
                         hwPanelHTML += `<div class="mb-6"><h3 class="text-sm font-extrabold text-[#2D2A4A] mb-2 pl-1"><i class="fa-solid ${cls.icon} text-gray-400 mr-1 text-xs"></i> ${cls.name}</h3>${unitHTML}</div>`;
                     });
-
                     const hwPanel = `<div class="tab-content ${tab === 'homework' ? 'active' : ''}"><div class="flex justify-between items-end mb-3 px-1"><h2 class="text-lg font-extrabold text-[#2D2A4A]">单元管理 (<span id="ui-hw-count" class="text-[#00BFA5]">${openCount}</span> 在线)</h2><button onclick="App.actions.closeAllOldHw()" class="text-xs font-bold text-red-500 bg-red-50 px-3 py-1.5 rounded-lg active-scale">一键关闭旧作业</button></div><div class="overflow-hidden mb-8 max-h-[400px] overflow-y-auto hide-scrollbar">${hwPanelHTML || '<div class="card-solid p-4 text-center text-xs text-gray-400">暂无作业</div>'}</div><h2 class="text-lg font-extrabold text-[#2D2A4A] mb-3 pl-1">添加新作业配置</h2><div class="card-solid p-5 pb-10"><div class="mb-4"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">班级 (Class Code)</label><select id="hw-class" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-[#6B48FF] outline-none">${XY_CLASSES.map(c => `<option value="${c.code}">${c.name}</option>`).join('')}</select></div><div class="flex gap-3 mb-4"><div class="w-1/3"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">单元(Unit)</label><input type="text" id="hw-unit" placeholder="U1" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none"></div><div class="w-2/3"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">标题(Title)</label><input type="text" id="hw-title" placeholder="Food & Drink" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none"></div></div><div class="mb-6"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">文件名 (HTML File)</label><input type="text" id="hw-file" placeholder="u1_test.html" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none"></div><button id="btn-add-hw" onclick="App.actions.addHomeworkToDB()" class="w-full bg-[#00BFA5] text-white font-bold rounded-xl py-3.5 shadow-lg active-scale">添加并在全网发布</button></div></div>`;
 
                     // --- 面板 3: 宣传图 ---
                     let bannersList = (XY_BANNERS || []).map(b => `<div class="card-solid p-3 mb-3 flex items-center gap-3"><div class="w-16 h-12 bg-gray-100 rounded-lg overflow-hidden shrink-0"><img src="${b.image}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/150?text=IMG'"/></div><div class="flex-1 overflow-hidden"><p class="text-[13px] font-bold text-[#2D2A4A] truncate">${App.escape(b.title)}</p><p class="text-[10px] text-gray-400 truncate mt-0.5">Tag: ${App.escape(b.tag)}</p></div><button onclick="App.actions.deleteBanner('${b.id}')" class="w-8 h-8 rounded-full bg-red-50 text-red-500 flex items-center justify-center active-scale shrink-0"><i class="fa-solid fa-trash-can text-xs"></i></button></div>`).join('');
                     const bannersPanel = `<div class="tab-content ${tab === 'banners' ? 'active' : ''}"><div class="mb-6"><h2 class="text-sm font-extrabold text-[#2D2A4A] mb-3 pl-1">当前主页宣传图</h2><div class="max-h-[300px] overflow-y-auto hide-scrollbar">${bannersList || '<p class="text-xs text-gray-400 pl-1">使用的是内置默认卡片。</p>'}</div></div><h2 class="text-lg font-extrabold text-[#2D2A4A] mb-3 pl-1">发布新图文卡片</h2><div class="card-solid p-5 pb-8 bg-gradient-to-b from-white to-[#F8F8FC]"><div class="mb-4"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">图片直链 (Image URL)</label><input type="text" id="ban-img" placeholder="https://..." class="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none"></div><div class="mb-4"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">跳转网页链接 (Link URL)</label><input type="text" id="ban-link" placeholder="点击后跳转的文章或网址" class="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none"></div><div class="flex gap-3 mb-6"><div class="w-1/3"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">标签 (Tag)</label><input type="text" id="ban-tag" placeholder="NEW" class="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none"></div><div class="w-2/3"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">大标题 (Title)</label><input type="text" id="ban-title" placeholder="宣传标题" class="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none"></div></div><button id="btn-add-ban" onclick="App.actions.addBannerToDB()" class="w-full bg-[#6B48FF] text-white font-bold rounded-xl py-3.5 shadow-lg shadow-[#6B48FF]/30 active-scale">上传至主页</button></div></div>`;
 
-                    // --- 面板 4: 学情分析接口 ---
-                    const analyticsPanel = `<div class="tab-content ${tab === 'analytics' ? 'active' : ''}"><div class="grid grid-cols-2 gap-3 mb-4"><div class="card-solid p-4 text-center border-dashed border-2 border-blue-100 shadow-none"><i class="fa-solid fa-file-contract text-3xl text-blue-300 mb-2"></i><h3 class="text-xs font-extrabold text-[#2D2A4A]">全景做题报告</h3><p class="text-[9px] text-gray-500 mt-1">记录每一次尝试与刷分</p></div><div class="card-solid p-4 text-center border-dashed border-2 border-purple-100 shadow-none"><i class="fa-solid fa-chart-line text-3xl text-purple-300 mb-2"></i><h3 class="text-xs font-extrabold text-[#2D2A4A]">纵向成长曲线</h3><p class="text-[9px] text-gray-500 mt-1">自己与自己的历史对比</p></div><div class="card-solid p-4 text-center border-dashed border-2 border-emerald-100 shadow-none"><i class="fa-solid fa-chart-pie text-3xl text-emerald-300 mb-2"></i><h3 class="text-xs font-extrabold text-[#2D2A4A]">横向雷达图</h3><p class="text-[9px] text-gray-500 mt-1">各知识点短板定位分析</p></div><div class="card-solid p-4 text-center border-dashed border-2 border-orange-100 shadow-none"><i class="fa-solid fa-users-rays text-3xl text-orange-300 mb-2"></i><h3 class="text-xs font-extrabold text-[#2D2A4A]">同伴分布对比</h3><p class="text-[9px] text-gray-500 mt-1">了解班级与全网综合排位</p></div></div><div class="bg-[#F4F2FF] p-5 rounded-2xl text-center border border-[#6B48FF]/20 shadow-inner mt-6"><i class="fa-solid fa-lock text-[#6B48FF] text-2xl mb-3 animate-pulse"></i><p class="text-sm font-bold text-[#6B48FF]">高阶分析接口已预留</p><p class="text-[11px] text-gray-500 mt-2 leading-relaxed">后台记录已接通。即将接入底层图表算法引擎，<br>未来自动生成上述多维精美分析图表。</p></div></div>`;
+                    // --- 面板 4: 考勤管理 (独立) ---
+                    let anaHtml = '';
+                    if (App.state.attendance && App.state.attendance.report) {
+                        const ana = App.state.attendance;
+                        const d1 = new Date(ana.startDate); const d2 = new Date(ana.endDate);
+                        const totalTargetDays = Math.round((d2 - d1) / (1000 * 60 * 60 * 24)) + 1;
+                        
+                        let fullAttendCount = 0;
+                        const listHtml = Object.keys(ana.report).map(uid => {
+                            const r = ana.report[uid];
+                            const validSet = new Set([...r.actual, ...r.exempt]);
+                            const validDays = validSet.size;
+                            const isFull = validDays >= totalTargetDays;
+                            if (isFull) fullAttendCount++;
+                            
+                            return `
+                                <div class="flex items-center justify-between p-3 border-b border-gray-50 last:border-0 bg-white">
+                                    <div>
+                                        <p class="text-[14px] font-bold text-[#2D2A4A]">${App.escape(r.name)} <span class="text-[10px] text-gray-400 ml-1 font-mono">${uid}</span></p>
+                                        <p class="text-[10px] text-gray-500 mt-1">打卡: <span class="text-[#00BFA5] font-bold">${r.actual.size}天</span> <span class="mx-1 opacity-50">|</span> 豁免: <span class="text-orange-400 font-bold">${r.exempt.size}天</span></p>
+                                    </div>
+                                    <div class="flex items-center gap-3">
+                                        <div class="text-right">
+                                            <p class="text-[16px] font-black ${isFull ? 'text-green-500' : 'text-[#6B48FF]'}">${validDays}/${totalTargetDays}</p>
+                                            <p class="text-[9px] ${isFull ? 'text-green-500' : 'text-gray-400'} font-bold uppercase">${isFull ? '全勤 🏆' : '达标率'}</p>
+                                        </div>
+                                        <button onclick="App.actions.openExemptModal('${uid}', '${App.escape(r.name)}')" class="w-8 h-8 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center active-scale shrink-0 shadow-sm" title="添加豁免"><i class="fa-solid fa-notes-medical text-xs"></i></button>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('');
+                        
+                        const totalStudents = Object.keys(ana.report).length;
+                        const isClassFull = (fullAttendCount === totalStudents && totalStudents > 0);
+                        
+                        anaHtml = `
+                            <div class="mb-8 mt-2 animate-stagger">
+                                ${isClassFull ? `
+                                <div class="bg-gradient-to-r from-yellow-400 to-orange-500 rounded-[20px] p-5 text-white shadow-xl shadow-orange-500/30 mb-5 flex items-center gap-4 relative overflow-hidden">
+                                    <div class="absolute -right-2 -bottom-2 text-[80px] opacity-20 pointer-events-none">🏆</div>
+                                    <div class="text-[40px] drop-shadow-md">🐉</div>
+                                    <div class="relative z-10">
+                                        <h3 class="font-black text-[20px] tracking-tight">全班集体全勤！</h3>
+                                        <p class="text-xs font-bold opacity-90 mt-1">集体宠物获得巨量成长值大爆发！</p>
+                                    </div>
+                                </div>
+                                ` : ''}
+                                <div class="flex justify-between items-end mb-2 px-1">
+                                    <h3 class="text-sm font-extrabold text-[#2D2A4A]">考勤打卡报表</h3>
+                                    <span class="text-xs text-gray-500 font-bold">目标: ${totalTargetDays} 天</span>
+                                </div>
+                                <div class="overflow-hidden rounded-[16px] border border-gray-100 shadow-sm">
+                                    <div class="bg-[#F4F2FF] px-4 py-3 flex justify-between items-center">
+                                        <h3 class="text-xs font-extrabold text-[#6B48FF]"><i class="fa-solid fa-users mr-1"></i> 全勤人数: ${fullAttendCount} / ${totalStudents}</h3>
+                                    </div>
+                                    <div class="max-h-[350px] overflow-y-auto hide-scrollbar">${listHtml || '<p class="p-4 text-center text-xs text-gray-400">该班级暂无学生数据</p>'}</div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    const attendancePanel = `
+                        <div class="tab-content ${tab === 'attendance' ? 'active' : ''}">
+                            <div class="card-solid p-5 mb-5">
+                                <h2 class="text-lg font-extrabold text-[#2D2A4A] mb-4 pl-1">考勤与豁免管理</h2>
+                                <div class="mb-4">
+                                    <label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">选择班级</label>
+                                    <select id="att-class" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-[#6B48FF] outline-none">
+                                        ${XY_CLASSES.map(c => `<option value="${c.code}" ${App.state.attendance?.classCode === c.code ? 'selected' : ''}>${c.name}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div class="flex gap-3 mb-6">
+                                    <div class="flex-1">
+                                        <label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">开始日期</label>
+                                        <input type="date" id="att-start" value="${App.state.attendance?.startDate || ''}" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-3 py-3 text-sm font-bold text-[#6B48FF] outline-none">
+                                    </div>
+                                    <div class="flex-1">
+                                        <label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">结束日期</label>
+                                        <input type="date" id="att-end" value="${App.state.attendance?.endDate || ''}" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-3 py-3 text-sm font-bold text-[#6B48FF] outline-none">
+                                    </div>
+                                </div>
+                                <button onclick="App.actions.generateAttendance()" id="btn-att-gen" class="w-full bg-[#2D2A4A] text-white font-bold rounded-xl py-3.5 shadow-lg active-scale transition-colors">
+                                    <i class="fa-solid fa-clipboard-user mr-2"></i> 结算去重打卡天数
+                                </button>
+                            </div>
+                            ${anaHtml}
+                        </div>
+                    `;
 
-                    return this.header() + `<section class="px-6 pt-4 mb-8"><h1 class="text-[26px] font-extrabold text-[#2D2A4A] mb-1">Teacher Admin</h1><p class="text-xs text-gray-500 mb-4">工作室数据总览与控制中心。</p>${tabsHTML}${studentsPanel}${hwPanel}${bannersPanel}${analyticsPanel}</section>`;
+                    // --- 面板 5: 数据分析 (4板块 + 核心成长图表引擎) ---
+                    const chartConfig = App.state.chartConfig;
+                    const chartClassStudents = XY_STUDENTS.filter(s => (s.classes || []).includes(chartConfig.classCode));
+                    
+                    const analyticsPanel = `
+                        <div class="tab-content ${tab === 'analytics' ? 'active' : ''}">
+                            <!-- 恢复经典的4大分析卡片 -->
+                            <div class="grid grid-cols-2 gap-3 mb-6">
+                                <div class="card-solid p-4 text-center">
+                                    <i class="fa-solid fa-file-contract text-2xl text-blue-400 mb-2"></i>
+                                    <h3 class="text-xs font-extrabold text-[#2D2A4A] mt-1">全景做题报告</h3>
+                                </div>
+                                <div class="card-solid p-4 text-center">
+                                    <i class="fa-solid fa-chart-line text-2xl text-purple-400 mb-2"></i>
+                                    <h3 class="text-xs font-extrabold text-[#2D2A4A] mt-1">纵向成长曲线</h3>
+                                </div>
+                                <div class="card-solid p-4 text-center">
+                                    <i class="fa-solid fa-chart-pie text-2xl text-emerald-400 mb-2"></i>
+                                    <h3 class="text-xs font-extrabold text-[#2D2A4A] mt-1">横向雷达图</h3>
+                                </div>
+                                <div class="card-solid p-4 text-center">
+                                    <i class="fa-solid fa-users-rays text-2xl text-orange-400 mb-2"></i>
+                                    <h3 class="text-xs font-extrabold text-[#2D2A4A] mt-1">同伴分布对比</h3>
+                                </div>
+                            </div>
+
+                            <div class="card-solid p-5 mb-5">
+                                <h2 class="text-lg font-extrabold text-[#2D2A4A] mb-4 pl-1">数据可视化：多线对比引擎</h2>
+                                
+                                <div class="mb-4">
+                                    <label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">选择班级</label>
+                                    <select id="chart-class" onchange="App.actions.updateChartTargets(this.value)" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-[#6B48FF] outline-none">
+                                        ${XY_CLASSES.map(c => `<option value="${c.code}" ${chartConfig.classCode === c.code ? 'selected' : ''}>${c.name}</option>`).join('')}
+                                    </select>
+                                </div>
+
+                                <div class="mb-4">
+                                    <label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">分析模式</label>
+                                    <select id="chart-mode" onchange="App.actions.changeChartMode(this.value)" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-[#6B48FF] outline-none">
+                                        <option value="ALL" ${chartConfig.mode === 'ALL' ? 'selected' : ''}>🌍 全班综合平均分趋势</option>
+                                        <option value="CUSTOM" ${chartConfig.mode === 'CUSTOM' ? 'selected' : ''}>🧑‍🎓 自定义多维对比 (单人/多人)</option>
+                                    </select>
+                                </div>
+
+                                ${chartConfig.mode === 'CUSTOM' ? `
+                                <div class="mb-5 fade-in">
+                                    <label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-2 block">选择对比学生 (点击勾选)</label>
+                                    <div class="flex flex-wrap gap-2">
+                                        ${chartClassStudents.map(s => {
+                                            const isSel = (chartConfig.selectedStudents || []).includes(s.id);
+                                            return `<div onclick="App.actions.toggleChartStudent('${s.id}')" class="chip bg-[#F8F8FC] text-gray-500 text-[11px] px-3.5 py-2 rounded-xl ${isSel ? 'selected' : ''}">${App.escape(s.name)}</div>`;
+                                        }).join('')}
+                                    </div>
+                                </div>
+                                ` : ''}
+
+                                <div class="flex gap-3 mb-6">
+                                    <div class="flex-1">
+                                        <label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">开始日期</label>
+                                        <input type="date" id="chart-start" value="${chartConfig.startDate}" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-3 py-3 text-sm font-bold text-[#6B48FF] outline-none">
+                                    </div>
+                                    <div class="flex-1">
+                                        <label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">结束日期</label>
+                                        <input type="date" id="chart-end" value="${chartConfig.endDate}" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-3 py-3 text-sm font-bold text-[#6B48FF] outline-none">
+                                    </div>
+                                </div>
+                                <button onclick="App.actions.generateChart()" id="btn-chart-gen" class="w-full bg-[#6B48FF] text-white font-bold rounded-xl py-3.5 shadow-lg shadow-[#6B48FF]/30 active-scale transition-colors">
+                                    <i class="fa-solid fa-wand-magic-sparkles mr-2"></i> 生成多线图表
+                                </button>
+                            </div>
+
+                            <div class="card-solid p-4 mb-4 overflow-hidden relative">
+                                <canvas id="growth-chart-canvas" class="w-full h-[250px] block"></canvas>
+                            </div>
+                        </div>
+                    `;
+
+                    return this.header() + `<section class="px-6 pt-4 mb-8"><h1 class="text-[26px] font-extrabold text-[#2D2A4A] mb-1">Teacher Admin</h1><p class="text-xs text-gray-500 mb-4">工作室数据总览与控制中心。</p>${tabsHTML}${studentsPanel}${hwPanel}${bannersPanel}${attendancePanel}${analyticsPanel}</section>`;
                 }
             },
 
@@ -613,7 +802,8 @@
                     const overrides = getHwOverrides(); overrides[id] = isChecked ? 'open' : 'closed'; setHwOverrides(overrides);
                     sb.from('homework').update({ status: isChecked ? 'open' : 'closed' }).eq('id', id).then();
                     let openCount = 0; XY_HOMEWORK.forEach(hw => { if((overrides[hw.id] !== undefined ? overrides[hw.id] : hw.status) === 'open') openCount++; });
-                    document.getElementById('ui-hw-count').innerText = openCount;
+                    const uiCount = document.getElementById('ui-hw-count');
+                    if(uiCount) uiCount.innerText = openCount;
                 },
                 
                 showConfirm(msg, title = '⚠️ 警告', confirmText = '确定', confirmClass = 'bg-red-500 shadow-red-500/30', actionFn) {
@@ -651,12 +841,23 @@
                 },
 
                 initTeacherForm() {
-                    if (App.state.teacherTab !== 'students') return;
-                    App.state.teacherForm.classes = [];
-                    const ids = XY_STUDENTS.map(s => parseInt(s.id.replace('S', ''))).filter(n => !isNaN(n));
-                    const nextNum = ids.length > 0 ? Math.max(...ids) + 1 : 1;
-                    const el = document.getElementById('form-id'); if(el) el.value = 'S' + nextNum.toString().padStart(2, '0');
-                    this.regenPwd();
+                    if (App.state.teacherTab === 'students') {
+                        App.state.teacherForm.classes = [];
+                        const ids = XY_STUDENTS.map(s => parseInt(s.id.replace('S', ''))).filter(n => !isNaN(n));
+                        const nextNum = ids.length > 0 ? Math.max(...ids) + 1 : 1;
+                        const el = document.getElementById('form-id'); if(el) el.value = 'S' + nextNum.toString().padStart(2, '0');
+                        this.regenPwd();
+                    }
+                    if (App.state.teacherTab === 'attendance' && !App.state.attendance) {
+                        const end = new Date(); const start = new Date(); start.setDate(start.getDate() - 6);
+                        App.state.attendance = { classCode: XY_CLASSES[0].code, startDate: start.toISOString().split('T')[0], endDate: end.toISOString().split('T')[0], report: null };
+                    }
+                    if (App.state.teacherTab === 'analytics' && !App.state.chartConfig.startDate) {
+                        const end = new Date(); const start = new Date(); start.setDate(start.getDate() - 6);
+                        App.state.chartConfig.classCode = XY_CLASSES[0].code;
+                        App.state.chartConfig.startDate = start.toISOString().split('T')[0];
+                        App.state.chartConfig.endDate = end.toISOString().split('T')[0];
+                    }
                 },
 
                 regenPwd() { const el = document.getElementById('form-pwd'); if(el) el.value = Math.floor(1000 + Math.random() * 9000); },
@@ -706,6 +907,269 @@
                     });
                 },
 
+                // --- Attendance System (考勤管理) ---
+                async generateAttendance() {
+                    const classCode = document.getElementById('att-class').value;
+                    const startDate = document.getElementById('att-start').value;
+                    const endDate = document.getElementById('att-end').value;
+                    if(!classCode || !startDate || !endDate) return this.showAlert('请完整选择班级和日期范围');
+                    if(startDate > endDate) return this.showAlert('开始日期不能晚于结束日期');
+
+                    const classStudents = XY_STUDENTS.filter(s => (s.classes || []).includes(classCode));
+                    if(classStudents.length === 0) return this.showAlert('该班级暂无学生档案');
+
+                    const btn = document.getElementById('btn-att-gen'); const orig = btn.innerHTML;
+                    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> 正在拉取数据...'; btn.disabled = true;
+
+                    const studentIds = classStudents.map(s => s.id);
+                    const { data: logs, error } = await sb.from('growth_logs').select('student_id, homework_id, created_at').in('student_id', studentIds);
+                    btn.innerHTML = orig; btn.disabled = false;
+                    
+                    if(error) return this.showAlert('获取打卡数据失败: ' + error.message);
+
+                    const report = {};
+                    classStudents.forEach(s => { report[s.id] = { name: s.name, actual: new Set(), exempt: new Set() }; });
+
+                    logs.forEach(log => {
+                        if(!report[log.student_id]) return;
+                        let dateStr = '';
+                        if(log.homework_id && log.homework_id.startsWith('EXEMP_')) {
+                            dateStr = log.homework_id.split('_')[1];
+                        } else {
+                            const d = new Date(log.created_at);
+                            dateStr = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+                        }
+                        if(dateStr >= startDate && dateStr <= endDate) {
+                            if(log.homework_id && log.homework_id.startsWith('EXEMP_')) report[log.student_id].exempt.add(dateStr);
+                            else report[log.student_id].actual.add(dateStr);
+                        }
+                    });
+
+                    App.state.attendance = { classCode, startDate, endDate, report };
+                    App.render();
+                },
+
+                openExemptModal(studentId, studentName) {
+                    const defaultDate = App.state.attendance ? App.state.attendance.endDate : '';
+                    const root = document.getElementById('modal-root');
+                    window.__xy_exemp_action = async () => {
+                        const dateStr = document.getElementById('exemp-date').value;
+                        if(!dateStr) return App.actions.showAlert('请选择日期');
+                        
+                        // 禁用按钮防多次连点
+                        const btn = document.querySelector('button[onclick="window.__xy_exemp_action()"]');
+                        if (btn) { btn.innerText = '正在发放...'; btn.disabled = true; }
+                        
+                        const hwId = 'EXEMP_' + dateStr;
+                        
+                        // 核心修复：先查询是否已经发放过，防止数据库唯一性冲突报错
+                        const { data: existing } = await sb.from('growth_logs').select('id').eq('student_id', studentId).eq('homework_id', hwId).maybeSingle();
+                        
+                        if (existing) {
+                            root.innerHTML = '';
+                            return App.actions.showAlert(`${studentName} 同学在 ${dateStr} 已经有豁免记录啦，不需要重复发放哦！`, '⚠️ 提示');
+                        }
+
+                        // 如果没发过，再执行插入
+                        const {error} = await sb.from('growth_logs').insert({ student_id: studentId, homework_id: hwId, score: 0, stars_earned: 0, attempt_count: 1, is_best_score: true });
+                        root.innerHTML = '';
+                        
+                        if(error) return App.actions.showAlert('发放豁免权失败: ' + error.message, '❌ 错误');
+                        
+                        App.actions.showAlert(`已成功为 ${studentName} 补签 ${dateStr} 的豁免打卡。`, '✅ 豁免成功');
+                        App.actions.generateAttendance(); // Refresh
+                    };
+
+                    root.innerHTML = `<div class="fixed inset-0 z-[9999] flex items-center justify-center p-4"><div class="absolute inset-0 bg-black/40 backdrop-blur-sm fade-in" onclick="document.getElementById('modal-root').innerHTML=''"></div><div class="bg-white rounded-[32px] p-6 w-full max-w-sm relative z-10 shadow-2xl text-center" style="animation: slideUpFade 0.3s forwards"><div class="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-4 text-orange-500 text-3xl"><i class="fa-solid fa-kit-medical"></i></div><h3 class="text-[18px] font-black text-[#2D2A4A] mb-2">发放豁免权</h3><p class="text-[12px] text-gray-500 mb-5 font-medium">指定日期因病或事假免签，系统将视为有效打卡</p><div class="mb-6 text-left"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">学生姓名</label><div class="bg-gray-50 rounded-xl p-3 text-sm font-bold text-gray-600 border border-gray-100">${App.escape(studentName)} <span class="font-mono text-[10px] ml-1 text-gray-400">${studentId}</span></div></div><div class="mb-6 text-left"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">指定豁免日期</label><input type="date" id="exemp-date" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-[#6B48FF] outline-none" value="${defaultDate}"></div><div class="flex gap-3"><button onclick="document.getElementById('modal-root').innerHTML=''" class="flex-1 bg-gray-100 text-gray-600 font-bold rounded-2xl py-3.5 active-scale">取消</button><button onclick="window.__xy_exemp_action()" class="flex-1 bg-orange-500 text-white font-bold rounded-2xl py-3.5 shadow-lg shadow-orange-500/30 active-scale">确认发放</button></div></div></div>`;
+                },
+
+                // --- Analytics Chart System (自定义多线成长图表) ---
+                updateChartTargets(classCode) {
+                    App.state.chartConfig.classCode = classCode;
+                    App.state.chartConfig.mode = 'ALL';
+                    App.state.chartConfig.selectedStudents = [];
+                    App.state.chartConfig.datasets = null;
+                    App.render();
+                },
+
+                changeChartMode(mode) {
+                    App.state.chartConfig.mode = mode;
+                    App.state.chartConfig.datasets = null;
+                    App.render();
+                },
+
+                toggleChartStudent(uid) {
+                    let sel = App.state.chartConfig.selectedStudents || [];
+                    if (sel.includes(uid)) sel = sel.filter(id => id !== uid);
+                    else if (sel.length < 5) sel.push(uid); // 最多对比5人，防止图表太乱
+                    else return this.showAlert('为了图表清晰，最多支持同时对比 5 名同学哦。');
+                    App.state.chartConfig.selectedStudents = sel;
+                    App.render();
+                },
+
+                async generateChart() {
+                    const classCode = document.getElementById('chart-class').value;
+                    const mode = App.state.chartConfig.mode;
+                    const selectedIds = App.state.chartConfig.selectedStudents || [];
+                    const startDate = document.getElementById('chart-start').value;
+                    const endDate = document.getElementById('chart-end').value;
+
+                    if(!classCode || !startDate || !endDate) return this.showAlert('请完整填写配置');
+                    if(startDate > endDate) return this.showAlert('开始日期不能晚于结束日期');
+                    if(mode === 'CUSTOM' && selectedIds.length === 0) return this.showAlert('请至少在上方选择一名学生进行对比分析。');
+
+                    const btn = document.getElementById('btn-chart-gen'); const orig = btn.innerHTML;
+                    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> 数据聚合中...'; btn.disabled = true;
+
+                    // 获取班级学生
+                    const classStudents = XY_STUDENTS.filter(s => (s.classes || []).includes(classCode));
+                    const studentIds = classStudents.map(s => s.id);
+                    if(studentIds.length === 0) { btn.innerHTML = orig; btn.disabled=false; return this.showAlert('该班级无学生'); }
+
+                    // 拉取数据并过滤豁免记录
+                    const { data: logs, error } = await sb.from('growth_logs').select('student_id, score, created_at').in('student_id', studentIds);
+                    btn.innerHTML = orig; btn.disabled = false;
+                    if(error) return this.showAlert('获取数据失败');
+
+                    // 分组与计算每天每人的最高分
+                    const dayMap = {}; // { '04/25': { 'S01': 95, 'S02': 80 } }
+                    logs.forEach(log => {
+                        if(log.homework_id && log.homework_id.startsWith('EXEMP_')) return; // 豁免不计入分数曲线
+
+                        const d = new Date(log.created_at);
+                        const fullDateStr = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+                        if (fullDateStr >= startDate && fullDateStr <= endDate) {
+                            const shortDate = String(d.getMonth()+1).padStart(2,'0') + '/' + String(d.getDate()).padStart(2,'0');
+                            if (!dayMap[shortDate]) dayMap[shortDate] = {};
+                            if (dayMap[shortDate][log.student_id] === undefined || dayMap[shortDate][log.student_id] < log.score) {
+                                dayMap[shortDate][log.student_id] = log.score;
+                            }
+                        }
+                    });
+
+                    const datasets = [];
+                    const palette = ['#6B48FF', '#00BFA5', '#FF4B72', '#FFB800', '#3949AB']; // 漂亮的多线对比配色
+
+                    if (mode === 'ALL') {
+                        const dataPts = {};
+                        Object.keys(dayMap).sort().forEach(date => {
+                            const scores = Object.values(dayMap[date]);
+                            if(scores.length > 0) dataPts[date] = Math.round(scores.reduce((a,b)=>a+b,0)/scores.length);
+                        });
+                        datasets.push({ id: 'ALL', name: '全班综合平均分', color: '#6B48FF', data: dataPts });
+                    } else {
+                        selectedIds.forEach((uid, idx) => {
+                            const stu = classStudents.find(s => s.id === uid);
+                            const dataPts = {};
+                            Object.keys(dayMap).sort().forEach(date => {
+                                if (dayMap[date][uid] !== undefined) dataPts[date] = dayMap[date][uid];
+                            });
+                            datasets.push({ id: uid, name: stu.name, color: palette[idx % palette.length], data: dataPts });
+                        });
+                    }
+
+                    App.state.chartConfig = { classCode, mode, selectedStudents: selectedIds, startDate, endDate, datasets };
+                    App.render();
+                },
+
+                drawCanvasChart(datasets) {
+                    const canvas = document.getElementById('growth-chart-canvas');
+                    if(!canvas) return;
+                    const ctx = canvas.getContext('2d');
+                    const rect = canvas.getBoundingClientRect();
+                    // 处理高分屏抗锯齿
+                    canvas.width = rect.width * 2; canvas.height = rect.height * 2;
+                    ctx.scale(2, 2);
+                    const w = rect.width; const h = rect.height;
+                    ctx.clearRect(0,0,w,h);
+
+                    // 找到有数据的所有唯一的日期（X轴）
+                    const allDates = new Set();
+                    datasets.forEach(ds => Object.keys(ds.data).forEach(d => allDates.add(d)));
+                    const dates = Array.from(allDates).sort();
+
+                    if(dates.length === 0) {
+                        ctx.fillStyle = '#A0A5B1'; ctx.font = '14px sans-serif'; ctx.textAlign = 'center';
+                        ctx.fillText('该时间区间内无有效做题记录', w/2, h/2);
+                        return;
+                    }
+
+                    const pad = {top: 50, bottom: 40, left: 35, right: 30};
+                    const chartW = w - pad.left - pad.right; 
+                    const chartH = h - pad.top - pad.bottom;
+
+                    // 1. 绘制网格和 Y 轴标签
+                    ctx.strokeStyle = '#F0F0F5'; ctx.lineWidth = 1; ctx.textAlign = 'right';
+                    ctx.fillStyle = '#A0A5B1'; ctx.font = '10px sans-serif';
+                    for(let i=0; i<=5; i++) {
+                        const y = pad.top + chartH - (i/5)*chartH;
+                        ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(w - pad.right, y); ctx.stroke();
+                        ctx.fillText(i*20, pad.left - 8, y + 3);
+                    }
+
+                    // 2. 绘制多线图表的图例 (Legend)
+                    let legendX = pad.left;
+                    datasets.forEach(ds => {
+                        ctx.fillStyle = ds.color;
+                        ctx.beginPath(); ctx.roundRect(legendX, 10, 16, 6, 3); ctx.fill();
+                        ctx.fillStyle = '#2D2A4A'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'left';
+                        ctx.fillText(ds.name, legendX + 22, 17);
+                        legendX += ctx.measureText(ds.name).width + 36; // 动态计算下一个图例的位置
+                    });
+
+                    // 3. 绘制折线
+                    const stepX = dates.length > 1 ? chartW / (dates.length - 1) : chartW / 2;
+                    
+                    datasets.forEach(ds => {
+                        ctx.beginPath();
+                        let first = true;
+                        dates.forEach((date, i) => {
+                            if (ds.data[date] !== undefined) {
+                                const x = pad.left + (dates.length > 1 ? i * stepX : stepX);
+                                const y = pad.top + chartH - (ds.data[date]/100)*chartH;
+                                if(first) { ctx.moveTo(x,y); first = false; }
+                                else { ctx.lineTo(x,y); }
+                            }
+                        });
+                        ctx.strokeStyle = ds.color; ctx.lineWidth = 3; ctx.stroke();
+
+                        // 仅当只有一条线（如全班综合）时，绘制渐变背景提升美感
+                        if (datasets.length === 1) {
+                            ctx.lineTo(pad.left + (dates.length > 1 ? (dates.length-1)*stepX : stepX), pad.top + chartH);
+                            ctx.lineTo(pad.left + (dates.length > 1 ? 0 : stepX), pad.top + chartH);
+                            ctx.closePath();
+                            const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + chartH);
+                            grad.addColorStop(0, ds.color + '40'); // 25% opacity
+                            grad.addColorStop(1, ds.color + '00');
+                            ctx.fillStyle = grad; ctx.fill();
+                        }
+
+                        // 绘制数据点和数值
+                        ctx.textAlign = 'center';
+                        dates.forEach((date, i) => {
+                            if (ds.data[date] !== undefined) {
+                                const x = pad.left + (dates.length > 1 ? i * stepX : stepX);
+                                const y = pad.top + chartH - (ds.data[date]/100)*chartH;
+                                
+                                ctx.beginPath(); ctx.arc(x,y, 4, 0, Math.PI*2);
+                                ctx.fillStyle = '#FFF'; ctx.fill();
+                                ctx.lineWidth = 2; ctx.strokeStyle = ds.color; ctx.stroke();
+                                
+                                ctx.fillStyle = ds.color; ctx.font = 'bold 11px sans-serif';
+                                ctx.fillText(ds.data[date], x, y - 12);
+                            }
+                        });
+                    });
+
+                    // 4. 绘制 X 轴日期标签
+                    ctx.fillStyle = '#A0A5B1'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+                    dates.forEach((date, i) => {
+                        const x = pad.left + (dates.length > 1 ? i * stepX : stepX);
+                        ctx.fillText(date, x, pad.top + chartH + 20);
+                    });
+                },
+
+                // --- 宠物系统 ---
                 openPetSelection() {
                     const root = document.getElementById('modal-root');
                     const grid = PET_DB.map(p => `<div class="card-solid p-4 text-center cursor-pointer active-scale border-2 border-transparent hover:border-[#6B48FF] transition-colors" onclick="App.actions.selectPet('${p.id}')"><div class="text-[40px] mb-2">${p.stages[2]}</div><h4 class="font-bold text-sm">${p.name}</h4><p class="text-[9px] text-gray-500 uppercase">${p.type}</p></div>`).join('');
@@ -765,7 +1229,6 @@
                         const hwId = params.get('hwId');
                         let starsEarned = 0;
                         
-                        // ✨ 及格减负保底，满分封顶
                         if (score === 100) starsEarned = 5;
                         else if (score >= 85) starsEarned = 3;
                         else if (score >= 70) starsEarned = 2;
