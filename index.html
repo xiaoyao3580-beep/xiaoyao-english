@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Xiaoyao Studio | Learning HUB</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Supabase JS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style>
+        body { 
+            font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; 
+            background-color: #F8F8FC; 
+            color: #1C1C28; 
+            -webkit-tap-highlight-color: transparent;
+            transition: background-color 0.8s ease-in-out;
+        }
+        .font-serif { font-family: Georgia, 'Times New Roman', serif; }
+        
+        .card-solid {
+            background-color: #FFFFFF;
+            border-radius: 20px;
+            border: 1px solid rgba(107, 72, 255, 0.04);
+            box-shadow: 0 10px 30px rgba(107, 72, 255, 0.04), 0 2px 6px rgba(0,0,0,0.02);
+            transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.3s ease;
+        }
+
+        .glass-header {
+            background: rgba(248, 248, 252, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+
+        .bottom-nav-bar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            box-shadow: 0 -4px 20px rgba(107, 72, 255, 0.03);
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        .bg-banner {
+            background: linear-gradient(135deg, #8B6CEF 0%, #6B48FF 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        .bg-banner::before {
+            content: ''; position: absolute; top: -50%; right: -20%; width: 200px; height: 200px;
+            background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%);
+            border-radius: 50%;
+        }
+
+        .page-enter { animation: smoothEnter 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+        @keyframes smoothEnter {
+            0% { opacity: 0; transform: translateY(10px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-stagger { animation: slideUpFade 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; opacity: 0; }
+        @keyframes slideUpFade {
+            0% { opacity: 0; transform: translateY(12px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        .active-scale { transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1); }
+        .active-scale:active { transform: scale(0.96); transition: transform 0.05s ease-out; }
+        
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+
+        .toggle-checkbox:checked { right: 0; border-color: #6B48FF; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #6B48FF; }
+        .toggle-checkbox:checked + .toggle-label:after { transform: translateX(100%); border-color: white; }
+        .chip { border: 1px solid #E5E7EB; cursor: pointer; transition: all 0.2s ease; }
+        .chip.selected { background-color: #6B48FF; color: white; border-color: #6B48FF; font-weight: bold; }
+
+        @keyframes floatBounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-6px); }
+        }
+        .animate-float-bounce { animation: floatBounce 3s ease-in-out infinite; }
+
+        .pet-hero {
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            border-radius: 28px;
+            box-shadow: 0 12px 32px rgba(107, 72, 255, 0.06);
+            position: relative;
+            overflow: hidden;
+        }
+        .pet-stage {
+            width: 140px; height: 140px;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 36px;
+            background: radial-gradient(circle at 50% 60%, rgba(255,255,255,0.4), transparent 60%);
+        }
+        .energy-bar-wrapper {
+            background: rgba(0, 0, 0, 0.08);
+            border-radius: 99px; height: 8px; overflow: hidden;
+        }
+        .energy-bar {
+            height: 100%; border-radius: 99px;
+            background: linear-gradient(90deg, #8B6CEF, #6B48FF);
+            transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        .option-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; scrollbar-width: none; }
+        .option-btn {
+            flex: 0 0 auto; background: #FFF; border: 1px solid #E5E7EB;
+            border-radius: 99px; padding: 10px 16px; font-size: 13px; font-weight: 600;
+            color: #1C1C28; transition: all 0.2s;
+        }
+        .option-btn.active { background: #6B48FF; color: #FFF; border-color: #6B48FF; }
+        .option-btn.locked { opacity: 0.4; cursor: not-allowed; }
+
+        .star-toast {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(255,255,255,0.95); backdrop-filter: blur(10px);
+            color: #6B48FF; font-weight: 900; font-size: 20px;
+            padding: 12px 28px; border-radius: 99px; opacity: 0; pointer-events: none; z-index: 9999;
+            box-shadow: 0 10px 30px rgba(107,72,255,0.15);
+            animation: starGentlePop 2.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+        }
+        @keyframes starGentlePop {
+            0% { opacity: 0; transform: translate(-50%, 0) scale(0.9); }
+            15% { opacity: 1; transform: translate(-50%, -20px) scale(1); }
+            70% { opacity: 1; transform: translate(-50%, -30px) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -50px) scale(0.95); }
+        }
+
+        .farewell-screen {
+            position: fixed; inset: 0; background: #0B0C10; z-index: 9999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none; transition: opacity 1s ease;
+        }
+        .farewell-screen.active { opacity: 1; pointer-events: auto; }
+        .farewell-pet { font-size: 100px; transform: translateY(0); filter: drop-shadow(0 0 20px rgba(255,255,255,0.3)); }
+        .farewell-screen.active .farewell-pet { animation: ascendToStars 4s ease-in-out forwards; }
+        .farewell-text { color: white; text-align: center; margin-top: 40px; opacity: 0; }
+        .farewell-screen.active .farewell-text { animation: textFadeIn 4s ease-in-out forwards; animation-delay: 1s; }
+        
+        @keyframes ascendToStars {
+            0% { transform: translateY(0) scale(1); opacity: 1; filter: drop-shadow(0 0 20px rgba(255,255,255,0.3)); }
+            100% { transform: translateY(-150px) scale(0.2); opacity: 0; filter: drop-shadow(0 0 50px rgba(255,255,255,1)); }
+        }
+        @keyframes textFadeIn {
+            0% { opacity: 0; filter: blur(10px); }
+            30% { opacity: 1; filter: blur(0); }
+            80% { opacity: 1; filter: blur(0); }
+            100% { opacity: 0; filter: blur(10px); }
+        }
+        .star-bg { position: absolute; inset: 0; overflow: hidden; z-index: -1; }
+        .star { position: absolute; background: white; border-radius: 50%; animation: twinkle infinite alternate; }
+        @keyframes twinkle { 0% { opacity: 0.2; } 100% { opacity: 1; transform: scale(1.5); } }
+    </style>
+</head>
+<body class="relative min-h-screen overflow-x-hidden selection:bg-[#6B48FF] selection:text-white" id="main-body">
+    
+    <div id="app" class="relative z-10 w-full max-w-md mx-auto min-h-screen"></div>
+    <div id="modal-root"></div>
+    
+    <div id="farewell-overlay" class="farewell-screen">
+        <div class="star-bg" id="star-bg"></div>
+        <div class="farewell-pet" id="farewell-emoji">🦊</div>
+        <div class="farewell-text">
+            <h2 class="font-serif text-2xl italic mb-2">Every journey has an end...</h2>
+            <p class="text-sm text-gray-400">But the stars will keep our memories, <span id="fw-name" class="text-white font-bold"></span>.</p>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // Supabase 配置
+        // ==========================================
+        const SUPABASE_URL = 'https://avffxvpwzpvlohoyqshb.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_Bk22JrUqpC4nd5ucHr9I8A_mvPk3uXc';
+        const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        let XY_STUDENTS = [];
+        let XY_HOMEWORK = [];
+        
+        async function loadStudents() {
+            const { data, error } = await sb.from('students').select('*');
+            if (error) {
+                console.error('加载学生数据失败 (可能是未建表):', error.message);
+                return [];
+            }
+            return data || [];
+        }
+        
+        async function loadHomework() {
+            const { data, error } = await sb.from('homework').select('*');
+            if (error) {
+                console.error('加载作业数据失败:', error.message);
+                return [];
+            }
+            return (data || []).map(h => ({
+                id: h.id,
+                classCode: h.class_code,
+                unit: h.unit,
+                title: h.title,
+                date: h.date,
+                file: h.file,
+                status: h.status
+            }));
+        }
+        
+        const XY_CLASSES = [
+          { code: 'f2',      name: 'TALENT F2',    level: 'FOUNDATION',      gradient: 'from-[#FF6B9E] to-[#FF4B72]', icon: 'fa-face-smile', color: 'text-[#FF4B72]', bg: 'bg-[#FFE5EC]' },
+          { code: 'a1-plus', name: 'TALENT A1+',   level: 'BEGINNER+',       gradient: 'from-[#B270FF] to-[#8B48FF]', icon: 'fa-star', color: 'text-[#FFB800]', bg: 'bg-[#FFF4CC]' },
+          { code: 'a2',      name: 'TALENT A2',    level: 'INTERMEDIATE',    gradient: 'from-[#8B6CEF] to-[#6B48FF]', icon: 'fa-trophy', color: 'text-[#6B48FF]', bg: 'bg-[#E9E5FF]' },
+          { code: 'a2-plus', name: 'TALENT A2+',   level: 'ADVANCED INT.',   gradient: 'from-[#26D0CE] to-[#1A2980]', icon: 'fa-wand-magic-sparkles', color: 'text-[#00BFA5]', bg: 'bg-[#E0F2F1]' },
+          { code: 'swsy',    name: '深外素养口语课', level: 'SPEAKING',        gradient: 'from-[#FF6B9E] to-[#FF4B72]', icon: 'fa-comments', color: 'text-[#E91E63]', bg: 'bg-[#FCE4EC]' },
+          { code: 'ms',      name: '初中能力提升',   level: 'JUNIOR HIGH PREP',gradient: 'from-[#5C6BC0] to-[#3949AB]', icon: 'fa-book-open', color: 'text-[#3F51B5]', bg: 'bg-[#E8EAF6]' },
+          { code: 'econ',    name: '《经济学人》精读', level: 'PREMIUM READING', gradient: 'from-[#42A5F5] to-[#1E88E5]', icon: 'fa-newspaper', color: 'text-[#0088FF]', bg: 'bg-[#E5F4FF]' },
+          { code: 'adult',   name: '成人零基础口语', level: 'ADULT SPEAKING',  gradient: 'from-[#AB47BC] to-[#8E24AA]', icon: 'fa-user-tie', color: 'text-[#9C27B0]', bg: 'bg-[#F3E5F5]' }
+        ];
+
+        const XY_TEACHER = { id: 'xiaoyao', password: '929292', name: '肖瑶老师' };
+
+        const XY_CAROUSEL = [
+          { type: 'quote', text: 'The limits of my language mean the limits of my world.', author: 'Ludwig Wittgenstein' },
+          { type: 'news', tag: 'NEW BOOK', title: '《英语学习方法论》', description: '肖瑶老师新书,深圳南山书城热销中' }
+        ];
+
+        // ==========================================
+        // Auth & Admin Setup
+        // ==========================================
+        const XY_AUTH = {
+          login: async function(id, password) {
+            if (id === XY_TEACHER.id && password === XY_TEACHER.password) {
+              localStorage.setItem('xy_user', JSON.stringify({ id, role: 'teacher', name: XY_TEACHER.name }));
+              return { user: XY_TEACHER, role: 'teacher' };
+            }
+            
+            const { data: student, error } = await sb
+              .from('students')
+              .select('*')
+              .eq('id', id.toUpperCase())
+              .eq('password', password)
+              .maybeSingle();
+            
+            // 重点优化：区分“查不到账号”和“数据库报错(未建表)”
+            if (error) {
+              console.error('数据库查询错误:', error.message);
+              return { error: true, msg: '数据库连接失败，请确认Supabase中已执行建表SQL代码。' };
+            }
+            
+            if (!student) {
+              return { error: true, msg: '云端数据库中没有找到这个账号！请先用老师账号登录，在后台添加该学生数据。' };
+            }
+
+            if (student) {
+              localStorage.setItem('xy_user', JSON.stringify({ 
+                id: student.id, 
+                role: 'student', 
+                name: student.name, 
+                classes: student.classes 
+              }));
+              await PetManager.init(student.id);
+              return { user: student, role: 'student' };
+            }
+            return null;
+          },
+          getCurrentUser: function() {
+            try { return JSON.parse(localStorage.getItem('xy_user')); } catch (e) { return null; }
+          },
+          logout: function() { 
+              localStorage.removeItem('xy_user'); 
+              document.getElementById('main-body').className = 'relative min-h-screen overflow-x-hidden selection:bg-[#6B48FF] selection:text-white aura-default';
+          }
+        };
+
+        function getHwOverrides() { return JSON.parse(localStorage.getItem('xy_hw_status_overrides') || '{}'); }
+        function setHwOverrides(obj) { localStorage.setItem('xy_hw_status_overrides', JSON.stringify(obj)); }
+
+        // ==========================================
+        // Game & Pet System 
+        // ==========================================
+        const PET_DB = [
+          { id: 'fox', emoji: '🦊', name: 'Luna', type: 'Explorer' },
+          { id: 'owl', emoji: '🦉', name: 'Oliver', type: 'Reader' },
+          { id: 'dragon', emoji: '🐉', name: 'Ember', type: 'Challenger' },
+          { id: 'otter', emoji: '🦦', name: 'Milo', type: 'Companion' },
+          { id: 'deer', emoji: '🦌', name: 'Nia', type: 'Dreamer' },
+          { id: 'whale', emoji: '🐳', name: 'Blue', type: 'Vocalist' }
+        ];
+        
+        const ACCESSORIES = [
+          { id: 'none', text: 'None', icon: '', size: '0', pos: '', unlockStars: 0 },
+          { id: 'scarf', text: 'Scarf', icon: '🧣', size: '36px', pos: 'bottom: -4px; left: 50%; transform: translateX(-50%); z-index: 20;', unlockStars: 0 },
+          { id: 'bow', text: 'Bow', icon: '🎀', size: '26px', pos: 'top: -2px; right: -4px; transform: rotate(15deg); z-index: 20;', unlockStars: 10 },
+          { id: 'star', text: 'Star', icon: '⭐', size: '24px', pos: 'top: -6px; left: 0px; transform: rotate(-15deg); z-index: -1;', unlockStars: 30 },
+          { id: 'hat', text: 'Top Hat', icon: '🎩', size: '34px', pos: 'top: -22px; left: 50%; transform: translateX(-50%) rotate(-5deg); z-index: 20;', unlockStars: 60 },
+          { id: 'crown', text: 'Crown', icon: '👑', size: '34px', pos: 'top: -24px; left: 50%; transform: translateX(-50%); z-index: 20;', unlockStars: 100 }
+        ];
+
+        const AURAS = [
+          { id: 'warm', text: '☀️ Warm Sun', gradient: 'from-[#FFF6CF] to-[#FFDAB9]' },
+          { id: 'forest', text: '🌿 Forest', gradient: 'from-[#D4F0D4] to-[#B5E5B5]' },
+          { id: 'night', text: '🌙 Starry', gradient: 'from-[#D8D8F5] to-[#B3B3E6]' },
+          { id: 'sea', text: '🌊 Ocean', gradient: 'from-[#D8F0EE] to-[#AEE5DF]' }
+        ];
+
+        const LVL_THRESHOLDS = [0, 10, 25, 45, 70, 100, 150, 220, 300, 999];
+
+        const PetManager = {
+            state: null,
+            userId: null,
+            async init(userId) {
+                this.userId = userId;
+                
+                const { data, error } = await sb
+                    .from('students_pets')
+                    .select('*')
+                    .eq('student_id', userId)
+                    .maybeSingle();
+                
+                if (error) console.error('加载宠物失败:', error.message);
+                
+                if (data) {
+                    this.state = {
+                        petId: data.pet_id,
+                        accessoryId: data.accessory_id || 'none',
+                        auraId: data.aura_id || 'warm',
+                        stars: data.total_stars || 0,
+                        hwCompleted: [], 
+                        adoptionDate: data.adoption_date
+                    };
+                    
+                    const { data: logs } = await sb
+                        .from('growth_logs')
+                        .select('homework_id')
+                        .eq('student_id', userId);
+                    if (logs) {
+                        this.state.hwCompleted = [...new Set(logs.map(l => l.homework_id))];
+                    }
+                } else {
+                    this.state = {
+                        petId: null,
+                        accessoryId: 'none',
+                        auraId: 'warm',
+                        stars: 0,
+                        hwCompleted: [],
+                        adoptionDate: new Date().toISOString()
+                    };
+                    await this.save();
+                }
+                this.applyAura();
+            },
+            
+            async save() {
+                if (!this.userId || !this.state) return;
+                
+                const dbData = {
+                    student_id: this.userId,
+                    pet_id: this.state.petId,
+                    accessory_id: this.state.accessoryId,
+                    aura_id: this.state.auraId,
+                    total_stars: this.state.stars,
+                    adoption_date: this.state.adoptionDate,
+                    updated_at: new Date().toISOString()
+                };
+                
+                const { error } = await sb
+                    .from('students_pets')
+                    .upsert(dbData, { onConflict: 'student_id' });
+                
+                if (error) console.error('保存宠物失败:', error.message);
+            },
+            getPet() { return PET_DB.find(p => p.id === this.state.petId) || PET_DB[0]; },
+            getAccessory() { return ACCESSORIES.find(a => a.id === this.state.accessoryId) || ACCESSORIES[0]; },
+            getLevel() {
+                for (let i = LVL_THRESHOLDS.length - 1; i >= 0; i--) {
+                    if (this.state.stars >= LVL_THRESHOLDS[i]) return Math.min(i + 1, 10);
+                }
+                return 1;
+            },
+            getStage() {
+                const lvl = this.getLevel();
+                if (lvl <= 2) return { name: 'Baby', scale: 'scale(0.7)', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.05))' };
+                if (lvl <= 5) return { name: 'Youth', scale: 'scale(0.85)', filter: 'drop-shadow(0 6px 12px rgba(0,0,0,0.08))' };
+                if (lvl <= 8) return { name: 'Adult', scale: 'scale(1.0)', filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.1))' };
+                return { name: 'Mythic', scale: 'scale(1.15)', filter: 'drop-shadow(0 0 25px rgba(255,255,255,0.8))' };
+            },
+            getProgress() {
+                const lvl = this.getLevel();
+                if (lvl >= 10) return { cur: this.state.stars, max: 999, pct: 100 };
+                const prev = LVL_THRESHOLDS[lvl - 1];
+                const next = LVL_THRESHOLDS[lvl];
+                const inLevel = this.state.stars - prev;
+                const range = next - prev;
+                return { cur: this.state.stars, max: next, pct: Math.min(100, (inLevel / range) * 100) };
+            },
+            applyAura() {
+                const b = document.getElementById('main-body');
+                b.className = b.className.replace(/aura-\w+/g, '');
+                if(this.state && this.state.auraId) b.classList.add(`aura-${this.state.auraId}`);
+                else b.classList.add('aura-default');
+            },
+            async completeHomework(hwId, fileUrl) {
+                if (!this.state.hwCompleted.includes(hwId)) {
+                    this.state.hwCompleted.push(hwId);
+                    this.state.stars += 5;
+                    
+                    await sb.from('growth_logs').insert({
+                        student_id: this.userId,
+                        homework_id: hwId,
+                        score: null,
+                        stars_earned: 5,
+                        attempt_count: 1,
+                        is_best_score: true
+                    });
+                    
+                    await this.save();
+                    App.actions.showStarToast(5);
+                }
+                setTimeout(() => {
+                    if (window.location.protocol === 'blob:' || window.location.protocol === 'about:') {
+                        App.actions.showAlert(`因为目前处于预览环境，原计划跳转到：\n${fileUrl}`, '🧭 页面跳转拦截');
+                        App.render();
+                    } else {
+                        window.location.href = 'classes/' + fileUrl;
+                    }
+                }, 1200);
+            }
+        };
+
+        const initUser = XY_AUTH.getCurrentUser();
+
+        // ==========================================
+        // SPA Router & Views
+        // ==========================================
+        const App = {
+            state: { page: 'home', params: {}, teacherForm: { classes: [] } },
+
+            navigate(page, params = {}) {
+                const user = XY_AUTH.getCurrentUser();
+                if ((page === 'myhub' || page === 'pet') && (!user || user.role !== 'student')) return this.actions.toggleLoginModal(true);
+                if (page === 'teacher' && (!user || user.role !== 'teacher')) return this.actions.toggleLoginModal(true);
+                
+                this.state.page = page;
+                this.state.params = params;
+                window.scrollTo(0, 0);
+                this.render();
+            },
+
+            escape(str) { return String(str || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); },
+
+            render() {
+                const appContainer = document.getElementById('app');
+                appContainer.classList.remove('page-enter');
+                void appContainer.offsetWidth; 
+                appContainer.classList.add('page-enter');
+                
+                let html = '';
+                if (this.state.page === 'home') html = this.views.home();
+                else if (this.state.page === 'myhub') html = this.views.myhub();
+                else if (this.state.page === 'class') html = this.views.classDetail(this.state.params.code);
+                else if (this.state.page === 'teacher') html = this.views.teacherPanel();
+                else if (this.state.page === 'pet') html = this.views.pet();
+
+                if (this.state.page !== 'class') html += this.views.bottomNav();
+
+                appContainer.innerHTML = html;
+                if (this.state.page === 'teacher') this.actions.initTeacherForm();
+                if (this.state.page === 'home') this.actions.initCarousel();
+                if (this.state.page === 'pet' && !PetManager.state.petId) this.actions.openPetSelection();
+            },
+
+            views: {
+                header(showBack = false) {
+                    const user = XY_AUTH.getCurrentUser();
+                    let rightArea = `<button class="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-[#6B48FF] active-scale" onclick="App.actions.toggleLoginModal(true)"><i class="fa-solid fa-user"></i></button>`;
+                    if (user) rightArea = `<button onclick="App.actions.doLogout()" class="border border-gray-100 bg-white rounded-full px-3.5 py-1.5 flex items-center gap-1.5 active-scale shadow-sm text-[#6B48FF]"><i class="fa-solid fa-arrow-right-from-bracket text-[10px]"></i><span class="text-[10px] font-bold tracking-widest uppercase">Logout</span></button>`;
+                    
+                    const backTarget = user ? (user.role === 'teacher' ? 'teacher' : 'home') : 'home';
+                    const leftArea = showBack 
+                        ? `<button onclick="App.navigate('${backTarget}')" class="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center text-[#6B48FF] active-scale"><i class="fa-solid fa-arrow-left text-sm"></i></button>`
+                        : `<div class="flex items-center gap-2"><i class="fa-solid fa-graduation-cap text-[#6B48FF] text-xl"></i><span class="font-extrabold text-[18px] tracking-tight text-[#2D2A4A]">Xiaoyao Studio</span></div>`;
+
+                    return `<header class="px-6 py-4 flex justify-between items-center sticky top-0 glass-header z-40">${leftArea}${rightArea}</header>`;
+                },
+
+                bottomNav() {
+                    const p = App.state.page;
+                    const user = XY_AUTH.getCurrentUser();
+                    const isTeacher = user && user.role === 'teacher';
+
+                    const tabs = isTeacher 
+                        ? [{ id:'home', icon:'fa-shapes', label:'Courses' }, { id:'teacher', icon:'fa-border-all', label:'Teacher' }]
+                        : [{ id:'home', icon:'fa-shapes', label:'Courses' }, { id:'myhub', icon:'fa-folder-open', label:'My Hub' }];
+
+                    const navWidth = 'w-full max-w-md';
+
+                    const renderBtn = (tab) => `
+                        <button class="flex-1 flex flex-col items-center justify-center h-full active-scale transition-colors" onclick="App.navigate('${tab.id}')">
+                            <div class="w-14 h-7 rounded-full ${p === tab.id || (tab.id === 'myhub' && p === 'pet') ? 'bg-[#6B48FF] text-white shadow-md' : 'text-gray-400'} flex items-center justify-center mb-1 transition-all duration-300">
+                                <i class="fa-solid ${tab.icon} text-[16px]"></i>
+                            </div>
+                            <span class="${p === tab.id || (tab.id === 'myhub' && p === 'pet') ? 'text-[#6B48FF] font-bold' : 'text-gray-400 font-medium'} text-[9px] tracking-widest uppercase">${tab.label}</span>
+                        </button>
+                    `;
+
+                    return `
+                        <div class="fixed bottom-0 left-0 w-full bottom-nav-bar z-50 border-t border-[#F0F0F5]">
+                            <nav class="flex ${navWidth} mx-auto h-[64px] px-2">
+                                ${tabs.map(renderBtn).join('')}
+                            </nav>
+                        </div>
+                    `;
+                },
+
+                home() {
+                    const user = XY_AUTH.getCurrentUser();
+                    
+                    const carouselCards = XY_CAROUSEL.map((item, idx) => {
+                        if (item.type === 'quote') {
+                            return `<div class="carousel-slide bg-banner rounded-3xl p-6 text-white shadow-lg shadow-[#6B48FF]/20 absolute inset-0" data-idx="${idx}"><span class="uppercase text-[9px] tracking-[0.2em] font-bold bg-white/20 px-3 py-1 rounded-full backdrop-blur-sm">PHILOSOPHY</span><h2 class="font-serif text-[19px] italic font-bold leading-tight mt-5 mb-3">"${App.escape(item.text)}"</h2><div class="w-8 h-0.5 bg-white/60 rounded my-3"></div><p class="text-[10px] tracking-[0.15em] uppercase text-white/90 font-bold">${App.escape(item.author)}</p></div>`;
+                        } else {
+                            return `<div class="carousel-slide bg-banner rounded-3xl p-6 text-white shadow-lg shadow-indigo-500/20 absolute inset-0 active-scale" data-idx="${idx}"><div class="absolute inset-0 bg-gradient-to-br from-[#6B48FF]/85 to-[#8B6CEF]/85 rounded-3xl"></div><div class="relative z-10"><span class="uppercase text-[9px] tracking-[0.2em] font-bold bg-white/20 px-3 py-1 rounded-full backdrop-blur-sm">${App.escape(item.tag)}</span><h2 class="font-serif text-[20px] font-bold leading-tight mt-5 mb-2">${App.escape(item.title)}</h2><p class="text-xs text-white/85 leading-relaxed mt-3">${App.escape(item.description)}</p></div></div>`;
+                        }
+                    }).join('');
+                    const dots = XY_CAROUSEL.map((_, idx) => `<button class="carousel-dot w-1.5 h-1.5 rounded-full bg-white/40 transition-all" data-dot-idx="${idx}"></button>`).join('');
+
+                    const classCards = XY_CLASSES.map((cls, i) => {
+                        let isLocked = user && user.role === 'student' && !user.classes.includes(cls.code);
+                        const btnClass = isLocked ? 'bg-[#F4F5F8] text-[#A0A5B1] shadow-none' : 'bg-[#6B48FF] text-white shadow-md shadow-[#6B48FF]/20 active-scale';
+                        const btnContent = isLocked ? `<i class="fa-solid fa-lock text-[10px]"></i> Locked` : `Enter`;
+
+                        return `
+                        <div class="card-solid p-5 flex flex-col items-center text-center animate-stagger" style="animation-delay: ${(i*0.05)}s">
+                            <div class="w-14 h-14 rounded-full ${cls.bg} ${cls.color} flex items-center justify-center mb-3 text-[22px]">
+                                <i class="fa-solid ${cls.icon}"></i>
+                            </div>
+                            <h3 class="font-extrabold text-[15px] text-[#2D2A4A] tracking-tight mb-1 w-full truncate px-1">${App.escape(cls.name)}</h3>
+                            <p class="text-[9px] tracking-widest text-gray-400 font-bold uppercase mb-4 w-full truncate px-1">${App.escape(cls.level)}</p>
+                            <button onclick="${isLocked ? '' : `App.navigate('class', {code: '${cls.code}'})`}" class="w-full rounded-full py-2.5 text-[12px] font-bold flex items-center justify-center gap-1.5 transition-colors ${btnClass}">
+                                ${btnContent}
+                            </button>
+                        </div>
+                        `;
+                    }).join('');
+
+                    return this.header() + `
+                        <section class="px-6 pt-2 pb-6 animate-stagger"><div id="carousel-wrapper" class="relative" style="height: 220px;">${carouselCards}<div class="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5 z-20">${dots}</div></div></section>
+                        <section class="px-6 pb-28 animate-stagger" style="animation-delay: 0.1s">
+                            <div class="mb-5"><h2 class="text-[22px] font-extrabold text-[#2D2A4A] tracking-tight">All Courses</h2><p class="text-xs text-gray-500 mt-1">View our full course collection here.</p></div>
+                            <div class="grid grid-cols-2 gap-4">${classCards}</div>
+                        </section>
+                    `;
+                },
+
+                myhub() {
+                    const user = XY_AUTH.getCurrentUser();
+                    
+                    let petSummaryHtml = '';
+                    if (PetManager.state && PetManager.state.petId) {
+                        const pet = PetManager.getPet();
+                        const stage = PetManager.getStage();
+                        petSummaryHtml = `
+                            <div class="card-solid p-4 mb-6 active-scale cursor-pointer flex items-center justify-between border-l-[4px] border-l-[#6B48FF]" onclick="App.navigate('pet')">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#E9E5FF] to-[#F8F8FC] flex items-center justify-center text-3xl shadow-inner">
+                                        ${pet.emoji}
+                                    </div>
+                                    <div>
+                                        <h3 class="font-extrabold text-[16px] text-[#2D2A4A] tracking-tight">${pet.name}</h3>
+                                        <p class="text-[11px] text-[#6B48FF] font-bold tracking-wide">Lv ${PetManager.getLevel()} ${stage.name} · ${PetManager.state.stars} ⭐</p>
+                                    </div>
+                                </div>
+                                <div class="w-9 h-9 rounded-full bg-[#F4F2FF] flex items-center justify-center text-[#6B48FF]">
+                                    <i class="fa-solid fa-angle-right text-sm"></i>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        petSummaryHtml = `
+                            <div class="card-solid p-4 mb-6 active-scale cursor-pointer flex items-center justify-between border-dashed border-2 border-gray-200 shadow-none" onclick="App.navigate('pet')">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center text-2xl text-gray-300">🥚</div>
+                                    <div>
+                                        <h3 class="font-extrabold text-[15px] text-[#2D2A4A]">My Companion</h3>
+                                        <p class="text-[11px] text-gray-400 font-medium">Adopt a pet to grow with you!</p>
+                                    </div>
+                                </div>
+                                <i class="fa-solid fa-angle-right text-gray-300 mr-2"></i>
+                            </div>
+                        `;
+                    }
+
+                    const myClassesHtml = user.classes.map((code, i) => {
+                        const cls = XY_CLASSES.find(c => c.code === code);
+                        if(!cls) return '';
+                        return `
+                        <div class="card-solid p-5 flex flex-col items-center text-center animate-stagger" style="animation-delay: ${(i*0.05)}s">
+                            <div class="w-16 h-16 rounded-full ${cls.bg} ${cls.color} flex items-center justify-center mb-4 text-[26px]"><i class="fa-solid ${cls.icon}"></i></div>
+                            <h3 class="font-extrabold text-[15px] text-[#2D2A4A] tracking-tight mb-1 w-full truncate px-1">${App.escape(cls.name)}</h3>
+                            <p class="text-[9px] tracking-widest text-gray-400 font-bold uppercase mb-4 w-full truncate px-1">${App.escape(cls.level)}</p>
+                            <button onclick="App.navigate('class', {code: '${cls.code}'})" class="w-full bg-[#6B48FF] text-white rounded-full py-2.5 text-[12px] font-bold shadow-md shadow-[#6B48FF]/20 active-scale transition-colors">Enter</button>
+                        </div>`;
+                    }).join('');
+
+                    return this.header() + `
+                        <section class="px-6 pt-4 animate-stagger"><h1 class="text-[26px] font-extrabold text-[#2D2A4A] tracking-tight leading-tight">My Hub</h1><p class="text-sm text-gray-500 mt-1 mb-6">Your companion & enrolled classes.</p></section>
+                        <section class="px-6 animate-stagger" style="animation-delay: 0.1s">${petSummaryHtml}</section>
+                        <section class="px-6 pb-28"><div class="grid grid-cols-2 gap-4">${myClassesHtml}</div></section>
+                    `;
+                },
+
+                pet() {
+                    if (!PetManager.state || !PetManager.state.petId) return this.header(true) + `<div class="p-10 text-center text-gray-500 mt-20">Opening incubator...</div>`;
+                    
+                    const pet = PetManager.getPet();
+                    const acc = PetManager.getAccessory();
+                    const p = PetManager.getProgress();
+                    const stage = PetManager.getStage();
+                    const activeAura = AURAS.find(a => a.id === PetManager.state.auraId) || AURAS[0];
+                    const unlockedAccCount = ACCESSORIES.filter(a => a.id !== 'none' && PetManager.state.stars >= a.unlockStars).length;
+
+                    const accRow = ACCESSORIES.map(a => {
+                        const unlocked = PetManager.state.stars >= a.unlockStars;
+                        const active = PetManager.state.accessoryId === a.id;
+                        const cls = `option-btn active-scale ${active ? 'active' : ''} ${!unlocked ? 'locked' : ''}`;
+                        const label = a.icon ? `${a.icon} ${a.text}` : a.text;
+                        const lockTxt = !unlocked ? ` <span class="text-[9px] opacity-70 ml-1">🔒 ${a.unlockStars}⭐</span>` : '';
+                        const action = unlocked ? `PetManager.state.accessoryId='${a.id}';PetManager.save().then(()=>App.render());` : `App.actions.showAlert('Need ${a.unlockStars} stars to unlock!', '🔒 Locked')`;
+                        return `<button class="${cls}" onclick="${action}">${label}${lockTxt}</button>`;
+                    }).join('');
+
+                    const auraRow = AURAS.map(a => {
+                        const active = PetManager.state.auraId === a.id;
+                        const cls = `option-btn active-scale ${active ? 'active' : ''}`;
+                        const action = `PetManager.state.auraId='${a.id}';PetManager.save().then(()=>App.render());`;
+                        return `<button class="${cls}" onclick="${action}">${a.text}</button>`;
+                    }).join('');
+
+                    return this.header(true) + `
+                        <section class="px-6 pt-2 pb-24 animate-stagger">
+                            <div class="pet-hero p-5 mb-5 bg-gradient-to-br ${activeAura.gradient} transition-all duration-1000">
+                                <div class="flex items-center gap-4 relative z-10">
+                                    <div class="pet-stage shrink-0 relative overflow-visible">
+                                        <div class="relative inline-flex items-center justify-center transition-all duration-1000 animate-float-bounce" style="transform: ${stage.scale}; filter: ${stage.filter}; width: 80px; height: 80px;">
+                                            <div class="text-[72px] leading-none">${pet.emoji}</div>
+                                            ${acc.icon ? `<div class="absolute leading-none z-10 drop-shadow-md" style="font-size: ${acc.size}; ${acc.pos}">${acc.icon}</div>` : ''}
+                                        </div>
+                                    </div>
+                                    <div class="flex-1 drop-shadow-sm">
+                                        <h2 class="text-[22px] font-extrabold text-[#2D2A4A] tracking-tight mb-1">${pet.name}</h2>
+                                        <p class="text-[11px] text-gray-600 font-bold mb-3">${stage.name} ${pet.type}</p>
+                                        <div class="inline-block bg-[#1C1C28] text-white rounded-full px-3 py-1 text-[11px] font-bold tracking-wider mb-2 shadow-md">Lv ${PetManager.getLevel()}</div>
+                                        <div class="energy-bar-wrapper"><div class="energy-bar" style="width: ${p.pct}%"></div></div>
+                                        <p class="text-[10px] text-gray-500 mt-1 font-bold tracking-wide">${p.cur} / ${p.max} to Level Up</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-3 gap-3 mb-6">
+                                <div class="card-solid py-3 px-2 text-center"><div class="text-xl font-black text-[#6B48FF]">${PetManager.state.stars}</div><div class="text-[9px] text-gray-400 font-bold uppercase mt-1">Stars</div></div>
+                                <div class="card-solid py-3 px-2 text-center"><div class="text-xl font-black text-[#2D2A4A]">${PetManager.state.hwCompleted.length}</div><div class="text-[9px] text-gray-400 font-bold uppercase mt-1">Tasks</div></div>
+                                <div class="card-solid py-3 px-2 text-center"><div class="text-xl font-black text-[#2D2A4A]">${unlockedAccCount}/6</div><div class="text-[9px] text-gray-400 font-bold uppercase mt-1">Outfits</div></div>
+                            </div>
+
+                            <p class="text-[10px] tracking-widest font-bold text-gray-400 uppercase mb-3 ml-1">— Accessories —</p>
+                            <div class="option-row mb-6">${accRow}</div>
+
+                            <p class="text-[10px] tracking-widest font-bold text-gray-400 uppercase mb-3 ml-1">— Aura —</p>
+                            <div class="option-row mb-5">${auraRow}</div>
+                            
+                            <div class="grid grid-cols-2 gap-3 mt-2">
+                                <div class="card-solid p-4 text-center cursor-pointer active-scale bg-gradient-to-r from-green-50 to-emerald-50 border-green-100" onclick="App.actions.testAddStars()">
+                                    <i class="fa-solid fa-wand-magic-sparkles text-green-500 mb-2 text-lg"></i>
+                                    <h3 class="text-[13px] font-bold text-green-900">Test (+5 ⭐)</h3>
+                                </div>
+                                <div class="card-solid p-4 text-center cursor-pointer active-scale bg-gradient-to-r from-red-50 to-orange-50 border-red-100" onclick="App.actions.openChangePetModal()">
+                                    <i class="fa-solid fa-arrows-rotate text-red-400 mb-2 text-lg"></i>
+                                    <h3 class="text-[13px] font-bold text-red-900">Change</h3>
+                                </div>
+                            </div>
+                        </section>
+                    `;
+                },
+
+                classDetail(classCode) {
+                    const cls = XY_CLASSES.find(c => c.code === classCode);
+                    if (!cls) return '';
+                    const user = XY_AUTH.getCurrentUser();
+                    const header = this.header(true);
+
+                    if (!user || (user.role === 'student' && !user.classes.includes(classCode))) {
+                        return header + `<div class="px-6 flex flex-col items-center justify-center min-h-[75vh] text-center page-enter pb-20"><div class="text-[90px] leading-none mb-6 animate-float-bounce drop-shadow-2xl">🙈</div><h2 class="text-[28px] font-black mb-3 text-[#2D2A4A] tracking-tight">哒咩！走错门啦！</h2><p class="text-[14px] text-gray-500 mb-10 max-w-[260px] mx-auto leading-relaxed font-medium"><span class="text-[#6B48FF] font-extrabold text-[15px]">${App.escape(cls.name)}</span> 的封印还没解开 🪄<br><br>快去看看属于你自己的魔法课程吧！🏃‍♂️💨</p><button onclick="App.navigate('home')" class="bg-[#6B48FF] text-white px-10 py-3.5 rounded-full font-extrabold shadow-xl shadow-[#6B48FF]/30 active-scale text-[15px] flex items-center gap-2">返回我的主场 <i class="fa-solid fa-house text-xs"></i></button></div>`;
+                    }
+
+                    const classInfo = `<section class="px-6 pt-4 mb-6 animate-stagger"><div class="relative overflow-hidden rounded-[20px] bg-gradient-to-r ${cls.gradient} p-6 text-white shadow-xl shadow-indigo-500/10"><i class="fa-solid ${cls.icon} absolute -right-6 -bottom-6 text-[130px] opacity-[0.12] transform -rotate-12 pointer-events-none"></i><div class="relative z-10"><span class="text-[9px] font-bold tracking-widest uppercase opacity-80">${App.escape(cls.level)} TRACK</span><h1 class="text-[28px] font-extrabold mt-1 tracking-tight">${App.escape(cls.name)}</h1></div></div></section>`;
+
+                    const overrides = getHwOverrides();
+                    const hwList = XY_HOMEWORK.filter(hw => {
+                        const finalStatus = overrides[hw.id] !== undefined ? overrides[hw.id] : hw.status;
+                        return hw.classCode === classCode && (user.role === 'teacher' || finalStatus === 'open');
+                    });
+
+                    let hwHTML = '';
+                    if (hwList.length === 0) {
+                        hwHTML = `<div class="col-span-2 card-solid p-8 text-center text-gray-400 border-dashed border-2 border-gray-200 shadow-none"><i class="fa-solid fa-inbox text-2xl mb-2 text-gray-300"></i><p class="text-xs font-bold text-gray-500">本周课程准备中</p></div>`;
+                    } else {
+                        hwHTML = hwList.map((hw, i) => {
+                            const isArchived = (overrides[hw.id] || hw.status) === 'closed';
+                            const isDone = user.role === 'student' && PetManager.state && PetManager.state.hwCompleted.includes(hw.id);
+                            let onClickAction = `App.actions.openHomework('${hw.file}')`;
+                            if (user.role === 'student' && !isDone) onClickAction = `PetManager.completeHomework('${hw.id}', '${hw.file}')`;
+
+                            return `
+                            <div class="card-solid p-5 flex flex-col items-start animate-stagger" style="animation-delay: ${(i*0.05)}s">
+                                <div class="w-8 h-8 rounded-full ${cls.bg} ${cls.color} flex items-center justify-center mb-4 text-sm">
+                                    <i class="fa-solid fa-compass"></i>
+                                </div>
+                                <div class="flex items-center gap-1 mb-2">
+                                    ${isArchived ? '<span class="text-[9px] bg-gray-100 text-gray-500 font-bold px-2 py-1 rounded">ARCHIVED</span>' : ''}
+                                    ${isDone ? '<span class="text-[9px] bg-green-100 text-green-600 font-bold px-2 py-1 rounded">DONE ⭐</span>' : ''}
+                                </div>
+                                <h3 class="font-extrabold text-[16px] text-[#2D2A4A] mb-4 leading-tight flex-1 ${isArchived ? 'opacity-60' : ''}">${App.escape(hw.unit)}<br><span class="text-[12px] font-medium text-gray-400">${App.escape(hw.title)}</span></h3>
+                                <button onclick="${onClickAction}" class="w-full bg-[#6B48FF] text-white shadow-md shadow-[#6B48FF]/20 active-scale rounded-xl py-3 text-[13px] font-bold transition-colors">
+                                    Enter
+                                </button>
+                            </div>
+                        `}).join('');
+                    }
+
+                    return header + classInfo + `<section class="px-6 pb-28"><div class="grid grid-cols-2 gap-4">${hwHTML}</div></section>`;
+                },
+
+                teacherPanel() {
+                    const overrides = getHwOverrides();
+                    let openCount = 0;
+                    const hwToggles = XY_HOMEWORK.map((hw, i) => {
+                        const isOp = overrides[hw.id] !== undefined ? (overrides[hw.id] === 'open') : (hw.status === 'open');
+                        if (isOp) openCount++;
+                        return `
+                        <div class="flex justify-between items-center p-4 border-b border-gray-50 last:border-0 animate-stagger" style="animation-delay: ${(i*0.05)}s">
+                            <div>
+                                <span class="text-[9px] bg-[#F4F2FF] text-[#6B48FF] px-2 py-0.5 rounded font-bold mr-1 uppercase">${App.escape(hw.classCode)}</span>
+                                <p class="text-sm font-extrabold text-[#2D2A4A] inline">${App.escape(hw.title)}</p>
+                            </div>
+                            <div class="relative inline-block w-10 mr-1 align-middle select-none">
+                                <input type="checkbox" id="tgl-${hw.id}" ${isOp ? 'checked' : ''} onchange="App.actions.toggleHw('${hw.id}', this.checked)" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 border-gray-300 appearance-none cursor-pointer z-10 transition-transform duration-200 ease-in-out"/>
+                                <label for="tgl-${hw.id}" class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-200 cursor-pointer transition-colors duration-200 ease-in-out"></label>
+                            </div>
+                        </div>`;
+                    }).join('');
+
+                    return this.header() + `
+                        <section class="px-6 pt-4 mb-8 animate-stagger">
+                            <h1 class="text-[26px] font-extrabold text-[#2D2A4A] mb-1">Teacher Admin</h1>
+                            <p class="text-xs text-gray-500 mb-6">工作室数据总览与分发控制。</p>
+                            
+                            <div class="grid grid-cols-3 gap-3 mb-8">
+                                <div class="card-solid p-4 text-center"><p class="text-[9px] text-gray-400 font-bold uppercase mb-1">Classes</p><p class="text-2xl font-black text-[#2D2A4A]">${XY_CLASSES.length}</p></div>
+                                <div class="card-solid p-4 text-center"><p class="text-[9px] text-gray-400 font-bold uppercase mb-1">Students</p><p class="text-2xl font-black text-[#2D2A4A]">${XY_STUDENTS.length}</p></div>
+                                <div class="card-solid p-4 text-center border-b-4 border-b-[#00BFA5]"><p class="text-[9px] text-gray-400 font-bold uppercase mb-1">Open HW</p><p class="text-2xl font-black text-[#00BFA5]" id="ui-hw-count">${openCount}</p></div>
+                            </div>
+
+                            <h2 class="text-lg font-extrabold text-[#2D2A4A] mb-3 pl-1">作业分发控制</h2>
+                            <div class="card-solid overflow-hidden mb-10">${hwToggles}</div>
+                            
+                            <h2 class="text-lg font-extrabold text-[#2D2A4A] mb-3 pl-1">添加新学生 (同步到云端数据库)</h2>
+                            <div class="card-solid p-5 animate-stagger pb-10 mb-32" style="animation-delay: 0.1s">
+                                <div class="flex gap-3 mb-4">
+                                    <div class="flex-1"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">ID (可修改)</label><input type="text" id="form-id" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-[#6B48FF] outline-none focus:border-[#6B48FF]"></div>
+                                    <div class="flex-1"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 flex justify-between">PWD <i class="fa-solid fa-rotate text-[#6B48FF] cursor-pointer active-scale" onclick="App.actions.regenPwd()"></i></label><input type="text" id="form-pwd" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-[#6B48FF] outline-none focus:border-[#6B48FF]"></div>
+                                </div>
+                                <div class="mb-4"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">Name</label><input type="text" id="form-name" placeholder="输入姓名" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:border-[#6B48FF]"></div>
+                                <div class="mb-6"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-2 block">Assign Classes (多选)</label><div class="flex flex-wrap gap-2" id="chip-container">${XY_CLASSES.map(c => `<div onclick="App.actions.toggleChip('${c.code}', this)" class="chip bg-[#F8F8FC] text-gray-500 text-[11px] px-3.5 py-2 rounded-xl">${App.escape(c.name)}</div>`).join('')}</div></div>
+                                <button id="btn-register" onclick="App.actions.saveStudentToDB()" class="w-full bg-[#2D2A4A] text-white font-bold rounded-xl py-3.5 shadow-lg active-scale">直接添加至云端数据库</button>
+                            </div>
+                        </section>
+                    `;
+                }
+            },
+
+            actions: {
+                _carouselTimer: null,
+                _carouselIdx: 0,
+                
+                initCarousel() {
+                    if (this._carouselTimer) { clearInterval(this._carouselTimer); this._carouselTimer = null; }
+                    const slides = document.querySelectorAll('.carousel-slide');
+                    const dots = document.querySelectorAll('.carousel-dot');
+                    if (slides.length === 0) return;
+                    this._carouselIdx = 0;
+                    const showSlide = (idx) => {
+                        slides.forEach((s, i) => {
+                            if (i === idx) { s.style.opacity = '1'; s.style.pointerEvents = 'auto'; }
+                            else { s.style.opacity = '0'; s.style.pointerEvents = 'none'; }
+                            s.style.transition = 'opacity 0.8s ease-in-out';
+                        });
+                        dots.forEach((d, i) => {
+                            if (i === idx) { d.classList.remove('bg-white/40'); d.classList.add('bg-white'); d.style.width = '18px'; }
+                            else { d.classList.add('bg-white/40'); d.classList.remove('bg-white'); d.style.width = '6px'; }
+                        });
+                        this._carouselIdx = idx;
+                    };
+                    showSlide(0);
+                    dots.forEach((dot, i) => {
+                        dot.addEventListener('click', () => {
+                            showSlide(i);
+                            if (this._carouselTimer) clearInterval(this._carouselTimer);
+                            this._carouselTimer = setInterval(() => showSlide((this._carouselIdx + 1) % slides.length), 5000);
+                        });
+                    });
+                    this._carouselTimer = setInterval(() => showSlide((this._carouselIdx + 1) % slides.length), 5000);
+                },
+
+                toggleLoginModal(show) {
+                    const root = document.getElementById('modal-root');
+                    if (!show) { root.innerHTML = ''; return; }
+                    root.innerHTML = `<div class="fixed inset-0 z-50 flex items-end justify-center"><div class="absolute inset-0 bg-black/40 backdrop-blur-sm" style="animation: fadeIn 0.3s forwards" onclick="App.actions.toggleLoginModal(false)"></div><div class="bg-white rounded-t-[32px] p-8 w-full max-w-md relative z-10 shadow-2xl" style="animation: slideUpFade 0.4s cubic-bezier(0.2,0.8,0.2,1) forwards"><div class="text-center mb-6"><div class="w-14 h-14 bg-[#F4F2FF] rounded-full mx-auto flex items-center justify-center text-[#6B48FF] mb-3 border-4 border-white shadow-sm"><i class="fa-solid fa-user-astronaut text-xl"></i></div><h2 class="text-2xl font-black text-[#2D2A4A]">Welcome</h2><p class="text-xs text-gray-500 mt-1 font-medium">请登录访问你的课程内容</p></div><div class="space-y-4 mb-6"><input type="text" id="login-id" placeholder="Account ID (e.g. S01)" class="w-full bg-[#F8F8FC] border border-transparent rounded-2xl px-5 py-4 text-[15px] font-bold focus:bg-white focus:border-[#6B48FF] outline-none transition-colors"><input type="password" id="login-pwd" placeholder="Password" class="w-full bg-[#F8F8FC] border border-transparent rounded-2xl px-5 py-4 text-[15px] font-bold focus:bg-white focus:border-[#6B48FF] outline-none transition-colors"></div><button onclick="App.actions.doLogin()" class="w-full bg-[#6B48FF] text-white font-bold rounded-2xl py-4 shadow-lg shadow-[#6B48FF]/30 active-scale">Sign In</button><p id="login-error" class="text-red-500 text-xs text-center mt-4 hidden font-bold">账号或密码错误，请重试</p></div></div>`;
+                },
+
+                async doLogin() {
+                    const id = document.getElementById('login-id').value.trim();
+                    const pwd = document.getElementById('login-pwd').value.trim();
+                    
+                    const loginBtn = document.querySelector('button[onclick="App.actions.doLogin()"]');
+                    const originalText = loginBtn ? loginBtn.textContent : '';
+                    if (loginBtn) {
+                        loginBtn.disabled = true;
+                        loginBtn.textContent = '登录中...';
+                    }
+                    
+                    try {
+                        const result = await XY_AUTH.login(id, pwd);
+                        if (result && !result.error) {
+                            this.toggleLoginModal(false);
+                            if (result.role === 'teacher') App.navigate('teacher');
+                            else App.navigate('home'); 
+                        } else {
+                            const errEl = document.getElementById('login-error');
+                            errEl.classList.remove('hidden');
+                            // 如果是从后端抛出了 error 字段，说明是没建表，显示特殊的提示信息
+                            if (result && result.error) {
+                                errEl.textContent = result.msg;
+                            } else {
+                                errEl.textContent = '账号或密码错误，请重试';
+                            }
+
+                            if (loginBtn) {
+                                loginBtn.disabled = false;
+                                loginBtn.textContent = originalText;
+                            }
+                        }
+                    } catch (err) {
+                        console.error('登录异常:', err);
+                        const errEl = document.getElementById('login-error');
+                        errEl.classList.remove('hidden');
+                        errEl.textContent = '网络错误,请重试';
+                        if (loginBtn) {
+                            loginBtn.disabled = false;
+                            loginBtn.textContent = originalText;
+                        }
+                    }
+                },
+
+                doLogout() {
+                    XY_AUTH.logout();
+                    App.navigate('home');
+                },
+
+                openHomework(path) {
+                    if (window.location.protocol === 'blob:' || window.location.protocol === 'about:') App.actions.showAlert(`[预览环境] 模拟跳转到: ${path}`, '🧭 页面跳转拦截');
+                    else window.location.href = 'classes/' + path;
+                },
+
+                toggleHw(id, isChecked) {
+                    const overrides = getHwOverrides();
+                    overrides[id] = isChecked ? 'open' : 'closed';
+                    setHwOverrides(overrides);
+                    let openCount = 0;
+                    XY_HOMEWORK.forEach(hw => {
+                        const status = overrides[hw.id] !== undefined ? overrides[hw.id] : hw.status;
+                        if(status === 'open') openCount++;
+                    });
+                    document.getElementById('ui-hw-count').innerText = openCount;
+                },
+
+                initTeacherForm() {
+                    App.state.teacherForm.classes = [];
+                    const ids = XY_STUDENTS.map(s => parseInt(s.id.replace('S', ''))).filter(n => !isNaN(n));
+                    const nextNum = ids.length > 0 ? Math.max(...ids) + 1 : 1;
+                    document.getElementById('form-id').value = 'S' + nextNum.toString().padStart(2, '0');
+                    this.regenPwd();
+                },
+
+                regenPwd() { document.getElementById('form-pwd').value = Math.floor(1000 + Math.random() * 9000); },
+
+                toggleChip(code, el) {
+                    const arr = App.state.teacherForm.classes;
+                    if (arr.includes(code)) {
+                        App.state.teacherForm.classes = arr.filter(c => c !== code);
+                        el.classList.remove('selected');
+                    } else {
+                        arr.push(code);
+                        el.classList.add('selected');
+                    }
+                },
+
+                showAlert(msg, title = '提示') {
+                    const root = document.getElementById('modal-root');
+                    root.innerHTML = `
+                        <div class="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+                            <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" style="animation: fadeIn 0.3s forwards" onclick="document.getElementById('modal-root').innerHTML=''"></div>
+                            <div class="bg-white rounded-[32px] p-6 w-full max-w-sm relative z-10 shadow-2xl text-center" style="animation: slideUpFade 0.3s forwards">
+                                <h3 class="text-[18px] font-black text-[#2D2A4A] mb-3">${title}</h3>
+                                <p class="text-[14px] text-gray-500 mb-6 font-medium whitespace-pre-wrap leading-relaxed">${msg}</p>
+                                <button onclick="document.getElementById('modal-root').innerHTML=''" class="w-full bg-[#6B48FF] text-white font-bold rounded-2xl py-3.5 shadow-lg shadow-[#6B48FF]/30 active-scale">我知道了</button>
+                            </div>
+                        </div>
+                    `;
+                },
+
+                async saveStudentToDB() {
+                    const id = document.getElementById('form-id').value;
+                    const pwd = document.getElementById('form-pwd').value;
+                    const name = document.getElementById('form-name').value.trim();
+                    const classes = App.state.teacherForm.classes;
+                    if (!name || classes.length === 0) return this.showAlert('请填写姓名并选择至少一个班级', '⚠️ 提示');
+                    
+                    const btn = document.getElementById('btn-register');
+                    const origText = btn.innerText;
+                    btn.innerText = '正在上传...';
+                    btn.disabled = true;
+
+                    try {
+                        const { error } = await sb.from('students').insert({
+                            id: id,
+                            password: pwd,
+                            name: name,
+                            classes: classes
+                        });
+
+                        btn.innerText = origText;
+                        btn.disabled = false;
+
+                        if (error) {
+                            if(error.code === '23505') return this.showAlert(`账号 ${id} 已存在，请手动修改一下ID后再试。`, '⚠️ 账号重复');
+                            return this.showAlert('添加失败: ' + error.message, '❌ 错误');
+                        } 
+                        
+                        this.showAlert(`账号：${id}\n密码：${pwd}\n\n该学生现在可以正常登录了！`, '✅ 添加成功！');
+                        XY_STUDENTS.push({id, password: pwd, name, classes});
+                        this.initTeacherForm();
+                        document.getElementById('form-name').value = '';
+                        document.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
+                        App.render();
+                    } catch (err) {
+                        btn.innerText = origText;
+                        btn.disabled = false;
+                        this.showAlert('网络请求异常，请重试: ' + err.message, '❌ 网络错误');
+                    }
+                },
+
+                testAddStars() {
+                    PetManager.state.stars += 5;
+                    PetManager.save();
+                    App.actions.showStarToast(5);
+                    App.render();
+                },
+
+                generateCode() {
+                    const id = document.getElementById('form-id').value;
+                    const pwd = document.getElementById('form-pwd').value;
+                    const name = document.getElementById('form-name').value.trim();
+                    const classes = App.state.teacherForm.classes;
+                    if (!name || classes.length === 0) return this.showAlert('请填写姓名并选择班级', '⚠️ 提示');
+                    const str = classes.map(c => `'${c}'`).join(', ');
+                    document.getElementById('code-text').value = `{ id: '${id}', password: '${pwd}', name: '${name}', classes: [${str}] },`;
+                    document.getElementById('code-output').classList.remove('hidden');
+                },
+
+                copyCode() {
+                    const text = document.getElementById('code-text').value;
+                    try { navigator.clipboard.writeText(text).then(() => this.showAlert('代码已复制至剪贴板', '✅ 成功')); } 
+                    catch(e) { document.getElementById('code-text').select(); document.execCommand('copy'); this.showAlert('代码已复制', '✅ 成功'); }
+                },
+
+                openPetSelection() {
+                    const root = document.getElementById('modal-root');
+                    const grid = PET_DB.map(p => `
+                        <div class="card-solid p-4 text-center cursor-pointer active-scale border-2 border-transparent hover:border-[#6B48FF] transition-colors" onclick="App.actions.selectPet('${p.id}')">
+                            <div class="text-[40px] mb-2">${p.emoji}</div>
+                            <h4 class="font-bold text-sm">${p.name}</h4>
+                            <p class="text-[9px] text-gray-500 uppercase">${p.type}</p>
+                        </div>
+                    `).join('');
+                    root.innerHTML = `
+                        <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+                            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" style="animation: fadeIn 0.3s forwards"></div>
+                            <div class="bg-white rounded-[32px] p-6 w-full max-w-md relative z-10 shadow-2xl" style="animation: slideUpFade 0.4s cubic-bezier(0.2,0.8,0.2,1) forwards">
+                                <h2 class="text-2xl font-black text-center text-[#2D2A4A] mb-1">Choose Companion</h2>
+                                <p class="text-xs text-center text-gray-500 mb-6">This companion will grow with you.</p>
+                                <div class="grid grid-cols-2 gap-3 mb-6">${grid}</div>
+                            </div>
+                        </div>
+                    `;
+                },
+
+                selectPet(id) {
+                    PetManager.state.petId = id;
+                    PetManager.state.adoptionDate = new Date().toISOString();
+                    PetManager.save();
+                    document.getElementById('modal-root').innerHTML = '';
+                    App.render();
+                },
+
+                openChangePetModal() {
+                    const root = document.getElementById('modal-root');
+                    const canAfford = PetManager.state.stars >= 20;
+                    
+                    root.innerHTML = `
+                        <div class="fixed inset-0 z-50 flex items-center justify-center p-6">
+                            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" style="animation: fadeIn 0.3s forwards" onclick="App.actions.closeModal()"></div>
+                            <div class="bg-white rounded-[32px] p-6 w-full max-w-sm relative z-10 shadow-2xl text-center" style="animation: slideUpFade 0.4s cubic-bezier(0.2,0.8,0.2,1) forwards">
+                                <div class="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 text-3xl">
+                                    <i class="fa-solid fa-arrows-rotate"></i>
+                                </div>
+                                <h2 class="text-xl font-black text-[#2D2A4A] mb-2">Change Companion?</h2>
+                                <p class="text-[13px] text-gray-500 mb-6 leading-relaxed">
+                                    This will release your current companion into the stars and let you choose a new one. <br><br>
+                                    <span class="font-bold text-[#2D2A4A]">Cost: 20 ⭐</span> (You have ${PetManager.state.stars} ⭐)
+                                </p>
+                                <div class="flex gap-3">
+                                    <button onclick="App.actions.closeModal()" class="flex-1 bg-gray-100 text-gray-600 font-bold rounded-2xl py-3.5 active-scale">Cancel</button>
+                                    <button onclick="${canAfford ? 'App.actions.executeFarewell()' : 'App.actions.showAlert(\\\'Not enough stars!\\\', \\\'⚠️ Oops\\\')'}" class="flex-1 ${canAfford ? 'bg-[#6B48FF] text-white shadow-lg shadow-[#6B48FF]/30' : 'bg-gray-300 text-white cursor-not-allowed'} font-bold rounded-2xl py-3.5 active-scale">
+                                        ${canAfford ? 'Confirm' : 'Need 20 ⭐'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                },
+
+                executeFarewell() {
+                    this.closeModal();
+                    PetManager.state.stars -= 20;
+                    PetManager.save();
+                    this.playFarewellEpic();
+                },
+
+                closeModal() {
+                    document.getElementById('modal-root').innerHTML = '';
+                },
+
+                playFarewellEpic() {
+                    const overlay = document.getElementById('farewell-overlay');
+                    const emoji = document.getElementById('farewell-emoji');
+                    const name = document.getElementById('fw-name');
+                    
+                    emoji.textContent = PetManager.getPet().emoji;
+                    name.textContent = PetManager.getPet().name;
+
+                    const bg = document.getElementById('star-bg');
+                    bg.innerHTML = '';
+                    for(let i=0; i<50; i++) {
+                        let div = document.createElement('div');
+                        div.className = 'star';
+                        div.style.left = Math.random() * 100 + '%';
+                        div.style.top = Math.random() * 100 + '%';
+                        div.style.width = Math.random() * 3 + 'px';
+                        div.style.height = div.style.width;
+                        div.style.animationDelay = Math.random() * 2 + 's';
+                        bg.appendChild(div);
+                    }
+
+                    overlay.classList.add('active');
+
+                    setTimeout(() => {
+                        overlay.classList.remove('active');
+                        PetManager.state.petId = null;
+                        PetManager.save();
+                        App.navigate('pet');
+                    }, 4000);
+                },
+
+                showStarToast(amount) {
+                    const toast = document.createElement('div');
+                    toast.className = 'star-toast';
+                    toast.innerHTML = `+${amount} ⭐`;
+                    document.body.appendChild(toast);
+                    setTimeout(() => toast.remove(), 2500);
+                }
+            }
+        };
+
+        const style = document.createElement('style');
+        style.innerHTML = `
+            @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+            @keyframes slideUpFade { from { transform: translateY(15px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        `;
+        document.head.appendChild(style);
+
+        window.onload = async () => {
+            try {
+                const [students, homework] = await Promise.all([
+                    loadStudents(),
+                    loadHomework()
+                ]);
+                XY_STUDENTS = students;
+                XY_HOMEWORK = homework;
+                
+                const user = XY_AUTH.getCurrentUser();
+                if (user && user.role === 'student') {
+                    await PetManager.init(user.id);
+                }
+                
+                App.render();
+            } catch (err) {
+                console.error('初始化失败:', err);
+                App.actions.showAlert('网络异常,请刷新重试。Error: ' + err.message, '❌ 加载失败');
+            }
+        };
+    </script>
+</body>
+</html>
