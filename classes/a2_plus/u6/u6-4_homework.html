@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Unit 6-4 Writing & Tense Master</title>
   
-  <!-- 仅保留 Tailwind 和 FontAwesome 两个轻量 CDN -->
+  <!-- 仅保留 Tailwind 和 FontAwesome 两个极简 CDN，彻底告别白屏加载 -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
   <style>
-    /* 移除 Google Fonts，强制使用系统默认最优字体链 */
+    /* 强制使用系统自带最快字体，禁用 Google Fonts，秒开网页 */
     body { 
       font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; 
       background-color: #e2e8f0; 
@@ -80,8 +80,6 @@
   <script>
     /* ========================================================
      * 文件用途: U6-4课后作业 - 写作赏析与混合时态大闯关 (原生版)
-     * 题目数量: 混合时态库共 35 题，每次抽 20 题。
-     * 如何修改: 直接修改下方 DATA_TASK_MODELS 和 DATA_MIX_TENSE_POOL 里的文本即可。
      * ======================================================== */
 
     var ELEVENLABS_API_KEY = "8afc05603ac30c7769ce6f76b2799b02e06773939d2704489ae66daef1ebdce1";
@@ -89,8 +87,43 @@
     var VOICE_FEMALE = "kdmDKE6EkgrWrrykO9Qt";
 
     var currentAudio = null;
-    var currentAudioBtnId = null; 
+    var currentAudioKey = null; 
+    var currentAudioSettings = null; 
     var isAudioLoading = false;
+    var audioCache = {}; 
+
+    // --- 高度自适应 ---
+    var syncViewportHeight = function() {
+      var viewport = window.visualViewport;
+      var nextHeight = Math.round(viewport ? viewport.height : window.innerHeight);
+      document.documentElement.style.setProperty('--app-height', nextHeight + 'px');
+    };
+    syncViewportHeight();
+
+    // --- 极简音效引擎 ---
+    function playTone(type) {
+      try {
+        var AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        var ctx = new AudioContext();
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        if (type === 'pop') {
+          osc.type = 'sine'; osc.frequency.setValueAtTime(700, ctx.currentTime);
+          gain.gain.setValueAtTime(0.15, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+          osc.start(); osc.stop(ctx.currentTime + 0.1);
+        } else if (type === 'success' || type === 'correct') {
+          osc.type = 'triangle'; osc.frequency.setValueAtTime(440, ctx.currentTime); osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15);
+          gain.gain.setValueAtTime(0.2, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
+          osc.start(); osc.stop(ctx.currentTime + 0.25);
+        } else if (type === 'wrong') {
+          osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, ctx.currentTime); osc.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + 0.3);
+          gain.gain.setValueAtTime(0, ctx.currentTime); gain.gain.linearRampToValueAtTime(0.2, ctx.currentTime + 0.05); gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.3);
+          osc.start(); osc.stop(ctx.currentTime + 0.3);
+        }
+      } catch (e) {}
+    }
 
     // --- 数据源: 范文与翻译 ---
     var DATA_TASK_MODELS = {
@@ -119,7 +152,7 @@
       }
     };
 
-    // --- 数据源: 萌化版混合时态题库 ---
+    // --- 数据源: 萌化版混合时态题库 (35题) ---
     var DATA_MIX_TENSE_POOL = [
       { q: "Look! It ______ outside right now.", opts: ["snows", "is snowing", "has snowed", "snowed"], a: "is snowing", exp: "👀 看到句首的 Look! 或者 Listen! 了吗？这就好像好朋友拍拍你的肩膀让你“快看！”，说明事情【此时此刻】正在发生哦！要用 is/am/are + ing。" },
       { q: "She usually ______ coffee, but today she is drinking tea.", opts: ["drinks", "is drinking", "drank", "has drunk"], a: "drinks", exp: "⏰ usually (通常) 就像一个生活小闹钟，表示这是每天都会重复的习惯。既然是习惯，咱们就用最简单的“一般现在时”！" },
@@ -158,17 +191,24 @@
       { q: "I ______ a great idea just now!", opts: ["have", "am having", "had", "have had"], a: "had", exp: "💡 just now 翻译为“刚才”，它是过去时的小间谍，碰到它请毫不犹豫地选择过去式 had！" }
     ];
 
+    function shuffleArray(array) {
+      var arr = array.slice();
+      for (var i = arr.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var temp = arr[i]; arr[i] = arr[j]; arr[j] = temp;
+      }
+      return arr;
+    }
+
     // --- 全局状态管理 (无框架原生实现) ---
     var STATE = {
-      activeTab: 'learning', // 'learning', 'test'
+      activeTab: 'learning',
       isMenuOpen: false,
-      // Learning 状态
       task2SubTopic: 'kitchen',
       voiceType: 'female',
       speed: 1.0,
-      showTranslation: { t1: false, kitchen: false, skate: false, music: false },
-      // Test 状态
-      quizState: 'intro', // 'intro', 'quiz', 'result'
+      showTranslation: {},
+      quizState: 'intro',
       quizItems: [],
       currentQ: 0,
       answers: {},
@@ -176,42 +216,6 @@
       quizResult: null,
       prevQuizItems: []
     };
-
-    // --- 工具函数 ---
-    function playTone(type) {
-      try {
-        var AudioContext = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContext) return;
-        var ctx = new AudioContext();
-        var osc = ctx.createOscillator();
-        var gain = ctx.createGain();
-        osc.connect(gain); gain.connect(ctx.destination);
-        if (type === 'pop') {
-          osc.type = 'sine'; osc.frequency.setValueAtTime(700, ctx.currentTime);
-          gain.gain.setValueAtTime(0.15, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
-          osc.start(); osc.stop(ctx.currentTime + 0.1);
-        } else if (type === 'success' || type === 'correct') {
-          osc.type = 'triangle'; osc.frequency.setValueAtTime(440, ctx.currentTime); osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15);
-          gain.gain.setValueAtTime(0.2, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
-          osc.start(); osc.stop(ctx.currentTime + 0.25);
-        } else if (type === 'wrong') {
-          osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, ctx.currentTime); osc.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + 0.3);
-          gain.gain.setValueAtTime(0, ctx.currentTime); gain.gain.linearRampToValueAtTime(0.2, ctx.currentTime + 0.05); gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.3);
-          osc.start(); osc.stop(ctx.currentTime + 0.3);
-        }
-      } catch (e) {}
-    }
-
-    function shuffleArray(array) {
-      var arr = array.slice();
-      for (var i = arr.length - 1; i > 0; i--) {
-        var j = Math.floor(Math.random() * (i + 1));
-        var temp = arr[i];
-        arr[i] = arr[j];
-        arr[j] = temp;
-      }
-      return arr;
-    }
 
     // --- ElevenLabs API & 缓存系统 (防弹重构) ---
     function resetAllAudioButtons() {
@@ -235,9 +239,10 @@
 
       var currentVoiceId = STATE.voiceType === 'male' ? VOICE_MALE : VOICE_FEMALE;
       var cacheKey = "el_audio_" + currentVoiceId + "_" + textHash;
+      var currentSettings = STATE.voiceType + "_" + STATE.speed;
 
-      // 1. 若点击的是同一个音频且正在播放/暂停
-      if (currentAudio && currentAudioKey === cacheKey) {
+      // 1. 若点击的是同一个音频且配置不变
+      if (currentAudio && currentAudioKey === cacheKey && currentAudioSettings === currentSettings) {
           if (currentAudio.paused) {
               currentAudio.playbackRate = STATE.speed;
               currentAudio.play();
@@ -258,7 +263,6 @@
           resetAllAudioButtons();
       }
 
-      // 视觉锁定
       isAudioLoading = true;
       btnElement.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-lg"></i>';
       btnElement.className = btnElement.className.replace('bg-sky-500', 'bg-slate-200 text-slate-400 cursor-not-allowed');
@@ -270,17 +274,14 @@
               currentAudio = new Audio(cachedAudio);
               currentAudio.playbackRate = STATE.speed;
               currentAudioKey = cacheKey;
+              currentAudioSettings = currentSettings;
               
-              currentAudio.onended = function() {
-                  resetAllAudioButtons();
-                  currentAudioKey = null;
-              };
-
+              currentAudio.onended = function() { resetAllAudioButtons(); currentAudioKey = null; currentAudioSettings = null; };
               currentAudio.play();
+              
               btnElement.innerHTML = '<i class="fa-solid fa-pause text-lg"></i>';
               btnElement.className = btnElement.className.replace('bg-slate-200 text-slate-400 cursor-not-allowed', 'bg-orange-500 text-white shadow-[0_0_15px_rgba(249,115,22,0.5)]');
           } else {
-              // 未命中缓存，调接口
               var response = await fetch("https://api.elevenlabs.io/v1/text-to-speech/" + currentVoiceId, {
                   method: "POST",
                   headers: { "Accept": "audio/mpeg", "Content-Type": "application/json", "xi-api-key": ELEVENLABS_API_KEY },
@@ -298,19 +299,16 @@
                   currentAudio = new Audio(base64data);
                   currentAudio.playbackRate = STATE.speed;
                   currentAudioKey = cacheKey;
+                  currentAudioSettings = currentSettings;
 
-                  currentAudio.onended = function() {
-                      resetAllAudioButtons();
-                      currentAudioKey = null;
-                  };
-
+                  currentAudio.onended = function() { resetAllAudioButtons(); currentAudioKey = null; currentAudioSettings = null; };
                   currentAudio.play();
+                  
                   btnElement.innerHTML = '<i class="fa-solid fa-pause text-lg"></i>';
                   btnElement.className = btnElement.className.replace('bg-slate-200 text-slate-400 cursor-not-allowed', 'bg-orange-500 text-white shadow-[0_0_15px_rgba(249,115,22,0.5)]');
               };
           }
       } catch (error) {
-          console.error("音频播放失败:", error);
           alert("语音生成失败,请检查网络。");
           resetAllAudioButtons();
       } finally {
@@ -319,14 +317,13 @@
       }
     };
 
-    // --- 静默预加载核心长文 (免流策略) ---
+    // 静默预加载（不影响页面展示）
     window.preloadAudio = async function() {
        var texts = [ DATA_TASK_MODELS.task1.engText, DATA_TASK_MODELS.task2.options[0].engText ];
        for (var i=0; i<texts.length; i++) {
            var cleanText = texts[i].replace(/<[^>]*>?/gm, '').replace(/_+/g, 'blank').trim();
            var textHash = btoa(unescape(encodeURIComponent(cleanText))).slice(0, 32);
            var cacheKey = "el_audio_" + VOICE_FEMALE + "_" + textHash;
-           
            if (!localStorage.getItem(cacheKey)) {
                try {
                    var response = await fetch("https://api.elevenlabs.io/v1/text-to-speech/" + VOICE_FEMALE, {
@@ -346,43 +343,39 @@
     };
 
     // ==========================================
-    // 交互行为集 (Vanilla Redux Actions)
+    // Vanilla JS Actions (原生交互控制)
     // ==========================================
     window.Actions = {
       toggleMenu: function() { playTone('pop'); STATE.isMenuOpen = !STATE.isMenuOpen; render(); },
       changeTab: function(tabId) { playTone('pop'); STATE.activeTab = tabId; STATE.isMenuOpen = false; render(); },
-      
-      // Learning 页面特有
       toggleSettings: function(type) {
          playTone('pop');
          if (type === 'voice') STATE.voiceType = STATE.voiceType === 'male' ? 'female' : 'male';
          if (type === 'speed') STATE.speed = STATE.speed === 1.0 ? 0.8 : 1.0;
-         if (currentAudio) { currentAudio.pause(); currentAudio = null; currentAudioKey = null; }
+         if (currentAudio) { currentAudio.pause(); currentAudio = null; currentAudioKey = null; currentAudioSettings = null; resetAllAudioButtons(); }
          render();
       },
       selectTask2: function(id) { playTone('pop'); STATE.task2SubTopic = id; render(); },
       toggleTranslation: function(id) { playTone('pop'); STATE.showTranslation[id] = !STATE.showTranslation[id]; render(); },
-
-      // Quiz 页面特有
+      
       startQuiz: function(isRetry) {
          playTone('pop');
-         var totalQs = 20;
+         var totalQs = 20; // 降低到 20 题
          var pool = DATA_MIX_TENSE_POOL.slice();
          var selected = [];
          
          if (isRetry && STATE.prevQuizItems.length > 0) {
-            var oldPool = shuffleArray(STATE.prevQuizItems).slice(0, 16); // 80% old
+            var oldPool = shuffleArray(STATE.prevQuizItems).slice(0, 16); 
             var remaining = pool.filter(function(q) {
                for(var i=0; i<oldPool.length; i++) if(oldPool[i].q === q.q) return true;
                return false;
             });
-            var newPool = shuffleArray(remaining).slice(0, 4); // 20% new
+            var newPool = shuffleArray(remaining).slice(0, 4); 
             selected = shuffleArray(oldPool.concat(newPool));
          } else {
             selected = shuffleArray(pool).slice(0, totalQs);
          }
 
-         // 生成选项索引
          for(var i=0; i<selected.length; i++) {
              var q = selected[i];
              q.randOptions = shuffleArray(q.opts);
@@ -403,7 +396,7 @@
          if (isCorrect) playTone('correct'); else playTone('wrong');
          
          STATE.answers[STATE.currentQ] = optIdx;
-         render(); // 重新渲染立刻显示对错
+         render(); 
          
          if (STATE.currentQ < STATE.quizItems.length - 1) {
              setTimeout(function() { STATE.currentQ++; render(); }, 600);
@@ -411,7 +404,6 @@
       },
       prevQ: function() { if (STATE.currentQ > 0) { STATE.currentQ--; render(); } },
       nextQ: function() { if (STATE.currentQ < STATE.quizItems.length - 1) { STATE.currentQ++; render(); } },
-      
       submitQuiz: function() {
          playTone('success');
          var correct = 0; var mistakes = [];
@@ -433,22 +425,31 @@
          STATE.quizState = 'result';
          render();
       },
-      
       quitQuiz: function() {
          if(confirm('要放弃本次测试吗？')) { playTone('pop'); STATE.quizState = 'intro'; render(); }
       },
-
       returnHome: function() {
          playTone('pop');
          var params = new URLSearchParams(window.location.search);
          var hwId = params.get('hwId');
-         // 向主应用回传成绩
-         window.location.href = "../index.html?hwId=" + hwId + "&score=" + STATE.quizResult.score;
+         
+         // 【核心修复：完美防 404 跳转链路】
+         var currentUrl = window.location.href;
+         var baseUrl = "";
+         if (currentUrl.indexOf('/classes/') !== -1) {
+             baseUrl = currentUrl.split('/classes/')[0];
+         } else {
+             // 如果在根目录直接打开
+             var parts = currentUrl.split('?')[0].split('/');
+             parts.pop();
+             baseUrl = parts.join('/');
+         }
+         window.location.href = baseUrl + "/index.html?hwId=" + hwId + "&score=" + STATE.quizResult.score;
       }
     };
 
     // ==========================================
-    // 渲染引擎 (HTML 拼装)
+    // 渲染引擎 (HTML 字符串拼接)
     // ==========================================
     function renderHeader() {
       var title = "Unit 6-4"; var sub = ""; var rightHtml = "";
@@ -457,20 +458,17 @@
          sub = "Columnist Master";
          rightHtml = '<button onclick="Actions.toggleMenu()" class="text-slate-500 hover:text-sky-600 px-4 py-2.5 rounded-xl border active-scale shadow-sm transition-all flex items-center justify-center ' + (STATE.isMenuOpen ? 'bg-sky-50 border-sky-200 text-sky-600' : 'bg-white/60 hover:bg-white border-slate-200') + '"><i class="fa-solid ' + (STATE.isMenuOpen ? 'fa-xmark' : 'fa-bars-staggered') + ' text-lg"></i></button>';
       } else {
-         if (STATE.quizState === 'intro') {
-            sub = "Test Mode";
+         sub = "Test Mode";
+         if (STATE.quizState === 'intro' || STATE.quizState === 'result') {
             rightHtml = '<button onclick="Actions.toggleMenu()" class="text-slate-500 hover:text-sky-600 px-4 py-2.5 rounded-xl border active-scale shadow-sm transition-all flex items-center justify-center ' + (STATE.isMenuOpen ? 'bg-sky-50 border-sky-200 text-sky-600' : 'bg-white/60 hover:bg-white border-slate-200') + '"><i class="fa-solid ' + (STATE.isMenuOpen ? 'fa-xmark' : 'fa-bars-staggered') + ' text-lg"></i></button>';
-         } else if (STATE.quizState === 'quiz') {
-            sub = "Test Mode";
-            rightHtml = '<button onclick="Actions.quitQuiz()" class="text-slate-400 hover:text-rose-500 bg-white/60 hover:bg-rose-50 w-11 h-11 rounded-xl border border-slate-200 active-scale shadow-sm transition-all flex items-center justify-center text-xl"><i class="fa-solid fa-person-running"></i></button>';
          } else {
-            sub = "Test Mode";
-            rightHtml = '<button onclick="Actions.quitQuiz()" class="text-slate-400 hover:text-rose-500 bg-white/60 hover:bg-rose-50 w-11 h-11 rounded-xl border border-slate-200 active-scale shadow-sm transition-all flex items-center justify-center text-xl"><i class="fa-solid fa-xmark"></i></button>';
+            // 逃脱按钮，仅保留小人狂奔的 icon
+            rightHtml = '<button onclick="Actions.quitQuiz()" class="text-slate-400 hover:text-rose-500 bg-white/60 hover:bg-rose-50 w-11 h-11 rounded-xl border border-slate-200 active-scale shadow-sm transition-all flex items-center justify-center text-xl"><i class="fa-solid fa-person-running"></i></button>';
          }
       }
 
       var menuHtml = "";
-      if (STATE.isMenuOpen && (STATE.activeTab === 'learning' || STATE.quizState === 'intro')) {
+      if (STATE.isMenuOpen && (STATE.activeTab === 'learning' || STATE.quizState === 'intro' || STATE.quizState === 'result')) {
          menuHtml = `
             <div class="absolute right-0 top-14 mt-2 w-52 bg-white/95 backdrop-blur-xl rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.15)] border border-slate-100 overflow-hidden menu-slide-down z-[100]">
                <div class="p-2 space-y-1">
@@ -529,12 +527,11 @@
 
     function renderAudioBtn(engText, id) {
        var isTrans = STATE.showTranslation[id];
-       // 预置好干净的 onclick 传参，避免特殊字符破坏 HTML
        var encodedText = encodeURIComponent(engText);
        return `
           <div class="flex gap-2 shrink-0">
              <button onclick="Actions.toggleTranslation('${id}')" class="w-11 h-11 rounded-full flex items-center justify-center shadow-sm border transition-all active-scale ${isTrans ? 'bg-sky-100 text-sky-600 border-sky-300' : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-sky-50'}">
-                <i class="fa-solid fa-language text-lg"></i>
+                <span class="text-sm font-black">A/文</span>
              </button>
              <button id="audio-btn-${id}" onclick="playElevenLabsAudio(decodeURIComponent('${encodedText}'), '${id}')" class="audio-btn w-11 h-11 rounded-full flex items-center justify-center shadow-md transition-all active-scale shrink-0 bg-sky-500 text-white border-2 border-white hover:bg-sky-400">
                 <i class="fa-solid fa-volume-high text-lg"></i>
@@ -546,8 +543,7 @@
     function renderLearning() {
       var t1 = DATA_TASK_MODELS.task1;
       var t2Opts = DATA_TASK_MODELS.task2.options;
-      var t2 = null;
-      var t2Nav = "";
+      var t2 = null; var t2Nav = "";
       
       for(var i=0; i<t2Opts.length; i++) {
          if(t2Opts[i].id === STATE.task2SubTopic) t2 = t2Opts[i];
@@ -559,6 +555,7 @@
       return `
         <div class="h-full min-h-0 overflow-hidden flex flex-col" style="padding-top: var(--header-height)">
            <div class="flex-1 min-h-0 overflow-y-auto pb-safe-bar p-4 md:px-8 fade-in relative z-10 no-scrollbar mobile-scroll">
+              
               <div class="flex gap-2 mb-8 bg-white/60 p-2.5 rounded-2xl shadow-sm border border-slate-200 backdrop-blur-md sticky top-0 z-20">
                  <button onclick="Actions.toggleSettings('voice')" class="flex-1 bg-white text-sky-600 px-3 py-3 rounded-xl text-[14px] font-black shadow-sm border border-sky-100 active-scale flex items-center justify-center transition-colors">
                     <i class="fa-solid fa-microphone-lines mr-2 text-lg"></i> ${STATE.voiceType === 'male' ? 'Voice A' : 'Voice B'}
@@ -613,7 +610,7 @@
       return `
         <div class="h-full min-h-0 overflow-hidden flex flex-col" style="padding-top: var(--header-height)">
            <div class="flex-1 min-h-0 overflow-y-auto pb-safe-bar p-6 flex flex-col justify-center items-center fade-in bg-slate-50 relative z-10 no-scrollbar mobile-scroll">
-              <div class="bg-white p-8 rounded-[2.5rem] shadow-[0_15px_40px_rgba(0,0,0,0.06)] border border-slate-200/60 text-center relative z-10 w-full max-w-sm slide-in-right">
+              <div class="bg-white p-8 rounded-[2.5rem] shadow-[0_15px_40px_rgba(0,0,0,0.06)] text-center relative z-10 w-full max-w-sm slide-in-right">
                  <div class="w-20 h-20 bg-gradient-to-br from-orange-100 to-rose-100 text-rose-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-6 shadow-inner border-4 border-white outline outline-rose-200">
                    <i class="fa-solid fa-hourglass-half animate-pulse"></i>
                  </div>
@@ -636,7 +633,7 @@
                    Start Mission
                  </button>
                  
-                 ${STATE.prevQuizItems.length > 0 ? `<button onclick="Actions.startQuiz(true)" class="w-full mt-4 bg-white text-slate-600 font-black py-3 rounded-2xl text-sm border-2 border-slate-200 active-scale transition-all"><i class="fa-solid fa-rotate-right mr-1"></i> 继续刷分 (保留错题)</button>` : ''}
+                 ${STATE.prevQuizItems.length > 0 ? `<button onclick="Actions.startQuiz(true)" class="w-full mt-4 bg-white text-slate-600 font-black py-3 rounded-2xl text-sm border-2 border-slate-200 active-scale transition-all"><i class="fa-solid fa-rotate-right mr-1"></i> 继续刷分 (80%旧题)</button>` : ''}
               </div>
            </div>
         </div>
@@ -723,10 +720,7 @@
       var res = STATE.quizResult;
       var d = new Date();
       var dateStr = d.getFullYear() + "/" + ("0" + (d.getMonth() + 1)).slice(-2) + "/" + ("0" + d.getDate()).slice(-2) + " " + ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2);
-      
-      var m = Math.floor(res.timeTaken / 60);
-      var s = res.timeTaken % 60;
-      var timeStr = m + "分" + s + "秒";
+      var m = Math.floor(res.timeTaken / 60); var s = res.timeTaken % 60; var timeStr = m + "分" + s + "秒";
 
       var mistakesHtml = "";
       if (res.mistakes.length > 0) {
@@ -788,28 +782,25 @@
       `;
     }
 
-    function renderTest() {
-       if (STATE.quizState === 'intro') return renderTestIntro();
-       if (STATE.quizState === 'quiz') return renderQuizView();
-       return renderQuizResult();
-    }
-
     function render() {
        var html = renderHeader();
        if (STATE.activeTab === 'learning') html += renderLearning();
-       else html += renderTest();
+       else {
+           if (STATE.quizState === 'intro') html += renderTestIntro();
+           else if (STATE.quizState === 'quiz') html += renderQuizView();
+           else html += renderQuizResult();
+       }
        document.getElementById('app').innerHTML = html;
     }
 
     // ==========================================
-    // 初始化入口
+    // 启动入口
     // ==========================================
     window.onload = function() {
        render();
-       // 等待几秒后静默预加载音频（给浏览器喘息时间）
-       setTimeout(function() { window.preloadAudio(); }, 2000);
+       // 预加载发音，延迟1.5秒执行以免阻塞页面展示
+       setTimeout(function() { window.preloadAudio(); }, 1500);
     };
-
   </script>
 </body>
 </html>
