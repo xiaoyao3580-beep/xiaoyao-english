@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Unit 6-4 Writing & Tense Master</title>
+  
+  <!-- 仅保留 Tailwind 和 FontAwesome 两个轻量 CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    /* 移除 Google Fonts，强制使用系统默认最优字体链 */
+    body { 
+      font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; 
+      background-color: #e2e8f0; 
+      -webkit-tap-highlight-color: transparent;
+      overflow: hidden; 
+      margin: 0; padding: 0;
+    }
+    
+    .font-serif-novel { 
+      font-family: Georgia, 'Times New Roman', serif; 
+    }
+
+    :root {
+      --app-height: 100vh;
+      --header-height: 112px;
+      --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    @supports (height: 100dvh) { :root { --app-height: 100dvh; } }
+    
+    html, body, #app { width: 100%; height: var(--app-height); min-height: var(--app-height); }
+    
+    @media (min-width: 768px) {
+      body { display: flex; align-items: center; justify-content: center; }
+    }
+
+    /* 高级纹理背景 */
+    .bg-mesh {
+      background-color: #f0f9ff;
+      background-image: 
+        radial-gradient(at 40% 20%, hsla(213,100%,94%,1) 0px, transparent 50%),
+        radial-gradient(at 80% 0%, hsla(189,100%,91%,1) 0px, transparent 50%),
+        radial-gradient(at 0% 50%, hsla(355,100%,93%,1) 0px, transparent 50%),
+        radial-gradient(at 80% 50%, hsla(340,100%,95%,1) 0px, transparent 50%),
+        radial-gradient(at 0% 100%, hsla(22,100%,92%,1) 0px, transparent 50%),
+        radial-gradient(at 80% 100%, hsla(242,100%,95%,1) 0px, transparent 50%),
+        radial-gradient(at 0% 0%, hsla(343,100%,96%,1) 0px, transparent 50%);
+    }
+    
+    .pb-safe-bar { padding-bottom: calc(3rem + var(--safe-area-bottom)); }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .mobile-scroll { -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; touch-action: pan-y; }
+
+    @media (max-width: 767px) {
+      .app-shell { height: var(--app-height); min-height: var(--app-height); border-radius: 0; box-shadow: none; }
+    }
+
+    /* 性能优化的原生 CSS 动画 */
+    .fade-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+    .slide-in-right { animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    @keyframes slideInRight { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+    .bounce-in { animation: bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards; }
+    @keyframes bounceIn { 0% { transform: scale(0.6); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+    .menu-slide-down { animation: menuSlideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; transform-origin: top right; }
+    @keyframes menuSlideDown { 0% { opacity: 0; transform: scale(0.9) translateY(-10px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
+
+    .active-scale:active { transform: scale(0.95); transition: transform 0.1s; }
+  </style>
+
+</head>
+<body>
+  <div id="app" class="app-shell w-full h-full min-h-0 md:h-[90vh] md:max-h-[960px] md:max-w-2xl lg:max-w-4xl md:rounded-[2.5rem] relative shadow-[0_20px_60px_rgba(0,0,0,0.15)] overflow-hidden bg-mesh md:mx-auto">
+      <!-- 原生 DOM 将渲染在这里 -->
+  </div>
+
+  <script>
+    /* ========================================================
+     * 文件用途: U6-4课后作业 - 写作赏析与混合时态大闯关 (原生版)
+     * 题目数量: 混合时态库共 35 题，每次抽 20 题。
+     * 如何修改: 直接修改下方 DATA_TASK_MODELS 和 DATA_MIX_TENSE_POOL 里的文本即可。
+     * ======================================================== */
+
+    var ELEVENLABS_API_KEY = "8afc05603ac30c7769ce6f76b2799b02e06773939d2704489ae66daef1ebdce1";
+    var VOICE_MALE = "UgBBYS2sOqTuMpoF3BR0";
+    var VOICE_FEMALE = "kdmDKE6EkgrWrrykO9Qt";
+
+    var currentAudio = null;
+    var currentAudioBtnId = null; 
+    var isAudioLoading = false;
+
+    // --- 数据源: 范文与翻译 ---
+    var DATA_TASK_MODELS = {
+      task1: {
+        id: 't1', title: "Task 1: Blog Post", subtitle: "A short story about a new challenge",
+        goal: "Write a short blog post (60-80 words) about a time you tried a difficult new activity. You must use Present Perfect Continuous and Extreme Adjectives.",
+        engText: "Have you ever tried something absolutely terrifying? For the past week, I have been learning to rock climb. At first, I thought it would be effortless, but my arms were totally exhausted after just ten minutes! I initially avoided looking down. However, I promised to reach the top. When I finally hit the buzzer, it was such an amazing feeling that I forgot all my fear!",
+        chnText: "你有没有试过绝对让你吓破胆的事情？过去的一周，我一直在学攀岩。起初，我以为这会毫不费力，但仅仅十分钟后我的手臂就彻底累瘫了！我一开始甚至都不敢往下看。不过，我暗暗发誓一定要登顶。当我最终拍到终点按钮时，那种感觉太奇妙了，我忘记了所有的恐惧！"
+      },
+      task2: {
+        title: "Task 2: The Life Columnist", subtitle: "Write an engaging magazine column",
+        options: [
+          { id: 'kitchen', icon: '🎂', label: 'The Kitchen Disaster',
+            engText: "Have you ever wondered what a flour explosion looks like? It started with one small habit—watching baking shows on TV. For the past month, I have been trying to bake the perfect cake. It hasn't been easy. So far, I have ruined three cakes! When I practice, the kitchen is often totally boiling, and I usually feel absolutely exhausted. Because it was so hard, I initially avoided using the oven again. However, I didn't give up. I promised to try baking one more time. When I finally did it, it was such a fascinating experience that I was so proud that I truly felt like a master chef. Today, I really enjoy sharing my cakes with friends. If you hope to find a delicious passion, you should definitely decide to start baking today!",
+            chnText: "你有没有想过面粉爆炸是什么样子的？这一切都源于一个小习惯——看电视上的烘焙节目。过去的一个月里，我一直在尝试烤出一个完美的蛋糕。这可不容易。到目前为止，我已经搞砸了三个蛋糕！练习的时候，厨房里经常是热气腾腾的，我通常感觉彻底精疲力竭。因为太难了，我起初甚至逃避再次使用烤箱。不过，我没有放弃。我发誓要再试一次。当我最终成功的时候，那是一种极其美妙的体验，我感到如此自豪，觉得自己真的像个顶级大厨！如今，我非常享受和朋友们分享我的蛋糕。如果你也希望能找到一个美味的爱好，你今天绝对应该决定开始烘焙！"
+          },
+          { id: 'skate', icon: '🛹', label: 'The Skateboarding Fails',
+            engText: "Have you ever wondered what it feels like to kiss the concrete? It started with one small habit—watching skaters in the park. For the past two weeks, I have been learning to skateboard. It hasn't been easy. So far, I have fallen off my board twenty times! When I practice, the concrete is absolutely freezing, and my legs usually feel totally exhausted. Because it was so hard, I initially avoided going down the big hill. However, I didn't give up. I promised to try the big hill one more time. When I finally did it, it was such a thrilling experience that I forgot the pain! I was going so fast that I truly felt like a champion. Today, I really enjoy cruising around the park. If you hope to find a cool new hobby, you should definitely decide to try skateboarding today!",
+            chnText: "你有没有想过亲吻水泥地是什么感觉？这一切都源于一个小习惯——在公园里看滑板少年。过去的两周里，我一直在学滑板。这可不容易。到目前为止，我已经从滑板上摔下来二十次了！练习的时候，水泥地经常是极其冰冷的，我的腿通常感觉彻底精疲力竭。因为太难了，我起初甚至逃避滑下那个大斜坡。不过，我没有放弃。我发誓要再试一次大斜坡。当我最终成功的时候，那是一种极其刺激的体验，我忘记了疼痛！我滑得如此之快，觉得自己真的像个冠军！如今，我非常享受在公园里滑行。如果你也希望能找到一个酷酷的新爱好，你今天绝对应该决定尝试滑板！"
+          },
+          { id: 'music', icon: '🎸', label: 'The Music Struggle',
+            engText: "Have you ever wondered why people torture their own fingers? It started with one small habit—listening to rock music. For the past year, I have been practicing the guitar. It hasn't been easy. So far, I have broken three guitar strings! When I practice, the room is often absolutely freezing, and my fingers usually feel totally exhausted. Because it was so hard, I initially avoided playing complex chords. However, I didn't give up. I promised to try the hard song one more time. When I finally did it, it was such a beautiful experience that I almost cried! I was playing so perfectly that I truly felt like a rock star. Today, I really enjoy writing my own songs. If you hope to find a creative passion, you should definitely decide to pick up an instrument today!",
+            chnText: "你有没有想过人们为什么要折磨自己的手指？这一切都源于一个小习惯——听摇滚乐。过去的一年里，我一直在练习吉他。这可不容易。到目前为止，我已经弹断了三根吉他弦！练习的时候，房间经常是极其冰冷的，我的手指通常感觉彻底精疲力竭。因为太难了，我起初甚至逃避弹奏复杂的和弦。不过，我没有放弃。我发誓要再试一次那首难弹的歌。当我最终成功的时候，那是一种极其美妙的体验，我几乎要哭出来了！我弹得如此完美，觉得自己真的像个摇滚明星！如今，我非常享受写自己的歌。如果你也希望能找到一个充满创造力的爱好，你今天绝对应该决定拿起一件乐器！"
+          }
+        ]
+      }
+    };
+
+    // --- 数据源: 萌化版混合时态题库 ---
+    var DATA_MIX_TENSE_POOL = [
+      { q: "Look! It ______ outside right now.", opts: ["snows", "is snowing", "has snowed", "snowed"], a: "is snowing", exp: "👀 看到句首的 Look! 或者 Listen! 了吗？这就好像好朋友拍拍你的肩膀让你“快看！”，说明事情【此时此刻】正在发生哦！要用 is/am/are + ing。" },
+      { q: "She usually ______ coffee, but today she is drinking tea.", opts: ["drinks", "is drinking", "drank", "has drunk"], a: "drinks", exp: "⏰ usually (通常) 就像一个生活小闹钟，表示这是每天都会重复的习惯。既然是习惯，咱们就用最简单的“一般现在时”！" },
+      { q: "I ______ my keys yesterday, so I couldn't get into the house.", opts: ["lose", "am losing", "lost", "have lost"], a: "lost", exp: "⏳ yesterday (昨天) 已经是过去式啦，时光不能倒流，所以动词也要乖乖穿上过去式的衣服变成 lost 哦！" },
+      { q: "While I ______ home, I saw a stray cat.", opts: ["walked", "was walking", "have walked", "walk"], a: "was walking", exp: "🪁 While 就像一根长长的风筝线，表示“在...的一长段时间里”。这段漫长的背景时间，最适合用【过去进行时 (was walking)】啦！" },
+      { q: "He ______ his homework yet.", opts: ["doesn't finish", "isn't finishing", "didn't finish", "hasn't finished"], a: "hasn't finished", exp: "🐢 yet (还) 是现在完成时的小尾巴，常常跟在否定句后面，表示“从过去到现在为止还没做完”。" },
+      { q: "They ______ football for 3 hours! Tell them to take a rest.", opts: ["played", "are playing", "have been playing", "play"], a: "have been playing", exp: "🥵 玩了整整三个小时，而且现在还在玩（都累得需要休息了）！强调动作的漫长持续，一定要用大招：【现在完成进行时】！" },
+      { q: "Water ______ at 100 degrees Celsius.", opts: ["boils", "is boiling", "boiled", "has boiled"], a: "boils", exp: "🌍 水到100度会沸腾，这是大自然的真理规律！真理永远不变，所以只用“一般现在时”就够啦。" },
+      { q: "I ______ Paris three times in my life.", opts: ["visited", "have visited", "am visiting", "visit"], a: "have visited", exp: "🏆 强调从出生到现在积累的“人生经验”或者“去过的次数”，就是【现在完成时】出场的时候了！" },
+      { q: "What ______ at 8 PM last night?", opts: ["did you do", "have you done", "were you doing", "do you do"], a: "were you doing", exp: "🕰️ 昨晚 8点，这是一个非常精确的“过去某一秒”。想要知道那一秒钟画面里“正在”发生什么，就要用过去进行时哦。" },
+      { q: "My sister ______ to the gym every morning.", opts: ["goes", "is going", "went", "has gone"], a: "goes", exp: "🔁 every morning (每天早晨) 说明这是一个雷打不动的规律。规律动作，首选“一般现在时”。" },
+      { q: "Look at those dark clouds! It ______.", opts: ["rains", "rained", "is going to rain", "has rained"], a: "is going to rain", exp: "🌧️ 看到满天乌云这个“证据”了吗？根据眼前的迹象预测马上要发生的事，我们要用 be going to！" },
+      { q: "I ______ a delicious cake when the phone rang.", opts: ["made", "was making", "have made", "make"], a: "was making", exp: "🎬 电话铃响 (rang) 是突然发生的动作，而在这之前我“一直正在”做蛋糕。长动作当背景，用过去进行时。" },
+      { q: "We ______ in this city since 2010.", opts: ["lived", "are living", "have lived", "live"], a: "have lived", exp: "🌉 since (自从) 就像一座桥，把2010年和现在连了起来。表示“从过去一直延续到现在”，就是【现在完成时】的拿手好戏！" },
+      { q: "The train ______ at 9:00 AM tomorrow.", opts: ["leaves", "left", "is leaving", "has left"], a: "leaves", exp: "🚄 火车、飞机的时刻表是规定好的。这种按时间表肯定会发生的未来事件，英语里习惯用“一般现在时”来表示哦。" },
+      { q: "He is out of breath. He ______ for an hour.", opts: ["runs", "ran", "has run", "has been running"], a: "has been running", exp: "💦 他现在气喘吁吁的（眼前能看到的状态），是因为他刚刚“一直在”跑步！动作不仅持续，还造成了现在的疲惫，必须用【现在完成进行时】。" },
+      { q: "I ______ that movie last weekend.", opts: ["watched", "was watching", "have watched", "watch"], a: "watched", exp: "📅 last weekend (上周末) 已经是被撕掉的日历啦！属于明确的过去，用一般过去时 watched 准没错。" },
+      { q: "She ______ Spanish for two years, and she speaks it well now.", opts: ["learns", "learned", "has been learning", "is learning"], a: "has been learning", exp: "🌟 学了两年，而且现在还在学/很有成效！强调动作的绵延不断，用 has been learning 最地道！" },
+      { q: "Where is John? He ______ his car in the garage.", opts: ["repairs", "repaired", "is repairing", "has repaired"], a: "is repairing", exp: "🗣️ “约翰去哪啦？”这说明有人现在正在找他。那他肯定【此时此刻】正在修车呀，用现在进行时！" },
+      { q: "I ______ never ______ sushi before.", opts: ["do...eat", "am...eating", "did...eat", "have...eaten"], a: "have...eaten", exp: "🍣 never/before (以前从来没有过) 是在聊过去的经验积累，当然是【现在完成时】的主场啦。" },
+      { q: "They ______ dinner when the lights went out.", opts: ["ate", "were eating", "have eaten", "eat"], a: "were eating", exp: "💡 灯突然灭了，打断了他们“正在吃晚饭”的美好时光。被打断的长动作要用过去进行时哦。" },
+      { q: "The sun ______ in the east.", opts: ["is rising", "rose", "has risen", "rises"], a: "rises", exp: "☀️ 太阳从东边升起，这是永远不会改变的大自然真理！真理只配拥有“一般现在时”。" },
+      { q: "I ______ my finger! It's bleeding.", opts: ["cut", "was cutting", "have cut", "have been cutting"], a: "have cut", exp: "🩹 刚刚切到了手（动作结束了），但是对现在造成了影响（正在流血！）。过去的动作影响现在，这就是【现在完成时】！" },
+      { q: "My parents ______ me a bike for my birthday last year.", opts: ["buy", "bought", "were buying", "have bought"], a: "bought", exp: "🎁 last year 就像一个明确的过去坐标，在这个坐标上发生的事，直接用过去式 bought 即可。" },
+      { q: "Please be quiet! The baby ______.", opts: ["sleeps", "slept", "is sleeping", "has slept"], a: "is sleeping", exp: "🤫 “嘘，安静点！”说明就在这一秒，宝宝正在睡觉。马上选用现在进行时 is sleeping！" },
+      { q: "How long ______ for me?", opts: ["do you wait", "are you waiting", "did you wait", "have you been waiting"], a: "have you been waiting", exp: "⏱️ How long (多久了) 问的是从过去一直熬到现在的时间长度。毫无疑问，这是【现在完成进行时】的招牌问法！" },
+      { q: "I ______ to London in 2018.", opts: ["go", "am going", "went", "have gone"], a: "went", exp: "🇬🇧 in 2018 是很明确的过去年份，动作发生过就结束了，乖乖用 went 吧。" },
+      { q: "He ______ his homework. He can play outside now.", opts: ["finishes", "finished", "has finished", "is finishing"], a: "has finished", exp: "🎮 已经做完了（动作结束），且产生了现在让人开心的结果（能出去玩了！），这是标准的【现在完成时】用法。" },
+      { q: "At 7 PM yesterday, I ______ a book.", opts: ["read", "am reading", "was reading", "have read"], a: "was reading", exp: "📖 昨晚 7 点整，这可是一个精确到点的时间！在那个过去的点“正在”做的事，得用过去进行时 was reading。" },
+      { q: "She ______ an apple every day.", opts: ["eats", "is eating", "ate", "has eaten"], a: "eats", exp: "🍎 every day (每天)，典型的日常习惯，直接召唤“一般现在时”！" },
+      { q: "It ______ all day! I'm so bored of staying inside.", opts: ["rains", "rained", "is raining", "has been raining"], a: "has been raining", exp: "🌧️ 下了一整天，而且现在把人都下烦了！动作漫长又持续，【现在完成进行时】非它莫属！" },
+      { q: "Shakespeare ______ many famous plays.", opts: ["writes", "is writing", "wrote", "has written"], a: "wrote", exp: "🎭 莎士比亚是古代大文豪，他写书的动作在过去就已经彻底完成、不可能再接着写了，所以只能用一般过去时 wrote。" },
+      { q: "I ______ my friend at the cafe this evening. We planned it.", opts: ["meet", "am meeting", "met", "have met"], a: "am meeting", exp: "☕ 晚上要见朋友，而且都已经安排好了 (We planned it)。这时候可以用“现在进行时”来表示近期安排好的未来计划哦！" },
+      { q: "They ______ each other for 10 years.", opts: ["know", "are knowing", "have known", "have been knowing"], a: "have known", exp: "🤝 know (认识) 是表示状态的动词，不能加 ing！所以表示认识了 10 年，用【现在完成时】就可以啦。" },
+      { q: "While he was cooking, she ______ TV.", opts: ["watched", "was watching", "has watched", "watches"], a: "was watching", exp: "📺 当他在做饭的时候，她正在看电视。两个过去的动作同时都在漫长地进行，两边都要用过去进行时哦！" },
+      { q: "I ______ a great idea just now!", opts: ["have", "am having", "had", "have had"], a: "had", exp: "💡 just now 翻译为“刚才”，它是过去时的小间谍，碰到它请毫不犹豫地选择过去式 had！" }
+    ];
+
+    // --- 全局状态管理 (无框架原生实现) ---
+    var STATE = {
+      activeTab: 'learning', // 'learning', 'test'
+      isMenuOpen: false,
+      // Learning 状态
+      task2SubTopic: 'kitchen',
+      voiceType: 'female',
+      speed: 1.0,
+      showTranslation: { t1: false, kitchen: false, skate: false, music: false },
+      // Test 状态
+      quizState: 'intro', // 'intro', 'quiz', 'result'
+      quizItems: [],
+      currentQ: 0,
+      answers: {},
+      startTime: 0,
+      quizResult: null,
+      prevQuizItems: []
+    };
+
+    // --- 工具函数 ---
+    function playTone(type) {
+      try {
+        var AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        var ctx = new AudioContext();
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        if (type === 'pop') {
+          osc.type = 'sine'; osc.frequency.setValueAtTime(700, ctx.currentTime);
+          gain.gain.setValueAtTime(0.15, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+          osc.start(); osc.stop(ctx.currentTime + 0.1);
+        } else if (type === 'success' || type === 'correct') {
+          osc.type = 'triangle'; osc.frequency.setValueAtTime(440, ctx.currentTime); osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15);
+          gain.gain.setValueAtTime(0.2, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
+          osc.start(); osc.stop(ctx.currentTime + 0.25);
+        } else if (type === 'wrong') {
+          osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, ctx.currentTime); osc.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + 0.3);
+          gain.gain.setValueAtTime(0, ctx.currentTime); gain.gain.linearRampToValueAtTime(0.2, ctx.currentTime + 0.05); gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.3);
+          osc.start(); osc.stop(ctx.currentTime + 0.3);
+        }
+      } catch (e) {}
+    }
+
+    function shuffleArray(array) {
+      var arr = array.slice();
+      for (var i = arr.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var temp = arr[i];
+        arr[i] = arr[j];
+        arr[j] = temp;
+      }
+      return arr;
+    }
+
+    // --- ElevenLabs API & 缓存系统 (防弹重构) ---
+    function resetAllAudioButtons() {
+       var btns = document.querySelectorAll('.audio-btn');
+       for (var i = 0; i < btns.length; i++) {
+           btns[i].innerHTML = '<i class="fa-solid fa-volume-high text-lg"></i>';
+           btns[i].className = btns[i].className.replace(/bg-orange-500|bg-rose-400|bg-slate-200/g, '').trim() + ' bg-sky-500';
+           btns[i].disabled = false;
+       }
+    }
+
+    window.playElevenLabsAudio = async function(rawText, btnId) {
+      if (!rawText || isAudioLoading) return;
+      playTone('pop');
+
+      var btnElement = document.getElementById('audio-btn-' + btnId);
+      if (!btnElement) return;
+
+      var cleanText = rawText.replace(/<[^>]*>?/gm, '').replace(/_+/g, 'blank').trim();
+      var textHash = btoa(unescape(encodeURIComponent(cleanText))).slice(0, 32);
+
+      var currentVoiceId = STATE.voiceType === 'male' ? VOICE_MALE : VOICE_FEMALE;
+      var cacheKey = "el_audio_" + currentVoiceId + "_" + textHash;
+
+      // 1. 若点击的是同一个音频且正在播放/暂停
+      if (currentAudio && currentAudioKey === cacheKey) {
+          if (currentAudio.paused) {
+              currentAudio.playbackRate = STATE.speed;
+              currentAudio.play();
+              btnElement.innerHTML = '<i class="fa-solid fa-pause text-lg"></i>';
+              btnElement.className = btnElement.className.replace('bg-rose-400', 'bg-orange-500');
+          } else {
+              currentAudio.pause();
+              btnElement.innerHTML = '<i class="fa-solid fa-play text-lg ml-0.5"></i>';
+              btnElement.className = btnElement.className.replace('bg-orange-500', 'bg-rose-400');
+          }
+          return;
+      }
+
+      // 2. 点击了新音频，彻底关掉旧的
+      if (currentAudio) {
+          currentAudio.pause();
+          currentAudio.currentTime = 0;
+          resetAllAudioButtons();
+      }
+
+      // 视觉锁定
+      isAudioLoading = true;
+      btnElement.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-lg"></i>';
+      btnElement.className = btnElement.className.replace('bg-sky-500', 'bg-slate-200 text-slate-400 cursor-not-allowed');
+      btnElement.disabled = true;
+
+      try {
+          var cachedAudio = localStorage.getItem(cacheKey);
+          if (cachedAudio) {
+              currentAudio = new Audio(cachedAudio);
+              currentAudio.playbackRate = STATE.speed;
+              currentAudioKey = cacheKey;
+              
+              currentAudio.onended = function() {
+                  resetAllAudioButtons();
+                  currentAudioKey = null;
+              };
+
+              currentAudio.play();
+              btnElement.innerHTML = '<i class="fa-solid fa-pause text-lg"></i>';
+              btnElement.className = btnElement.className.replace('bg-slate-200 text-slate-400 cursor-not-allowed', 'bg-orange-500 text-white shadow-[0_0_15px_rgba(249,115,22,0.5)]');
+          } else {
+              // 未命中缓存，调接口
+              var response = await fetch("https://api.elevenlabs.io/v1/text-to-speech/" + currentVoiceId, {
+                  method: "POST",
+                  headers: { "Accept": "audio/mpeg", "Content-Type": "application/json", "xi-api-key": ELEVENLABS_API_KEY },
+                  body: JSON.stringify({ text: cleanText, model_id: "eleven_turbo_v2_5", voice_settings: { stability: 0.45, similarity_boost: 0.75 } })
+              });
+
+              if (!response.ok) throw new Error("API 请求失败");
+              var blob = await response.blob();
+              var reader = new FileReader();
+              reader.readAsDataURL(blob);
+              reader.onloadend = function() {
+                  var base64data = reader.result;
+                  try { localStorage.setItem(cacheKey, base64data); } catch(e) {}
+                  
+                  currentAudio = new Audio(base64data);
+                  currentAudio.playbackRate = STATE.speed;
+                  currentAudioKey = cacheKey;
+
+                  currentAudio.onended = function() {
+                      resetAllAudioButtons();
+                      currentAudioKey = null;
+                  };
+
+                  currentAudio.play();
+                  btnElement.innerHTML = '<i class="fa-solid fa-pause text-lg"></i>';
+                  btnElement.className = btnElement.className.replace('bg-slate-200 text-slate-400 cursor-not-allowed', 'bg-orange-500 text-white shadow-[0_0_15px_rgba(249,115,22,0.5)]');
+              };
+          }
+      } catch (error) {
+          console.error("音频播放失败:", error);
+          alert("语音生成失败,请检查网络。");
+          resetAllAudioButtons();
+      } finally {
+          btnElement.disabled = false;
+          isAudioLoading = false;
+      }
+    };
+
+    // --- 静默预加载核心长文 (免流策略) ---
+    window.preloadAudio = async function() {
+       var texts = [ DATA_TASK_MODELS.task1.engText, DATA_TASK_MODELS.task2.options[0].engText ];
+       for (var i=0; i<texts.length; i++) {
+           var cleanText = texts[i].replace(/<[^>]*>?/gm, '').replace(/_+/g, 'blank').trim();
+           var textHash = btoa(unescape(encodeURIComponent(cleanText))).slice(0, 32);
+           var cacheKey = "el_audio_" + VOICE_FEMALE + "_" + textHash;
+           
+           if (!localStorage.getItem(cacheKey)) {
+               try {
+                   var response = await fetch("https://api.elevenlabs.io/v1/text-to-speech/" + VOICE_FEMALE, {
+                      method: "POST",
+                      headers: { "Accept": "audio/mpeg", "Content-Type": "application/json", "xi-api-key": ELEVENLABS_API_KEY },
+                      body: JSON.stringify({ text: cleanText, model_id: "eleven_turbo_v2_5", voice_settings: { stability: 0.45, similarity_boost: 0.75 } })
+                   });
+                   if (response.ok) {
+                       var blob = await response.blob();
+                       var reader = new FileReader();
+                       reader.readAsDataURL(blob);
+                       reader.onloadend = function() { try { localStorage.setItem(cacheKey, reader.result); } catch(e){} }
+                   }
+               } catch(e) {}
+           }
+       }
+    };
+
+    // ==========================================
+    // 交互行为集 (Vanilla Redux Actions)
+    // ==========================================
+    window.Actions = {
+      toggleMenu: function() { playTone('pop'); STATE.isMenuOpen = !STATE.isMenuOpen; render(); },
+      changeTab: function(tabId) { playTone('pop'); STATE.activeTab = tabId; STATE.isMenuOpen = false; render(); },
+      
+      // Learning 页面特有
+      toggleSettings: function(type) {
+         playTone('pop');
+         if (type === 'voice') STATE.voiceType = STATE.voiceType === 'male' ? 'female' : 'male';
+         if (type === 'speed') STATE.speed = STATE.speed === 1.0 ? 0.8 : 1.0;
+         if (currentAudio) { currentAudio.pause(); currentAudio = null; currentAudioKey = null; }
+         render();
+      },
+      selectTask2: function(id) { playTone('pop'); STATE.task2SubTopic = id; render(); },
+      toggleTranslation: function(id) { playTone('pop'); STATE.showTranslation[id] = !STATE.showTranslation[id]; render(); },
+
+      // Quiz 页面特有
+      startQuiz: function(isRetry) {
+         playTone('pop');
+         var totalQs = 20;
+         var pool = DATA_MIX_TENSE_POOL.slice();
+         var selected = [];
+         
+         if (isRetry && STATE.prevQuizItems.length > 0) {
+            var oldPool = shuffleArray(STATE.prevQuizItems).slice(0, 16); // 80% old
+            var remaining = pool.filter(function(q) {
+               for(var i=0; i<oldPool.length; i++) if(oldPool[i].q === q.q) return true;
+               return false;
+            });
+            var newPool = shuffleArray(remaining).slice(0, 4); // 20% new
+            selected = shuffleArray(oldPool.concat(newPool));
+         } else {
+            selected = shuffleArray(pool).slice(0, totalQs);
+         }
+
+         // 生成选项索引
+         for(var i=0; i<selected.length; i++) {
+             var q = selected[i];
+             q.randOptions = shuffleArray(q.opts);
+             q.ansIdx = q.randOptions.indexOf(q.a);
+         }
+
+         STATE.prevQuizItems = selected;
+         STATE.quizItems = selected;
+         STATE.currentQ = 0;
+         STATE.answers = {};
+         STATE.startTime = Date.now();
+         STATE.quizState = 'quiz';
+         render();
+      },
+      answerQuiz: function(optIdx) {
+         if (STATE.answers[STATE.currentQ] !== undefined) return;
+         var isCorrect = optIdx === STATE.quizItems[STATE.currentQ].ansIdx;
+         if (isCorrect) playTone('correct'); else playTone('wrong');
+         
+         STATE.answers[STATE.currentQ] = optIdx;
+         render(); // 重新渲染立刻显示对错
+         
+         if (STATE.currentQ < STATE.quizItems.length - 1) {
+             setTimeout(function() { STATE.currentQ++; render(); }, 600);
+         }
+      },
+      prevQ: function() { if (STATE.currentQ > 0) { STATE.currentQ--; render(); } },
+      nextQ: function() { if (STATE.currentQ < STATE.quizItems.length - 1) { STATE.currentQ++; render(); } },
+      
+      submitQuiz: function() {
+         playTone('success');
+         var correct = 0; var mistakes = [];
+         for(var i=0; i<STATE.quizItems.length; i++) {
+            var q = STATE.quizItems[i];
+            if (STATE.answers[i] === q.ansIdx) correct++;
+            else mistakes.push({ q: q, userAns: STATE.answers[i] !== undefined ? q.randOptions[STATE.answers[i]] : null });
+         }
+
+         var score = Math.round((correct / STATE.quizItems.length) * 100);
+         var timeTaken = Math.floor((Date.now() - STATE.startTime) / 1000);
+         
+         var grade = 'C', msg = "时空矩阵崩塌了... 重新研究一下时态穿梭法则再来吧！";
+         if (score === 100) { grade = 'S'; msg = "完美通关！你已经完美掌握了所有时态，真正的时空领主！"; }
+         else if (score >= 85) { grade = 'A'; msg = "干得漂亮！只有几道高阶混淆题阻挡了你，稍作复习即可大成！"; }
+         else if (score >= 60) { grade = 'B'; msg = "通过了基础考验，但在混合时态中容易迷失。请仔细查看错题本的萌系解析哦。"; }
+
+         STATE.quizResult = { score: score, timeTaken: timeTaken, grade: grade, msg: msg, mistakes: mistakes };
+         STATE.quizState = 'result';
+         render();
+      },
+      
+      quitQuiz: function() {
+         if(confirm('要放弃本次测试吗？')) { playTone('pop'); STATE.quizState = 'intro'; render(); }
+      },
+
+      returnHome: function() {
+         playTone('pop');
+         var params = new URLSearchParams(window.location.search);
+         var hwId = params.get('hwId');
+         // 向主应用回传成绩
+         window.location.href = "../index.html?hwId=" + hwId + "&score=" + STATE.quizResult.score;
+      }
+    };
+
+    // ==========================================
+    // 渲染引擎 (HTML 拼装)
+    // ==========================================
+    function renderHeader() {
+      var title = "Unit 6-4"; var sub = ""; var rightHtml = "";
+
+      if (STATE.activeTab === 'learning') {
+         sub = "Columnist Master";
+         rightHtml = '<button onclick="Actions.toggleMenu()" class="text-slate-500 hover:text-sky-600 px-4 py-2.5 rounded-xl border active-scale shadow-sm transition-all flex items-center justify-center ' + (STATE.isMenuOpen ? 'bg-sky-50 border-sky-200 text-sky-600' : 'bg-white/60 hover:bg-white border-slate-200') + '"><i class="fa-solid ' + (STATE.isMenuOpen ? 'fa-xmark' : 'fa-bars-staggered') + ' text-lg"></i></button>';
+      } else {
+         if (STATE.quizState === 'intro') {
+            sub = "Test Mode";
+            rightHtml = '<button onclick="Actions.toggleMenu()" class="text-slate-500 hover:text-sky-600 px-4 py-2.5 rounded-xl border active-scale shadow-sm transition-all flex items-center justify-center ' + (STATE.isMenuOpen ? 'bg-sky-50 border-sky-200 text-sky-600' : 'bg-white/60 hover:bg-white border-slate-200') + '"><i class="fa-solid ' + (STATE.isMenuOpen ? 'fa-xmark' : 'fa-bars-staggered') + ' text-lg"></i></button>';
+         } else if (STATE.quizState === 'quiz') {
+            sub = "Test Mode";
+            rightHtml = '<button onclick="Actions.quitQuiz()" class="text-slate-400 hover:text-rose-500 bg-white/60 hover:bg-rose-50 w-11 h-11 rounded-xl border border-slate-200 active-scale shadow-sm transition-all flex items-center justify-center text-xl"><i class="fa-solid fa-person-running"></i></button>';
+         } else {
+            sub = "Test Mode";
+            rightHtml = '<button onclick="Actions.quitQuiz()" class="text-slate-400 hover:text-rose-500 bg-white/60 hover:bg-rose-50 w-11 h-11 rounded-xl border border-slate-200 active-scale shadow-sm transition-all flex items-center justify-center text-xl"><i class="fa-solid fa-xmark"></i></button>';
+         }
+      }
+
+      var menuHtml = "";
+      if (STATE.isMenuOpen && (STATE.activeTab === 'learning' || STATE.quizState === 'intro')) {
+         menuHtml = `
+            <div class="absolute right-0 top-14 mt-2 w-52 bg-white/95 backdrop-blur-xl rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.15)] border border-slate-100 overflow-hidden menu-slide-down z-[100]">
+               <div class="p-2 space-y-1">
+                  <button onclick="Actions.changeTab('learning')" class="w-full flex items-center px-4 py-3.5 rounded-xl text-sm font-black transition-colors ${STATE.activeTab==='learning'?'bg-sky-50 text-sky-600':'text-slate-600 hover:bg-slate-50 hover:text-sky-500'}">
+                     <i class="fa-solid fa-book-open w-6 text-center mr-2 text-lg"></i> ✨ 名师高分典藏
+                  </button>
+                  <div class="h-px w-full bg-slate-100"></div>
+                  <button onclick="Actions.changeTab('test')" class="w-full flex items-center px-4 py-3.5 rounded-xl text-sm font-black transition-colors ${STATE.activeTab==='test'?'bg-orange-50 text-orange-600':'text-slate-600 hover:bg-slate-50 hover:text-orange-500'}">
+                     <i class="fa-solid fa-gamepad w-6 text-center mr-2 text-lg"></i> 🕹️ 时空扭曲大挑战
+                  </button>
+               </div>
+            </div>
+            <div class="fixed inset-0 z-[-1] bg-transparent" onclick="Actions.toggleMenu()"></div>
+         `;
+      }
+
+      return `
+        <div class="absolute inset-x-0 top-0 z-[60]">
+          <header class="bg-white/80 backdrop-blur-xl pt-8 md:pt-10 pb-4 px-6 md:px-8 shadow-[0_8px_30px_rgba(0,0,0,0.04)] z-50 relative border-b border-slate-200/50 h-[var(--header-height)]">
+             <div class="relative z-10 flex justify-between items-center">
+                <div class="flex items-center space-x-4">
+                   <div class="flex items-center space-x-2.5">
+                      <div class="relative flex items-center justify-center w-10 h-10 bg-gradient-to-br from-sky-400 to-indigo-600 rounded-[12px] shadow-lg shadow-sky-500/20 border border-white/40 backdrop-blur-sm">
+                         <span class="text-white font-black text-xl leading-none tracking-tighter" style="font-family:'ZCOOL KuaiLe',cursive;">Xy</span>
+                      </div>
+                      <div class="flex flex-col text-left justify-center">
+                         <span class="text-sky-800 font-sans font-black text-[12px] tracking-widest leading-none">XIAOYAO</span>
+                         <span class="text-[8px] text-sky-500 tracking-[0.3em] leading-none mt-1 font-bold">STUDIO</span>
+                      </div>
+                   </div>
+                   <div class="pl-4 border-l-2 border-slate-200 py-1">
+                      <h1 class="text-[1.35rem] font-black text-slate-800 leading-tight">${title}</h1>
+                      <p class="text-sky-500 text-[10px] mt-0.5 uppercase tracking-widest font-black">${sub}</p>
+                   </div>
+                </div>
+                <div class="relative">${rightHtml}${menuHtml}</div>
+             </div>
+          </header>
+        </div>
+      `;
+    }
+
+    function renderTextContent(eng, chn, id) {
+       var isTrans = STATE.showTranslation[id];
+       return `
+          <div class="relative w-full">
+             <div class="transition-all duration-500" style="display: ${isTrans ? 'none' : 'block'}">
+                <p class="text-slate-800 font-serif-novel text-[17px] leading-loose text-justify italic">"${eng}"</p>
+             </div>
+             <div class="transition-all duration-500 slide-in-right" style="display: ${isTrans ? 'block' : 'none'}">
+                <p class="text-sky-800 font-bold text-[16px] leading-loose text-justify bg-sky-50/50 p-4 rounded-xl border border-sky-100">"${chn}"</p>
+             </div>
+          </div>
+       `;
+    }
+
+    function renderAudioBtn(engText, id) {
+       var isTrans = STATE.showTranslation[id];
+       // 预置好干净的 onclick 传参，避免特殊字符破坏 HTML
+       var encodedText = encodeURIComponent(engText);
+       return `
+          <div class="flex gap-2 shrink-0">
+             <button onclick="Actions.toggleTranslation('${id}')" class="w-11 h-11 rounded-full flex items-center justify-center shadow-sm border transition-all active-scale ${isTrans ? 'bg-sky-100 text-sky-600 border-sky-300' : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-sky-50'}">
+                <i class="fa-solid fa-language text-lg"></i>
+             </button>
+             <button id="audio-btn-${id}" onclick="playElevenLabsAudio(decodeURIComponent('${encodedText}'), '${id}')" class="audio-btn w-11 h-11 rounded-full flex items-center justify-center shadow-md transition-all active-scale shrink-0 bg-sky-500 text-white border-2 border-white hover:bg-sky-400">
+                <i class="fa-solid fa-volume-high text-lg"></i>
+             </button>
+          </div>
+       `;
+    }
+
+    function renderLearning() {
+      var t1 = DATA_TASK_MODELS.task1;
+      var t2Opts = DATA_TASK_MODELS.task2.options;
+      var t2 = null;
+      var t2Nav = "";
+      
+      for(var i=0; i<t2Opts.length; i++) {
+         if(t2Opts[i].id === STATE.task2SubTopic) t2 = t2Opts[i];
+         var isSel = STATE.task2SubTopic === t2Opts[i].id;
+         t2Nav += `<button onclick="Actions.selectTask2('${t2Opts[i].id}')" class="px-4 py-2.5 rounded-xl font-black text-sm whitespace-nowrap transition-all border-2 active-scale shadow-sm shrink-0 ${isSel ? 'bg-rose-500 border-rose-600 text-white' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}">${t2Opts[i].icon} ${t2Opts[i].label}</button>`;
+      }
+      if(!t2) t2 = t2Opts[0];
+
+      return `
+        <div class="h-full min-h-0 overflow-hidden flex flex-col" style="padding-top: var(--header-height)">
+           <div class="flex-1 min-h-0 overflow-y-auto pb-safe-bar p-4 md:px-8 fade-in relative z-10 no-scrollbar mobile-scroll">
+              <div class="flex gap-2 mb-8 bg-white/60 p-2.5 rounded-2xl shadow-sm border border-slate-200 backdrop-blur-md sticky top-0 z-20">
+                 <button onclick="Actions.toggleSettings('voice')" class="flex-1 bg-white text-sky-600 px-3 py-3 rounded-xl text-[14px] font-black shadow-sm border border-sky-100 active-scale flex items-center justify-center transition-colors">
+                    <i class="fa-solid fa-microphone-lines mr-2 text-lg"></i> ${STATE.voiceType === 'male' ? 'Voice A' : 'Voice B'}
+                 </button>
+                 <button onclick="Actions.toggleSettings('speed')" class="w-28 bg-white text-orange-600 px-3 py-3 rounded-xl text-[14px] font-black shadow-sm border border-orange-100 active-scale flex items-center justify-center transition-colors">
+                    <i class="fa-solid fa-gauge-high mr-2 text-lg"></i> ${STATE.speed}x
+                 </button>
+              </div>
+
+              <!-- Task 1 Block -->
+              <div class="bg-white/90 backdrop-blur-md rounded-[2rem] p-6 md:p-8 shadow-sm border border-slate-200 mb-8 slide-in-right">
+                 <div class="bg-sky-50 text-sky-600 font-black text-xs px-3 py-1 rounded-lg inline-block mb-3 border border-sky-200 shadow-inner">Mini Challenge</div>
+                 <h2 class="text-2xl font-black text-slate-800 font-serif-novel mb-2 leading-tight">${t1.title}</h2>
+                 <p class="text-sky-600 font-bold mb-6 text-sm">${t1.goal}</p>
+
+                 <div class="bg-gradient-to-br from-slate-50 to-orange-50 p-6 rounded-[1.5rem] border border-slate-200 shadow-inner relative">
+                    <div class="flex justify-between items-start mb-4">
+                       <h3 class="font-black text-orange-800 text-[15px] flex items-center"><i class="fa-solid fa-star text-yellow-500 mr-2 text-xl"></i> 高分作文 (Expert Model)</h3>
+                       ${renderAudioBtn(t1.engText, t1.id)}
+                    </div>
+                    ${renderTextContent(t1.engText, t1.chnText, t1.id)}
+                 </div>
+              </div>
+
+              <!-- Task 2 Block -->
+              <div class="bg-white/90 backdrop-blur-md rounded-[2rem] p-6 md:p-8 shadow-sm border border-slate-200 mb-8 slide-in-right" style="animation-delay: 0.1s">
+                 <div class="bg-rose-50 text-rose-600 font-black text-xs px-3 py-1 rounded-lg inline-block mb-3 border border-rose-200 shadow-inner">Main Boss</div>
+                 <h2 class="text-2xl font-black text-slate-800 font-serif-novel mb-2 leading-tight">${DATA_TASK_MODELS.task2.title}</h2>
+                 <p class="text-rose-600 font-bold mb-6 text-sm">Write an engaging magazine column.</p>
+                 
+                 <div class="flex space-x-3 overflow-x-auto pb-4 no-scrollbar mb-2">
+                    ${t2Nav}
+                 </div>
+
+                 <div class="bg-gradient-to-br from-slate-50 to-rose-50 p-6 rounded-[1.5rem] border border-slate-200 shadow-inner relative fade-in">
+                    <div class="flex justify-between items-start mb-4 border-b border-rose-200/50 pb-4">
+                       <div>
+                          <h3 class="font-black text-rose-900 text-[15px] flex items-center mb-1"><i class="fa-solid fa-star text-yellow-500 mr-2 text-xl"></i> 高分作文 (Expert Model)</h3>
+                          <p class="text-[11px] text-rose-500 font-bold uppercase tracking-wider">${t2.label}</p>
+                       </div>
+                       ${renderAudioBtn(t2.engText, t2.id)}
+                    </div>
+                    ${renderTextContent(t2.engText, t2.chnText, t2.id)}
+                 </div>
+              </div>
+           </div>
+        </div>
+      `;
+    }
+
+    function renderTestIntro() {
+      return `
+        <div class="h-full min-h-0 overflow-hidden flex flex-col" style="padding-top: var(--header-height)">
+           <div class="flex-1 min-h-0 overflow-y-auto pb-safe-bar p-6 flex flex-col justify-center items-center fade-in bg-slate-50 relative z-10 no-scrollbar mobile-scroll">
+              <div class="bg-white p-8 rounded-[2.5rem] shadow-[0_15px_40px_rgba(0,0,0,0.06)] border border-slate-200/60 text-center relative z-10 w-full max-w-sm slide-in-right">
+                 <div class="w-20 h-20 bg-gradient-to-br from-orange-100 to-rose-100 text-rose-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-6 shadow-inner border-4 border-white outline outline-rose-200">
+                   <i class="fa-solid fa-hourglass-half animate-pulse"></i>
+                 </div>
+                 <h2 class="text-2xl font-black text-slate-800 mb-2">时态混合大满贯</h2>
+                 <p class="text-slate-500 font-bold text-sm mb-6">现在 / 过去 / 进行 / 完成 终极考核</p>
+                 
+                 <div class="flex justify-between items-center bg-slate-50 p-4 rounded-2xl mb-8 border border-slate-100 shadow-inner">
+                    <div class="text-center">
+                      <p class="text-2xl font-black text-rose-500">6</p>
+                      <p class="text-[10px] text-slate-400 font-bold uppercase mt-1">时态类型</p>
+                    </div>
+                    <div class="w-px h-8 bg-slate-200"></div>
+                    <div class="text-center">
+                      <p class="text-2xl font-black text-slate-800">20</p>
+                      <p class="text-[10px] text-slate-400 font-bold uppercase mt-1">题目数量</p>
+                    </div>
+                 </div>
+
+                 <button onclick="Actions.startQuiz(false)" class="w-full bg-gradient-to-r from-orange-400 to-rose-500 text-white font-black py-4 rounded-2xl text-lg shadow-lg shadow-rose-500/30 active-scale border-b-4 border-rose-600 active:border-b-0 active:translate-y-1 transition-all tracking-widest">
+                   Start Mission
+                 </button>
+                 
+                 ${STATE.prevQuizItems.length > 0 ? `<button onclick="Actions.startQuiz(true)" class="w-full mt-4 bg-white text-slate-600 font-black py-3 rounded-2xl text-sm border-2 border-slate-200 active-scale transition-all"><i class="fa-solid fa-rotate-right mr-1"></i> 继续刷分 (保留错题)</button>` : ''}
+              </div>
+           </div>
+        </div>
+      `;
+    }
+
+    function renderQuizView() {
+      var q = STATE.quizItems[STATE.currentQ];
+      var hasAnswered = STATE.answers[STATE.currentQ] !== undefined;
+      var total = STATE.quizItems.length;
+
+      var optionsHtml = "";
+      for(var i=0; i<q.randOptions.length; i++) {
+         var opt = q.randOptions[i];
+         var isSelected = STATE.answers[STATE.currentQ] === i;
+         var isCorrectAns = i === q.ansIdx;
+         var btnClass = 'border-slate-100 bg-slate-50/50 text-slate-600';
+         var iconHtml = '';
+
+         if (hasAnswered) {
+             if (isCorrectAns) {
+                 btnClass = 'border-emerald-400 bg-emerald-50 text-emerald-800 shadow-md';
+                 iconHtml = '<i class="fa-solid fa-check text-emerald-500 text-lg"></i>';
+             } else if (isSelected) {
+                 btnClass = 'border-rose-400 bg-rose-50 text-rose-800 shadow-md';
+                 iconHtml = '<i class="fa-solid fa-xmark text-rose-500 text-lg"></i>';
+             }
+         } else if (isSelected) {
+             btnClass = 'border-sky-400 bg-sky-50 text-sky-800 shadow-md';
+         } else {
+             btnClass += ' active-scale hover:bg-slate-100';
+         }
+
+         optionsHtml += `<button ${hasAnswered ? 'disabled' : `onclick="Actions.answerQuiz(${i})"`} class="w-full text-left px-5 py-4 rounded-2xl border-2 transition-all duration-200 font-bold text-[15px] flex items-center justify-between ${btnClass}"><span><span class="opacity-50 mr-3 text-sm">${['A', 'B', 'C', 'D'][i]}.</span>${opt}</span>${iconHtml}</button>`;
+      }
+
+      var expHtml = hasAnswered ? `
+         <div class="mt-6 p-4 bg-gradient-to-r from-orange-50 to-rose-50 rounded-2xl border border-rose-100 fade-in flex items-start shadow-inner">
+            <div class="bg-white w-8 h-8 rounded-full flex items-center justify-center shrink-0 mr-3 shadow-sm text-orange-500 mt-0.5">
+               <i class="fa-solid fa-lightbulb"></i>
+            </div>
+            <p class="text-[13px] font-black text-rose-900 leading-relaxed pt-1.5">${q.exp}</p>
+         </div>
+      ` : "";
+
+      var nextBtn = "";
+      if (hasAnswered && STATE.currentQ === total - 1) {
+         nextBtn = `<button onclick="Actions.submitQuiz()" class="bg-gradient-to-r from-orange-400 to-rose-500 text-white px-8 py-4 rounded-2xl font-black shadow-[0_8px_20px_rgba(249,115,22,0.4)] active-scale bounce-in flex items-center text-lg tracking-widest border-b-4 border-rose-600 active:border-b-0 active:translate-y-1">Finish <i class="fa-solid fa-flag-checkered ml-2"></i></button>`;
+      } else {
+         nextBtn = `<button onclick="Actions.nextQ()" ${(!hasAnswered || STATE.currentQ === total - 1) ? 'disabled' : ''} class="w-14 h-14 rounded-2xl bg-white text-rose-500 shadow-sm flex items-center justify-center disabled:opacity-30 border border-slate-100 active-scale"><i class="fa-solid fa-chevron-right"></i></button>`;
+      }
+
+      return `
+        <div class="h-full min-h-0 overflow-hidden flex flex-col" style="padding-top: var(--header-height)">
+           <div class="flex-1 min-h-0 overflow-hidden flex flex-col relative z-10 fade-in px-4 md:px-6">
+              <div class="pt-6 pb-2 shrink-0">
+                 <div class="flex justify-between items-end mb-3">
+                    <div class="text-xs font-black px-4 py-1.5 rounded-full bg-orange-100 text-orange-800 shadow-sm border border-orange-200">Question</div>
+                    <div class="text-slate-400 font-black text-[13px]"><span class="text-xl text-rose-600">${STATE.currentQ + 1}</span> / ${total}</div>
+                 </div>
+                 <div class="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden shadow-inner">
+                    <div class="bg-gradient-to-r from-orange-400 to-rose-500 h-full transition-all duration-300 ease-out" style="width: ${((STATE.currentQ + 1) / total) * 100}%"></div>
+                 </div>
+              </div>
+
+              <div class="flex-1 min-h-0 overflow-y-auto mobile-scroll pb-8 pt-4 no-scrollbar">
+                 <div class="bg-white/90 backdrop-blur-md p-6 md:p-8 rounded-[2rem] shadow-sm border border-white bounce-in mt-2">
+                    <p class="text-[18px] md:text-[20px] font-serif-novel font-black text-slate-800 leading-relaxed mb-8">${q.q}</p>
+                    <div class="space-y-3">${optionsHtml}</div>
+                    ${expHtml}
+                 </div>
+
+                 <div class="mt-8 flex justify-between items-center">
+                    <button onclick="Actions.prevQ()" ${STATE.currentQ === 0 ? 'disabled' : ''} class="w-14 h-14 rounded-2xl bg-white text-slate-400 shadow-sm flex items-center justify-center disabled:opacity-30 border border-slate-100 active-scale"><i class="fa-solid fa-chevron-left"></i></button>
+                    ${nextBtn}
+                 </div>
+              </div>
+           </div>
+        </div>
+      `;
+    }
+
+    function renderQuizResult() {
+      var res = STATE.quizResult;
+      var d = new Date();
+      var dateStr = d.getFullYear() + "/" + ("0" + (d.getMonth() + 1)).slice(-2) + "/" + ("0" + d.getDate()).slice(-2) + " " + ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2);
+      
+      var m = Math.floor(res.timeTaken / 60);
+      var s = res.timeTaken % 60;
+      var timeStr = m + "分" + s + "秒";
+
+      var mistakesHtml = "";
+      if (res.mistakes.length > 0) {
+         mistakesHtml = '<h3 class="text-lg font-black text-slate-700 mb-4 pl-3 border-l-4 border-slate-700">错题本 Review</h3><div class="space-y-4">';
+         for(var i=0; i<res.mistakes.length; i++) {
+             var mObj = res.mistakes[i];
+             mistakesHtml += `
+                <div class="bg-white/90 backdrop-blur-sm p-5 rounded-[1.2rem] shadow-sm border border-rose-100 relative">
+                   <div class="absolute top-0 right-0 bg-rose-500 text-white text-[10px] font-black px-3 py-1 rounded-bl-lg uppercase">Miss</div>
+                   <p class="font-bold text-slate-800 text-[14px] font-serif-novel leading-relaxed mb-4 pr-6">${mObj.q.q}</p>
+                   <div class="space-y-2 text-[13px] font-bold bg-slate-50 p-3 rounded-xl border border-slate-100 mb-3">
+                      <p class="text-rose-500 flex items-center"><i class="fa-solid fa-xmark mr-2"></i><span class="line-through">${mObj.userAns || '未作答'}</span></p>
+                      <p class="text-emerald-600 flex items-center"><i class="fa-solid fa-check mr-2"></i><span>${mObj.q.a}</span></p>
+                   </div>
+                   <p class="text-sky-700 text-[12px] font-black leading-relaxed border-t border-slate-100 pt-3 flex items-start">
+                      <i class="fa-solid fa-lightbulb text-amber-500 mr-2 mt-0.5 text-sm"></i>${mObj.q.exp}
+                   </p>
+                </div>
+             `;
+         }
+         mistakesHtml += '</div>';
+      }
+
+      return `
+        <div class="h-full min-h-0 overflow-hidden flex flex-col" style="padding-top: var(--header-height)">
+           <div class="flex-1 min-h-0 overflow-y-auto pb-safe-bar p-5 fade-in no-scrollbar mobile-scroll relative z-10">
+              <div class="bg-white/90 backdrop-blur-md rounded-[2.5rem] p-8 shadow-xl border border-white text-center relative overflow-hidden mb-6">
+                 <div class="text-[60px] text-amber-400 mb-3 mt-2 drop-shadow-md"><i class="fa-solid fa-award"></i></div>
+                 <h2 class="text-2xl font-black text-slate-800 mb-1 font-serif-novel">Score Report</h2>
+                 <p class="text-xs font-bold text-slate-400 mb-4 uppercase">Mix Tense Challenge</p>
+                 
+                 <div class="flex justify-center items-end mb-4">
+                    <span class="text-[70px] font-black leading-none text-transparent bg-clip-text bg-gradient-to-br from-orange-400 to-rose-600 tracking-tighter drop-shadow-sm">${res.score}</span>
+                    <span class="text-xl font-black text-slate-300 ml-1 mb-3">/100</span>
+                 </div>
+                 
+                 <div class="flex flex-wrap justify-center gap-2 text-[11px] font-bold text-slate-500 mb-6">
+                    <div class="bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 flex items-center"><i class="fa-regular fa-calendar-check mr-1.5 text-indigo-400"></i> ${dateStr}</div>
+                    <div class="bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 flex items-center"><i class="fa-regular fa-clock mr-1.5 text-sky-400"></i> ${timeStr}</div>
+                    <div class="bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 flex items-center"><i class="fa-solid fa-chart-simple mr-1.5 text-rose-400"></i> 评级 <span class="ml-1 text-rose-500 font-black">${res.grade}</span></div>
+                 </div>
+
+                 <div class="bg-rose-50 border border-rose-100 p-4 rounded-2xl mb-6 shadow-inner">
+                    <p class="text-[13px] font-black text-rose-800 leading-relaxed">${res.msg}</p>
+                 </div>
+                 
+                 <div class="mb-8 flex items-center justify-center text-[12px] font-black text-sky-600 bg-sky-50 py-3 px-2 rounded-xl border border-sky-100 border-dashed">
+                   <i class="fa-solid fa-camera-retro mr-2 text-xl"></i> 记得截图发群里打卡哦～老师在群里等你！(づ￣ 3￣)づ
+                 </div>
+                 
+                 <div class="space-y-3">
+                   <button onclick="Actions.startQuiz(true)" class="w-full bg-slate-800 text-white font-black py-4 rounded-xl active-scale shadow-md flex justify-center items-center text-sm tracking-widest"><i class="fa-solid fa-rotate-right mr-2 text-sky-400"></i> 重做刷分 (80%原题+20%新题)</button>
+                   <button onclick="Actions.returnHome()" class="w-full bg-gradient-to-r from-orange-500 to-rose-500 text-white font-black py-4 rounded-xl active-scale shadow-md flex justify-center items-center text-sm tracking-widest"><i class="fa-solid fa-house mr-2 text-yellow-300"></i> 提交成绩并返回主页</button>
+                 </div>
+              </div>
+              ${mistakesHtml}
+           </div>
+        </div>
+      `;
+    }
+
+    function renderTest() {
+       if (STATE.quizState === 'intro') return renderTestIntro();
+       if (STATE.quizState === 'quiz') return renderQuizView();
+       return renderQuizResult();
+    }
+
+    function render() {
+       var html = renderHeader();
+       if (STATE.activeTab === 'learning') html += renderLearning();
+       else html += renderTest();
+       document.getElementById('app').innerHTML = html;
+    }
+
+    // ==========================================
+    // 初始化入口
+    // ==========================================
+    window.onload = function() {
+       render();
+       // 等待几秒后静默预加载音频（给浏览器喘息时间）
+       setTimeout(function() { window.preloadAudio(); }, 2000);
+    };
+
+  </script>
+</body>
+</html>
