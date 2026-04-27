@@ -56,9 +56,14 @@
         .active-scale:active { transform: scale(0.96); transition: transform 0.05s ease-out; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
 
-        .toggle-checkbox:checked { right: 0; border-color: #6B48FF; }
-        .toggle-checkbox:checked + .toggle-label { background-color: #6B48FF; }
-        .toggle-checkbox:checked + .toggle-label:after { transform: translateX(100%); border-color: white; }
+        /* 丝滑原生级开关样式 */
+        .toggle-switch { position: relative; display: inline-block; width: 44px; height: 24px; vertical-align: middle; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #e5e7eb; transition: .4s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 24px; }
+        .toggle-slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.15); }
+        .toggle-switch input:checked + .toggle-slider { background-color: #6B48FF; }
+        .toggle-switch input:checked + .toggle-slider:before { transform: translateX(20px); }
+
         .chip { border: 1px solid #E5E7EB; cursor: pointer; transition: all 0.2s ease; }
         .chip.selected { background-color: #6B48FF; color: white; border-color: #6B48FF; font-weight: bold; }
 
@@ -222,18 +227,26 @@
             async init(userId) {
                 this.userId = userId;
                 const { data } = await sb.from('students_pets').select('*').eq('student_id', userId).maybeSingle();
-                if (data) {
-                    this.state = {
-                        petId: data.pet_id, accessoryId: data.accessory_id || 'none',
-                        auraId: data.aura_id || 'warm', stars: data.total_stars || 0,
-                        hwCompleted: [], adoptionDate: data.adoption_date
-                    };
-                    const { data: logs } = await sb.from('growth_logs').select('homework_id').eq('student_id', userId);
-                    if (logs) this.state.hwCompleted = [...new Set(logs.map(l => l.homework_id))];
-                } else {
-                    this.state = { petId: null, accessoryId: 'none', auraId: 'warm', stars: 0, hwCompleted: [], adoptionDate: new Date().toISOString() };
-                    await this.save();
+                
+                this.state = {
+                    petId: data ? data.pet_id : null, 
+                    accessoryId: data ? (data.accessory_id || 'none') : 'none',
+                    auraId: data ? (data.aura_id || 'warm') : 'warm', 
+                    stars: data ? (data.total_stars || 0) : 0,
+                    hwScores: {}, 
+                    adoptionDate: data ? data.adoption_date : new Date().toISOString()
+                };
+
+                const { data: logs } = await sb.from('growth_logs').select('homework_id, score, stars_earned').eq('student_id', userId);
+                if (logs) {
+                    logs.forEach(l => {
+                        if (!this.state.hwScores[l.homework_id] || this.state.hwScores[l.homework_id].score < l.score) {
+                            this.state.hwScores[l.homework_id] = { score: l.score, stars: l.stars_earned || 0 };
+                        }
+                    });
                 }
+                
+                if (!data) await this.save();
                 this.applyAura();
             },
             async save() {
@@ -247,7 +260,6 @@
                 for (let i = LVL_THRESHOLDS.length - 1; i >= 0; i--) { if (this.state.stars >= LVL_THRESHOLDS[i]) return Math.min(i + 1, 10); }
                 return 1;
             },
-            // 新增：进化阶段判定
             getEvolutionStage() {
                 const lvl = this.getLevel();
                 let stageIdx = 0; let scale = 'scale(0.8)';
@@ -271,19 +283,28 @@
                 if(this.state && this.state.auraId) b.classList.add(`aura-${this.state.auraId}`);
             },
             async processHomeworkScore(hwId, score, starsEarned) {
-                if (this.state.hwCompleted.includes(hwId)) {
-                    App.actions.showAlert('你已经提交过这份作业的成绩啦！去看看别的挑战吧！', '🎓 作业已完成'); return;
-                }
-                this.state.hwCompleted.push(hwId);
-                this.state.stars += starsEarned;
-                await sb.from('growth_logs').insert({ student_id: this.userId, homework_id: hwId, score: score, stars_earned: starsEarned, attempt_count: 1, is_best_score: true });
-                await this.save();
-                
-                if(starsEarned > 0) {
-                    App.actions.showAlert(`太棒了！本次作业成绩 ${score}分！\n\n你的宠物获得了 ${starsEarned} ⭐ 能量！`, '🎉 挑战成功');
-                    App.actions.showStarToast(starsEarned);
+                const prevRecord = this.state.hwScores[hwId] || { score: -1, stars: 0 };
+                await sb.from('growth_logs').insert({ student_id: this.userId, homework_id: hwId, score: score, stars_earned: starsEarned, attempt_count: 1, is_best_score: score > prevRecord.score });
+
+                if (score > prevRecord.score) {
+                    const extraStars = Math.max(0, starsEarned - prevRecord.stars);
+                    this.state.hwScores[hwId] = { score: score, stars: Math.max(starsEarned, prevRecord.stars) };
+                    
+                    if (extraStars > 0) {
+                        this.state.stars += extraStars;
+                        await this.save();
+                        if (prevRecord.score === -1) {
+                            App.actions.showAlert(`太棒了！本次作业获得 ${score} 分！\n\n你的宠物收集到了 ${extraStars} ⭐ 成长值！`, '🎉 挑战成功');
+                        } else {
+                            App.actions.showAlert(`太棒啦！你在本次重做中突破了自我，拿到了 ${score} 分的新纪录！\n\n宠物额外获得了 ${extraStars} ⭐ 成长值！继续保持！`, '🔥 刷分成功');
+                        }
+                        App.actions.showStarToast(extraStars);
+                    } else {
+                        await this.save();
+                        App.actions.showAlert(`太棒啦！你把最高分刷新到了 ${score} 分！虽然这次的分数档位相同，但你的努力让基础更扎实了！\n\n(宠物保持当前开心状态)`, '💪 突破自我');
+                    }
                 } else {
-                    App.actions.showAlert(`本次作业成绩 ${score}分。不要气馁，复习一下错题再接再厉！\n\n(及格即可获得星星奖励哦)`, '💪 继续努力');
+                    App.actions.showAlert(`本次得分为 ${score} 分。\n你之前的最高记录是 ${prevRecord.score} 分。\n\n一天不管做多少次，我们永远只取最高分！\n不要灰心，看看解析，随时欢迎再次挑战！`, '🔄 再接再厉');
                 }
                 App.render();
             }
@@ -411,6 +432,7 @@
                     const stageData = PetManager.getEvolutionStage();
                     const activeAura = AURAS.find(a => a.id === PetManager.state.auraId) || AURAS[0];
                     const unlockedAccCount = ACCESSORIES.filter(a => a.id !== 'none' && PetManager.state.stars >= a.unlockStars).length;
+                    const tasksDoneCount = Object.keys(PetManager.state.hwScores).length;
 
                     const accRow = ACCESSORIES.map(a => {
                         const unlocked = PetManager.state.stars >= a.unlockStars; const active = PetManager.state.accessoryId === a.id;
@@ -439,7 +461,7 @@
                             </div>
                             <div class="grid grid-cols-3 gap-3 mb-6">
                                 <div class="card-solid py-3 px-2 text-center"><div class="text-xl font-black text-[#6B48FF]">${PetManager.state.stars}</div><div class="text-[9px] text-gray-400 font-bold uppercase mt-1">Stars</div></div>
-                                <div class="card-solid py-3 px-2 text-center"><div class="text-xl font-black text-[#2D2A4A]">${PetManager.state.hwCompleted.length}</div><div class="text-[9px] text-gray-400 font-bold uppercase mt-1">Tasks</div></div>
+                                <div class="card-solid py-3 px-2 text-center"><div class="text-xl font-black text-[#2D2A4A]">${tasksDoneCount}</div><div class="text-[9px] text-gray-400 font-bold uppercase mt-1">Tasks</div></div>
                                 <div class="card-solid py-3 px-2 text-center"><div class="text-xl font-black text-[#2D2A4A]">${unlockedAccCount}/6</div><div class="text-[9px] text-gray-400 font-bold uppercase mt-1">Outfits</div></div>
                             </div>
                             <p class="text-[10px] tracking-widest font-bold text-gray-400 uppercase mb-3 ml-1">— Accessories —</p><div class="option-row mb-6">${accRow}</div>
@@ -470,10 +492,17 @@
                         hwHTML = units.map(u => {
                             const unitHws = classHw.filter(h => h.unit === u).map((hw, i) => {
                                 const isArchived = (overrides[hw.id] || hw.status) === 'closed';
-                                const isDone = user.role === 'student' && PetManager.state && PetManager.state.hwCompleted.includes(hw.id);
+                                
+                                // 【核心展示】读取该作业最高分
+                                const bestRecord = (user.role === 'student' && PetManager.state && PetManager.state.hwScores) ? PetManager.state.hwScores[hw.id] : null;
+                                const isDone = !!bestRecord;
+                                const statusTagHtml = isArchived 
+                                    ? '<span class="text-[9px] bg-gray-100 text-gray-500 font-bold px-2 py-1 rounded">ARCHIVED</span>' 
+                                    : (isDone ? `<span class="text-[9px] bg-green-100 text-green-600 font-bold px-2 py-1 rounded">BEST: ${bestRecord.score}分</span>` : '');
+                                    
                                 let onClickAction = `App.actions.openHomework('${hw.file}', '${hw.id}')`;
 
-                                return `<div class="card-solid p-5 flex flex-col items-start animate-stagger" style="animation-delay: ${(i*0.05)}s"><div class="w-8 h-8 rounded-full ${cls.bg} ${cls.color} flex items-center justify-center mb-4 text-sm"><i class="fa-solid fa-compass"></i></div><div class="flex items-center gap-1 mb-2">${isArchived ? '<span class="text-[9px] bg-gray-100 text-gray-500 font-bold px-2 py-1 rounded">ARCHIVED</span>' : ''}${isDone ? '<span class="text-[9px] bg-green-100 text-green-600 font-bold px-2 py-1 rounded">DONE ⭐</span>' : ''}</div><h3 class="font-extrabold text-[15px] text-[#2D2A4A] mb-4 leading-tight flex-1 ${isArchived ? 'opacity-60' : ''}">${App.escape(hw.title)}</h3><button onclick="${onClickAction}" class="w-full bg-[#6B48FF] text-white shadow-md shadow-[#6B48FF]/20 active-scale rounded-xl py-3 text-[13px] font-bold transition-colors">Enter</button></div>`;
+                                return `<div class="card-solid p-5 flex flex-col items-start animate-stagger" style="animation-delay: ${(i*0.05)}s"><div class="w-8 h-8 rounded-full ${cls.bg} ${cls.color} flex items-center justify-center mb-4 text-sm"><i class="fa-solid fa-compass"></i></div><div class="flex items-center gap-1 mb-2">${statusTagHtml}</div><h3 class="font-extrabold text-[15px] text-[#2D2A4A] mb-4 leading-tight flex-1 ${isArchived ? 'opacity-60' : ''}">${App.escape(hw.title)}</h3><button onclick="${onClickAction}" class="w-full bg-[#6B48FF] text-white shadow-md shadow-[#6B48FF]/20 active-scale rounded-xl py-3 text-[13px] font-bold transition-colors">Enter</button></div>`;
                             }).join('');
                             return `<div class="col-span-2 mt-2 mb-1"><h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider pl-1">${u}</h3></div>${unitHws}`;
                         }).join('');
@@ -487,8 +516,9 @@
                     const overrides = getHwOverrides();
                     let openCount = 0; XY_HOMEWORK.forEach(hw => { if ((overrides[hw.id] !== undefined ? overrides[hw.id] : hw.status) === 'open') openCount++; });
 
-                    const tabsHTML = `<div class="flex bg-gray-200/60 p-1 rounded-[16px] mb-6 animate-stagger overflow-x-auto hide-scrollbar"><button onclick="App.state.teacherTab='students'; App.render()" class="flex-1 shrink-0 px-3 py-2.5 text-[12px] font-bold rounded-xl transition-all ${tab === 'students' ? 'bg-white text-[#2D2A4A] shadow' : 'text-gray-500'}">学生管理</button><button onclick="App.state.teacherTab='homework'; App.render()" class="flex-1 shrink-0 px-3 py-2.5 text-[12px] font-bold rounded-xl transition-all ${tab === 'homework' ? 'bg-white text-[#2D2A4A] shadow' : 'text-gray-500'}">作业分发</button><button onclick="App.state.teacherTab='banners'; App.render()" class="flex-1 shrink-0 px-3 py-2.5 text-[12px] font-bold rounded-xl transition-all ${tab === 'banners' ? 'bg-white text-[#2D2A4A] shadow' : 'text-gray-500'}">主页宣传</button></div>`;
+                    const tabsHTML = `<div class="flex bg-gray-200/60 p-1 rounded-[16px] mb-6 animate-stagger overflow-x-auto hide-scrollbar"><button onclick="App.state.teacherTab='students'; App.render()" class="flex-1 shrink-0 px-3 py-2.5 text-[12px] font-bold rounded-xl transition-all ${tab === 'students' ? 'bg-white text-[#2D2A4A] shadow' : 'text-gray-500'}">学生管理</button><button onclick="App.state.teacherTab='homework'; App.render()" class="flex-1 shrink-0 px-3 py-2.5 text-[12px] font-bold rounded-xl transition-all ${tab === 'homework' ? 'bg-white text-[#2D2A4A] shadow' : 'text-gray-500'}">作业分发</button><button onclick="App.state.teacherTab='banners'; App.render()" class="flex-1 shrink-0 px-3 py-2.5 text-[12px] font-bold rounded-xl transition-all ${tab === 'banners' ? 'bg-white text-[#2D2A4A] shadow' : 'text-gray-500'}">主页宣传</button><button onclick="App.state.teacherTab='analytics'; App.render()" class="flex-1 shrink-0 px-3 py-2.5 text-[12px] font-bold rounded-xl transition-all ${tab === 'analytics' ? 'bg-white text-[#2D2A4A] shadow' : 'text-gray-500'}">数据分析</button></div>`;
 
+                    // --- 面板 1: 学生管理 ---
                     let studentsPanelHTML = '';
                     XY_CLASSES.forEach(cls => {
                         const classStudents = XY_STUDENTS.filter(s => (s.classes || []).includes(cls.code));
@@ -503,6 +533,7 @@
 
                     const studentsPanel = `<div class="tab-content ${tab === 'students' ? 'active' : ''}"><div class="mb-8"><h2 class="text-sm font-extrabold text-[#2D2A4A] mb-4 pl-1">班级名单与进度概览</h2><div class="max-h-[400px] overflow-y-auto hide-scrollbar pb-4">${studentsPanelHTML || '<p class="text-xs text-gray-400">暂无学生数据</p>'}</div></div><h2 class="text-lg font-extrabold text-[#2D2A4A] mb-3 pl-1">添加新学生</h2><div class="card-solid p-5 pb-10"><div class="flex gap-3 mb-4"><div class="flex-1"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">ID (可修改)</label><input type="text" id="form-id" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-[#6B48FF] outline-none focus:border-[#6B48FF]"></div><div class="flex-1"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 flex justify-between">PWD <i class="fa-solid fa-rotate text-[#6B48FF] cursor-pointer active-scale" onclick="App.actions.regenPwd()"></i></label><input type="text" id="form-pwd" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-[#6B48FF] outline-none focus:border-[#6B48FF]"></div></div><div class="mb-4"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">Name</label><input type="text" id="form-name" placeholder="输入姓名" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:border-[#6B48FF]"></div><div class="mb-6"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-2 block">Assign Classes (多选)</label><div class="flex flex-wrap gap-2" id="chip-container">${XY_CLASSES.map(c => `<div onclick="App.actions.toggleChip('${c.code}', this)" class="chip bg-[#F8F8FC] text-gray-500 text-[11px] px-3.5 py-2 rounded-xl">${App.escape(c.name)}</div>`).join('')}</div></div><button onclick="App.actions.saveStudentToDB()" class="w-full bg-[#2D2A4A] text-white font-bold rounded-xl py-3.5 shadow-lg active-scale" id="btn-register">直接添加至云端</button></div></div>`;
 
+                    // --- 面板 2: 作业管理 ---
                     let hwPanelHTML = '';
                     XY_CLASSES.forEach(cls => {
                         const classHw = XY_HOMEWORK.filter(hw => hw.classCode === cls.code);
@@ -512,7 +543,7 @@
                             const unitHws = classHw.filter(h => h.unit === u);
                             const toggles = unitHws.map(hw => {
                                 const isOp = overrides[hw.id] !== undefined ? (overrides[hw.id] === 'open') : (hw.status === 'open');
-                                return `<div class="flex justify-between items-center py-2.5 border-b border-gray-50 last:border-0 pl-4"><p class="text-[13px] font-bold text-[#2D2A4A] truncate pr-2">${App.escape(hw.title)}</p><div class="relative inline-block w-10 shrink-0 align-middle select-none"><input type="checkbox" id="tgl-${hw.id}" ${isOp ? 'checked' : ''} onchange="App.actions.toggleHw('${hw.id}', this.checked)" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 border-gray-300 appearance-none cursor-pointer z-10 transition-transform duration-200 ease-in-out"/><label for="tgl-${hw.id}" class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-200 cursor-pointer transition-colors duration-200 ease-in-out"></label></div></div>`;
+                                return `<div class="flex justify-between items-center py-2.5 border-b border-gray-50 last:border-0 pl-4"><p class="text-[13px] font-bold text-[#2D2A4A] truncate pr-2">${App.escape(hw.title)}</p><div class="flex items-center gap-3 shrink-0"><label class="toggle-switch"><input type="checkbox" id="tgl-${hw.id}" ${isOp ? 'checked' : ''} onchange="App.actions.toggleHw('${hw.id}', this.checked)"/><span class="toggle-slider"></span></label><button onclick="App.actions.deleteHomework('${hw.id}')" class="w-7 h-7 rounded-full bg-red-50 text-red-500 flex items-center justify-center active-scale hover:bg-red-500 hover:text-white transition-colors shadow-sm"><i class="fa-solid fa-trash-can text-[10px]"></i></button></div></div>`;
                             }).join('');
                             return `<div class="mb-3"><div class="text-[11px] font-bold text-[#6B48FF] bg-[#F4F2FF] px-4 py-1.5 rounded-t-xl">${App.escape(u)}</div><div class="border border-t-0 border-[#F4F2FF] rounded-b-xl px-2 bg-white shadow-sm">${toggles}</div></div>`;
                         }).join('');
@@ -521,11 +552,14 @@
 
                     const hwPanel = `<div class="tab-content ${tab === 'homework' ? 'active' : ''}"><div class="flex justify-between items-end mb-3 px-1"><h2 class="text-lg font-extrabold text-[#2D2A4A]">单元管理 (<span id="ui-hw-count" class="text-[#00BFA5]">${openCount}</span> 在线)</h2><button onclick="App.actions.closeAllOldHw()" class="text-xs font-bold text-red-500 bg-red-50 px-3 py-1.5 rounded-lg active-scale">一键关闭旧作业</button></div><div class="overflow-hidden mb-8 max-h-[400px] overflow-y-auto hide-scrollbar">${hwPanelHTML || '<div class="card-solid p-4 text-center text-xs text-gray-400">暂无作业</div>'}</div><h2 class="text-lg font-extrabold text-[#2D2A4A] mb-3 pl-1">添加新作业配置</h2><div class="card-solid p-5 pb-10"><div class="mb-4"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">班级 (Class Code)</label><select id="hw-class" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-[#6B48FF] outline-none">${XY_CLASSES.map(c => `<option value="${c.code}">${c.name}</option>`).join('')}</select></div><div class="flex gap-3 mb-4"><div class="w-1/3"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">单元(Unit)</label><input type="text" id="hw-unit" placeholder="U1" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none"></div><div class="w-2/3"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">标题(Title)</label><input type="text" id="hw-title" placeholder="Food & Drink" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none"></div></div><div class="mb-6"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">文件名 (HTML File)</label><input type="text" id="hw-file" placeholder="u1_test.html" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none"></div><button id="btn-add-hw" onclick="App.actions.addHomeworkToDB()" class="w-full bg-[#00BFA5] text-white font-bold rounded-xl py-3.5 shadow-lg active-scale">添加并在全网发布</button></div></div>`;
 
+                    // --- 面板 3: 宣传图 ---
                     let bannersList = (XY_BANNERS || []).map(b => `<div class="card-solid p-3 mb-3 flex items-center gap-3"><div class="w-16 h-12 bg-gray-100 rounded-lg overflow-hidden shrink-0"><img src="${b.image}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/150?text=IMG'"/></div><div class="flex-1 overflow-hidden"><p class="text-[13px] font-bold text-[#2D2A4A] truncate">${App.escape(b.title)}</p><p class="text-[10px] text-gray-400 truncate mt-0.5">Tag: ${App.escape(b.tag)}</p></div><button onclick="App.actions.deleteBanner('${b.id}')" class="w-8 h-8 rounded-full bg-red-50 text-red-500 flex items-center justify-center active-scale shrink-0"><i class="fa-solid fa-trash-can text-xs"></i></button></div>`).join('');
-                    
                     const bannersPanel = `<div class="tab-content ${tab === 'banners' ? 'active' : ''}"><div class="mb-6"><h2 class="text-sm font-extrabold text-[#2D2A4A] mb-3 pl-1">当前主页宣传图</h2><div class="max-h-[300px] overflow-y-auto hide-scrollbar">${bannersList || '<p class="text-xs text-gray-400 pl-1">使用的是内置默认卡片。</p>'}</div></div><h2 class="text-lg font-extrabold text-[#2D2A4A] mb-3 pl-1">发布新图文卡片</h2><div class="card-solid p-5 pb-8 bg-gradient-to-b from-white to-[#F8F8FC]"><div class="mb-4"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">图片直链 (Image URL)</label><input type="text" id="ban-img" placeholder="https://..." class="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none"></div><div class="mb-4"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">跳转网页链接 (Link URL)</label><input type="text" id="ban-link" placeholder="点击后跳转的文章或网址" class="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none"></div><div class="flex gap-3 mb-6"><div class="w-1/3"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">标签 (Tag)</label><input type="text" id="ban-tag" placeholder="NEW" class="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none"></div><div class="w-2/3"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">大标题 (Title)</label><input type="text" id="ban-title" placeholder="宣传标题" class="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none"></div></div><button id="btn-add-ban" onclick="App.actions.addBannerToDB()" class="w-full bg-[#6B48FF] text-white font-bold rounded-xl py-3.5 shadow-lg shadow-[#6B48FF]/30 active-scale">上传至主页</button></div></div>`;
 
-                    return this.header() + `<section class="px-6 pt-4 mb-8"><h1 class="text-[26px] font-extrabold text-[#2D2A4A] mb-1">Teacher Admin</h1><p class="text-xs text-gray-500 mb-4">工作室数据总览与控制中心。</p>${tabsHTML}${studentsPanel}${hwPanel}${bannersPanel}</section>`;
+                    // --- 面板 4: 学情分析接口 ---
+                    const analyticsPanel = `<div class="tab-content ${tab === 'analytics' ? 'active' : ''}"><div class="grid grid-cols-2 gap-3 mb-4"><div class="card-solid p-4 text-center border-dashed border-2 border-blue-100 shadow-none"><i class="fa-solid fa-file-contract text-3xl text-blue-300 mb-2"></i><h3 class="text-xs font-extrabold text-[#2D2A4A]">全景做题报告</h3><p class="text-[9px] text-gray-500 mt-1">记录每一次尝试与刷分</p></div><div class="card-solid p-4 text-center border-dashed border-2 border-purple-100 shadow-none"><i class="fa-solid fa-chart-line text-3xl text-purple-300 mb-2"></i><h3 class="text-xs font-extrabold text-[#2D2A4A]">纵向成长曲线</h3><p class="text-[9px] text-gray-500 mt-1">自己与自己的历史对比</p></div><div class="card-solid p-4 text-center border-dashed border-2 border-emerald-100 shadow-none"><i class="fa-solid fa-chart-pie text-3xl text-emerald-300 mb-2"></i><h3 class="text-xs font-extrabold text-[#2D2A4A]">横向雷达图</h3><p class="text-[9px] text-gray-500 mt-1">各知识点短板定位分析</p></div><div class="card-solid p-4 text-center border-dashed border-2 border-orange-100 shadow-none"><i class="fa-solid fa-users-rays text-3xl text-orange-300 mb-2"></i><h3 class="text-xs font-extrabold text-[#2D2A4A]">同伴分布对比</h3><p class="text-[9px] text-gray-500 mt-1">了解班级与全网综合排位</p></div></div><div class="bg-[#F4F2FF] p-5 rounded-2xl text-center border border-[#6B48FF]/20 shadow-inner mt-6"><i class="fa-solid fa-lock text-[#6B48FF] text-2xl mb-3 animate-pulse"></i><p class="text-sm font-bold text-[#6B48FF]">高阶分析接口已预留</p><p class="text-[11px] text-gray-500 mt-2 leading-relaxed">后台记录已接通。即将接入底层图表算法引擎，<br>未来自动生成上述多维精美分析图表。</p></div></div>`;
+
+                    return this.header() + `<section class="px-6 pt-4 mb-8"><h1 class="text-[26px] font-extrabold text-[#2D2A4A] mb-1">Teacher Admin</h1><p class="text-xs text-gray-500 mb-4">工作室数据总览与控制中心。</p>${tabsHTML}${studentsPanel}${hwPanel}${bannersPanel}${analyticsPanel}</section>`;
                 }
             },
 
@@ -582,21 +616,38 @@
                     document.getElementById('ui-hw-count').innerText = openCount;
                 },
                 
-                async closeAllOldHw() {
-                    if(!confirm('确定要一键关闭所有已经发布的旧作业吗？这可以让学生的界面更清爽。')) return;
-                    const overrides = getHwOverrides(); XY_HOMEWORK.forEach(hw => overrides[hw.id] = 'closed'); setHwOverrides(overrides);
-                    await sb.from('homework').update({ status: 'closed' }).neq('status', 'closed');
-                    App.render(); this.showAlert('所有旧作业已成功收回封闭。', '✅ 清理完成');
+                showConfirm(msg, title = '⚠️ 警告', confirmText = '确定', confirmClass = 'bg-red-500 shadow-red-500/30', actionFn) {
+                    const root = document.getElementById('modal-root');
+                    window.__xy_confirm_action = actionFn;
+                    root.innerHTML = `<div class="fixed inset-0 z-[9999] flex items-center justify-center p-4"><div class="absolute inset-0 bg-black/40 backdrop-blur-sm fade-in" onclick="document.getElementById('modal-root').innerHTML=''"></div><div class="bg-white rounded-[32px] p-6 w-full max-w-sm relative z-10 shadow-2xl text-center" style="animation: slideUpFade 0.3s forwards"><div class="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 text-3xl"><i class="fa-solid fa-triangle-exclamation"></i></div><h3 class="text-[18px] font-black text-[#2D2A4A] mb-3">${title}</h3><p class="text-[14px] text-gray-500 mb-6 font-medium whitespace-pre-wrap leading-relaxed">${msg}</p><div class="flex gap-3"><button onclick="document.getElementById('modal-root').innerHTML=''" class="flex-1 bg-gray-100 text-gray-600 font-bold rounded-2xl py-3.5 active-scale">取消</button><button onclick="document.getElementById('modal-root').innerHTML=''; window.__xy_confirm_action();" class="flex-1 ${confirmClass} text-white font-bold rounded-2xl py-3.5 shadow-lg active-scale">${confirmText}</button></div></div></div>`;
                 },
 
-                async addHomeworkToDB() {
+                closeAllOldHw() {
+                    this.showConfirm('确定要一键关闭所有已经发布的旧作业吗？这可以让学生的界面更清爽。', '⚠️ 确认关闭', '确认关闭', 'bg-red-500 shadow-red-500/30', async () => {
+                        const overrides = getHwOverrides(); XY_HOMEWORK.forEach(hw => overrides[hw.id] = 'closed'); setHwOverrides(overrides);
+                        await sb.from('homework').update({ status: 'closed' }).neq('status', 'closed');
+                        App.render(); this.showAlert('所有旧作业已成功收回封闭。', '✅ 清理完成');
+                    });
+                },
+
+                deleteHomework(id) {
+                    this.showConfirm('确定要彻底删除这个作业配置吗？\n删除后不可恢复！', '⚠️ 确认删除', '彻底删除', 'bg-red-500 shadow-red-500/30', async () => {
+                        const { error } = await sb.from('homework').delete().eq('id', id);
+                        if(error) return this.showAlert('删除失败: ' + error.message, '❌ 错误');
+                        XY_HOMEWORK = await loadHomework();
+                        App.render(); this.showAlert('作业配置已彻底删除。', '✅ 删除成功');
+                    });
+                },
+
+                addHomeworkToDB() {
                     const classCode = document.getElementById('hw-class').value; const unit = document.getElementById('hw-unit').value.trim(); const title = document.getElementById('hw-title').value.trim(); const file = document.getElementById('hw-file').value.trim();
                     if(!unit || !title || !file) return this.showAlert('请完整填写作业信息', '⚠️ 提示');
-                    const btn = document.getElementById('btn-add-hw'); const orig = btn.innerText; btn.innerText = '正在发布...'; btn.disabled = true;
-                    const { error } = await sb.from('homework').insert({ id: 'hw_' + Date.now(), class_code: classCode, unit: unit, title: title, date: new Date().toISOString(), file: file, status: 'open' });
-                    btn.innerText = orig; btn.disabled = false;
-                    if(error) return this.showAlert('发布失败: ' + error.message, '❌ 错误');
-                    XY_HOMEWORK = await loadHomework(); this.showAlert(`新作业已成功发布并同步至全网学生端！`, '✅ 发布成功'); App.render();
+                    
+                    this.showConfirm(`将要把新作业推送到 ${classCode} 班级的主页。\n请确认你的文件名填写无误。`, '📝 确认发布', '确认发布', 'bg-[#00BFA5] shadow-[#00BFA5]/30', async () => {
+                        const { error } = await sb.from('homework').insert({ id: 'hw_' + Date.now(), class_code: classCode, unit: unit, title: title, date: new Date().toISOString(), file: file, status: 'open' });
+                        if(error) return this.showAlert('发布失败: ' + error.message, '❌ 错误');
+                        XY_HOMEWORK = await loadHomework(); this.showAlert(`新作业已成功发布并同步至全网学生端！`, '✅ 发布成功'); App.render();
+                    });
                 },
 
                 initTeacherForm() {
@@ -616,36 +667,44 @@
                     root.innerHTML = `<div class="fixed inset-0 z-[9999] flex items-center justify-center p-4"><div class="absolute inset-0 bg-black/40 backdrop-blur-sm fade-in" onclick="document.getElementById('modal-root').innerHTML=''"></div><div class="bg-white rounded-[32px] p-6 w-full max-w-sm relative z-10 shadow-2xl text-center" style="animation: slideUpFade 0.3s forwards"><h3 class="text-[18px] font-black text-[#2D2A4A] mb-3">${title}</h3><p class="text-[14px] text-gray-500 mb-6 font-medium whitespace-pre-wrap leading-relaxed">${msg}</p><button onclick="document.getElementById('modal-root').innerHTML=''" class="w-full bg-[#6B48FF] text-white font-bold rounded-2xl py-3.5 shadow-lg shadow-[#6B48FF]/30 active-scale">我知道了</button></div></div>`;
                 },
 
-                async saveStudentToDB() {
+                saveStudentToDB() {
                     const id = document.getElementById('form-id').value; const pwd = document.getElementById('form-pwd').value; const name = document.getElementById('form-name').value.trim(); const classes = App.state.teacherForm.classes;
                     if (!name || classes.length === 0) return this.showAlert('请填写姓名并选择至少一个班级', '⚠️ 提示');
-                    const btn = document.getElementById('btn-register'); const orig = btn.innerText; btn.innerText = '正在上传...'; btn.disabled = true;
-                    try {
-                        const { error } = await sb.from('students').insert({ id: id, password: pwd, name: name, classes: classes });
-                        btn.innerText = orig; btn.disabled = false;
-                        if (error) { if(error.code === '23505') return this.showAlert(`账号 ${id} 已存在，请修改ID后再试。`, '⚠️ 账号重复'); return this.showAlert('添加失败: ' + error.message, '❌ 错误'); } 
-                        this.showAlert(`账号：${id}\n密码：${pwd}\n\n该学生现在可以正常登录了！`, '✅ 添加成功！');
-                        XY_STUDENTS = await loadStudents(); App.render();
-                    } catch (err) { btn.innerText = orig; btn.disabled = false; this.showAlert('网络请求异常: ' + err.message, '❌ 网络错误'); }
+                    
+                    this.showConfirm(`将要给 ${name} (${id}) 建立专属云端档案。`, '📝 添加学生', '确认添加', 'bg-[#2D2A4A] shadow-[#2D2A4A]/30', async () => {
+                        try {
+                            const { error } = await sb.from('students').insert({ id: id, password: pwd, name: name, classes: classes });
+                            if (error) { if(error.code === '23505') return this.showAlert(`账号 ${id} 已存在，请修改ID后再试。`, '⚠️ 账号重复'); return this.showAlert('添加失败: ' + error.message, '❌ 错误'); } 
+                            this.showAlert(`账号：${id}\n密码：${pwd}\n\n该学生现在可以正常登录了！`, '✅ 添加成功！');
+                            XY_STUDENTS = await loadStudents(); App.render();
+                        } catch (err) { this.showAlert('网络请求异常: ' + err.message, '❌ 网络错误'); }
+                    });
                 },
                 
-                async deleteStudent(id, name) {
-                    if(!confirm(`确定要终止学生 ${name} (${id}) 的学习并删除其账号吗？\n所有宠物记录也将被清空，操作不可逆！`)) return;
-                    const { error } = await sb.from('students').delete().eq('id', id);
-                    if(error) return this.showAlert('删除失败: ' + error.message, '❌ 错误');
-                    XY_STUDENTS = await loadStudents(); App.render(); this.showAlert(`学生 ${name} 的记录已成功删除。`, '✅ 账号已清理');
+                deleteStudent(id, name) {
+                    this.showConfirm(`确定要终止学生 ${name} (${id}) 的学习并删除其账号吗？\n所有宠物记录也将被清空，操作不可逆！`, '⚠️ 终止学习', '彻底删除', 'bg-red-500 shadow-red-500/30', async () => {
+                        const { error } = await sb.from('students').delete().eq('id', id);
+                        if(error) return this.showAlert('删除失败: ' + error.message, '❌ 错误');
+                        XY_STUDENTS = await loadStudents(); App.render(); this.showAlert(`学生 ${name} 的记录已成功删除。`, '✅ 账号已清理');
+                    });
                 },
 
-                async addBannerToDB() {
+                addBannerToDB() {
                     const img = document.getElementById('ban-img').value.trim(); const link = document.getElementById('ban-link').value.trim(); const tag = document.getElementById('ban-tag').value.trim(); const title = document.getElementById('ban-title').value.trim();
                     if(!img || !title) return this.showAlert('图片直链和大标题必须填写', '⚠️ 提示');
-                    const btn = document.getElementById('btn-add-ban'); const orig = btn.innerText; btn.innerText = '正在上传...'; btn.disabled = true;
-                    const { error } = await sb.from('banners').insert({ id: 'ban_' + Date.now(), image: img, link: link, tag: tag, title: title });
-                    btn.innerText = orig; btn.disabled = false;
-                    if(error) return this.showAlert('上传失败', '❌ 错误');
-                    XY_BANNERS = await loadBanners(); App.render(); this.showAlert('宣传图已成功上架！', '✅ 成功');
+                    
+                    this.showConfirm(`确认将这张图片推送到全体学生的主页幻灯片吗？`, '🖼️ 上架宣传', '确认上架', 'bg-[#6B48FF] shadow-[#6B48FF]/30', async () => {
+                        const { error } = await sb.from('banners').insert({ id: 'ban_' + Date.now(), image: img, link: link, tag: tag, title: title });
+                        if(error) return this.showAlert('上传失败', '❌ 错误');
+                        XY_BANNERS = await loadBanners(); App.render(); this.showAlert('宣传图已成功上架！', '✅ 成功');
+                    });
                 },
-                async deleteBanner(id) { if(!confirm('确定要删除吗？')) return; await sb.from('banners').delete().eq('id', id); XY_BANNERS = await loadBanners(); App.render(); },
+                
+                deleteBanner(id) { 
+                    this.showConfirm('确定要从主页删除这张宣传图吗？', '⚠️ 删除宣传图', '确认删除', 'bg-red-500 shadow-red-500/30', async () => {
+                        await sb.from('banners').delete().eq('id', id); XY_BANNERS = await loadBanners(); App.render();
+                    });
+                },
 
                 openPetSelection() {
                     const root = document.getElementById('modal-root');
@@ -706,7 +765,7 @@
                         const hwId = params.get('hwId');
                         let starsEarned = 0;
                         
-                        // ✨ 难度宽容机制：100分满配，及格就能保底
+                        // ✨ 及格减负保底，满分封顶
                         if (score === 100) starsEarned = 5;
                         else if (score >= 85) starsEarned = 3;
                         else if (score >= 70) starsEarned = 2;
