@@ -18,11 +18,12 @@
             color: #1C1C28; 
             -webkit-tap-highlight-color: transparent;
             transition: background-color 0.8s ease-in-out;
+            overflow-y: scroll; /* 强制显示滚动条防止页面抖动 */
         }
         .font-serif { font-family: Georgia, 'Times New Roman', serif; }
         
         .card-solid {
-            background-color: #FFFFFF; border-radius: 20px;
+            background-color: #FFFFFF; border-radius: 24px;
             border: 1px solid rgba(107, 72, 255, 0.04);
             box-shadow: 0 10px 30px rgba(107, 72, 255, 0.04), 0 2px 6px rgba(0,0,0,0.02);
             transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.3s ease;
@@ -42,12 +43,20 @@
             background: linear-gradient(135deg, #8B6CEF 0%, #6B48FF 100%); position: relative; overflow: hidden;
         }
         .bg-banner::before {
-            content: ''; position: absolute; top: -50%; right: -20%; width: 200px; height: 200px;
+            content: ''; position: absolute; top: -50%; right: -20%; width: 250px; height: 250px;
             background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%); border-radius: 50%;
         }
 
-        .page-enter { animation: smoothEnter 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
-        @keyframes smoothEnter { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
+        /* 高级 3D 页面切换动画 */
+        .page-enter {
+            animation: page3DEnter 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+            transform-origin: 50% 10vh;
+            backface-visibility: hidden;
+        }
+        @keyframes page3DEnter {
+            0% { opacity: 0; transform: perspective(1200px) translateZ(-60px) translateY(15px) rotateX(4deg); }
+            100% { opacity: 1; transform: perspective(1200px) translateZ(0) translateY(0) rotateX(0); }
+        }
 
         .animate-stagger { animation: slideUpFade 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; opacity: 0; }
         @keyframes slideUpFade { 0% { opacity: 0; transform: translateY(12px); } 100% { opacity: 1; transform: translateY(0); } }
@@ -55,22 +64,22 @@
         .active-scale { transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1); }
         .active-scale:active { transform: scale(0.96); transition: transform 0.05s ease-out; }
         
-        /* 隐藏滚动条，保留丝滑的横向滚动功能 */
+        /* 隐藏滚动条保留滑动 */
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-        /* 丝滑原生级开关样式 */
-        .toggle-switch { position: relative; display: inline-block; width: 44px; height: 24px; vertical-align: middle; }
+        /* 丝滑原生级开关 */
+        .toggle-switch { position: relative; display: inline-block; width: 48px; height: 26px; vertical-align: middle; }
         .toggle-switch input { opacity: 0; width: 0; height: 0; }
-        .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #e5e7eb; transition: .4s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 24px; }
-        .toggle-slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.15); }
+        .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #e5e7eb; transition: .4s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 26px; }
+        .toggle-slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px; background-color: white; transition: .4s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.15); }
         .toggle-switch input:checked + .toggle-slider { background-color: #6B48FF; }
-        .toggle-switch input:checked + .toggle-slider:before { transform: translateX(20px); }
+        .toggle-switch input:checked + .toggle-slider:before { transform: translateX(22px); }
 
         .chip { border: 1px solid #E5E7EB; cursor: pointer; transition: all 0.2s ease; }
         .chip.selected { background-color: #6B48FF; color: white; border-color: #6B48FF; font-weight: bold; }
 
-        /* 3D Pet System Styles */
+        /* 3D 宠物展示 */
         .pet-3d-container { perspective: 1000px; }
         .pet-3d-model {
             animation: float3d 4s ease-in-out infinite;
@@ -91,14 +100,18 @@
             width: 140px; height: 140px; display: flex; align-items: center; justify-content: center;
             border-radius: 36px; background: radial-gradient(circle at 50% 60%, rgba(255,255,255,0.4), transparent 60%);
         }
+        @media (min-width: 768px) {
+            .pet-stage { width: 180px; height: 180px; }
+        }
+        
         .energy-bar-wrapper { background: rgba(0, 0, 0, 0.08); border-radius: 99px; height: 8px; overflow: hidden; }
         .energy-bar {
             height: 100%; border-radius: 99px; background: linear-gradient(90deg, #8B6CEF, #6B48FF);
             transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
-        .option-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; scrollbar-width: none; }
+        .option-row { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 10px; scrollbar-width: none; }
         .option-btn {
-            flex: 0 0 auto; background: #FFF; border: 1px solid #E5E7EB; border-radius: 99px; padding: 10px 16px; font-size: 13px; font-weight: 600; color: #1C1C28; transition: all 0.2s;
+            flex: 0 0 auto; background: #FFF; border: 1px solid #E5E7EB; border-radius: 99px; padding: 12px 20px; font-size: 14px; font-weight: 600; color: #1C1C28; transition: all 0.2s;
         }
         .option-btn.active { background: #6B48FF; color: #FFF; border-color: #6B48FF; }
         .option-btn.locked { opacity: 0.4; cursor: not-allowed; }
@@ -106,8 +119,8 @@
         .star-toast {
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
             background: rgba(255,255,255,0.95); backdrop-filter: blur(10px);
-            color: #6B48FF; font-weight: 900; font-size: 20px;
-            padding: 12px 28px; border-radius: 99px; opacity: 0; pointer-events: none; z-index: 9999;
+            color: #6B48FF; font-weight: 900; font-size: 22px;
+            padding: 16px 36px; border-radius: 99px; opacity: 0; pointer-events: none; z-index: 9999;
             box-shadow: 0 10px 30px rgba(107,72,255,0.15); animation: starGentlePop 2.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
         }
         @keyframes starGentlePop {
@@ -116,15 +129,16 @@
             70% { opacity: 1; transform: translate(-50%, -30px) scale(1); }
             100% { opacity: 0; transform: translate(-50%, -50px) scale(0.95); }
         }
-        .tab-content { display: none; animation: fadeIn 0.3s ease; }
+        
+        .tab-content { display: none; animation: fadeIn 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
         .tab-content.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes slideUpFade { from { transform: translateY(15px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
-<body class="relative min-h-screen overflow-x-hidden selection:bg-[#6B48FF] selection:text-white" id="main-body">
+<body class="relative min-h-screen selection:bg-[#6B48FF] selection:text-white" id="main-body">
     
-    <div id="app-content" class="relative z-10 w-full max-w-md mx-auto min-h-screen pb-24"></div>
+    <!-- 核心容器自适应更宽的尺寸 -->
+    <div id="app-content" class="relative z-10 w-full max-w-[1100px] mx-auto min-h-screen pb-28 md:pb-32"></div>
     <div id="nav-root"></div>
     <div id="modal-root"></div>
 
@@ -243,6 +257,7 @@
                 const { data: logs } = await sb.from('growth_logs').select('homework_id, score, stars_earned').eq('student_id', userId);
                 if (logs) {
                     logs.forEach(l => {
+                        // 过滤豁免权数据
                         if (l.homework_id.startsWith('EXEMP_')) return;
                         if (!this.state.hwScores[l.homework_id] || this.state.hwScores[l.homework_id].score < l.score) {
                             this.state.hwScores[l.homework_id] = { score: l.score, stars: l.stars_earned || 0 };
@@ -310,10 +325,12 @@
                 } else {
                     App.actions.showAlert(`本次得分为 ${score} 分。\n你之前的最高记录是 ${prevRecord.score} 分。\n\n一天不管做多少次，我们永远只取最高分！\n不要灰心，看看解析，随时欢迎再次挑战！`, '🔄 再接再厉');
                 }
+                App._isNavigating = true; // 触发刷新和回到顶部
                 App.render();
             }
         };
 
+        // Canvas Particle System
         const PetCanvasRenderer = {
             timer: null,
             init() {
@@ -323,8 +340,8 @@
                 const ctx = canvas.getContext('2d');
                 canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
                 let particles = [];
-                for(let i=0; i<30; i++) {
-                    particles.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, size: Math.random() * 3 + 1, speedY: Math.random() * 1 + 0.5, opacity: Math.random() });
+                for(let i=0; i<40; i++) {
+                    particles.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, size: Math.random() * 4 + 1, speedY: Math.random() * 1.5 + 0.5, opacity: Math.random() });
                 }
                 const animate = () => {
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -350,16 +367,24 @@
                 attendance: null,
                 chartConfig: { classCode: '', mode: 'ALL', selectedStudents: [], startDate: '', endDate: '', datasets: null } 
             },
+            _isNavigating: false, // 控制是否播放 3D 转场动画
+            
             navigate(page, params = {}) {
                 const user = XY_AUTH.getCurrentUser();
                 if ((page === 'myhub' || page === 'pet') && (!user || user.role !== 'student')) return this.actions.toggleLoginModal(true);
                 if (page === 'teacher' && (!user || user.role !== 'teacher')) return this.actions.toggleLoginModal(true);
-                this.state.page = page; this.state.params = params; window.scrollTo(0, 0); this.render();
+                
+                this.state.page = page; 
+                this.state.params = params; 
+                this._isNavigating = true; 
+                this.render();
             },
+            
             escape(str) { return String(str || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); },
+            
             render() {
-                const appContent = document.getElementById('app-content'); const navRoot = document.getElementById('nav-root');
-                appContent.classList.remove('page-enter'); void appContent.offsetWidth; appContent.classList.add('page-enter');
+                const appContent = document.getElementById('app-content'); 
+                const navRoot = document.getElementById('nav-root');
                 
                 let html = '';
                 if (this.state.page === 'home') html = this.views.home();
@@ -371,6 +396,15 @@
                 appContent.innerHTML = html;
                 navRoot.innerHTML = (this.state.page !== 'class') ? this.views.bottomNav() : '';
 
+                // 当切大页面时，才播放 3D 动画并滚动到顶部（彻底解决切标签时画面狂抖的问题）
+                if (this._isNavigating) {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    appContent.classList.remove('page-enter'); 
+                    void appContent.offsetWidth; // trigger reflow
+                    appContent.classList.add('page-enter');
+                    this._isNavigating = false;
+                }
+
                 if (this.state.page === 'teacher') this.actions.initTeacherForm();
                 if (this.state.page === 'home') this.actions.initCarousel();
                 if (this.state.page === 'pet') {
@@ -378,7 +412,6 @@
                     else PetCanvasRenderer.init();
                 }
                 
-                // 给 Canvas 渲染留出延时
                 if (this.state.page === 'teacher' && this.state.teacherTab === 'analytics' && this.state.chartConfig.datasets) {
                     setTimeout(() => this.actions.drawCanvasChart(this.state.chartConfig.datasets), 50);
                 }
@@ -387,38 +420,38 @@
             views: {
                 header(showBack = false) {
                     const user = XY_AUTH.getCurrentUser();
-                    let rightArea = `<button class="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-[#6B48FF] active-scale" onclick="App.actions.toggleLoginModal(true)"><i class="fa-solid fa-user"></i></button>`;
-                    if (user) rightArea = `<button onclick="App.actions.doLogout()" class="border border-gray-100 bg-white rounded-full px-3.5 py-1.5 flex items-center gap-1.5 active-scale shadow-sm text-[#6B48FF]"><i class="fa-solid fa-arrow-right-from-bracket text-[10px]"></i><span class="text-[10px] font-bold tracking-widest uppercase">Logout</span></button>`;
+                    let rightArea = `<button class="w-11 h-11 md:w-12 md:h-12 rounded-full bg-white shadow-sm flex items-center justify-center text-[#6B48FF] active-scale text-lg" onclick="App.actions.toggleLoginModal(true)"><i class="fa-solid fa-user"></i></button>`;
+                    if (user) rightArea = `<button onclick="App.actions.doLogout()" class="border border-gray-100 bg-white rounded-full px-4 py-2 flex items-center gap-2 active-scale shadow-sm text-[#6B48FF]"><i class="fa-solid fa-arrow-right-from-bracket text-xs md:text-sm"></i><span class="text-xs md:text-sm font-bold tracking-widest uppercase">Logout</span></button>`;
                     const backTarget = user ? (user.role === 'teacher' ? 'teacher' : 'home') : 'home';
-                    const leftArea = showBack ? `<button onclick="App.navigate('${backTarget}')" class="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center text-[#6B48FF] active-scale"><i class="fa-solid fa-arrow-left text-sm"></i></button>` : `<div class="flex items-center gap-2"><i class="fa-solid fa-graduation-cap text-[#6B48FF] text-2xl"></i><span class="font-extrabold text-[22px] tracking-tight text-[#2D2A4A]">Xiaoyao Studio</span></div>`;
-                    return `<header class="px-6 py-4 flex justify-between items-center sticky top-0 glass-header z-40">${leftArea}${rightArea}</header>`;
+                    const leftArea = showBack ? `<button onclick="App.navigate('${backTarget}')" class="w-11 h-11 md:w-12 md:h-12 rounded-full bg-white shadow-sm flex items-center justify-center text-[#6B48FF] active-scale"><i class="fa-solid fa-arrow-left text-lg"></i></button>` : `<div class="flex items-center gap-2.5"><i class="fa-solid fa-graduation-cap text-[#6B48FF] text-3xl md:text-4xl"></i><span class="font-extrabold text-[24px] md:text-[28px] tracking-tight text-[#2D2A4A]">Xiaoyao Studio</span></div>`;
+                    return `<header class="px-6 md:px-10 py-5 md:py-6 flex justify-between items-center sticky top-0 glass-header z-40 max-w-[1100px] mx-auto">${leftArea}${rightArea}</header>`;
                 },
 
                 bottomNav() {
                     const p = App.state.page; const user = XY_AUTH.getCurrentUser();
                     const isTeacher = user && user.role === 'teacher';
                     const tabs = isTeacher ? [{ id:'home', icon:'fa-shapes', label:'Courses' }, { id:'teacher', icon:'fa-border-all', label:'Teacher' }] : [{ id:'home', icon:'fa-shapes', label:'Courses' }, { id:'myhub', icon:'fa-folder-open', label:'My Hub' }];
-                    const renderBtn = (tab) => `<button class="flex-1 flex flex-col items-center justify-center h-full active-scale transition-colors" onclick="App.navigate('${tab.id}')"><div class="w-14 h-8 rounded-2xl ${p === tab.id || (tab.id === 'myhub' && p === 'pet') ? 'bg-[#6B48FF] text-white shadow-lg shadow-indigo-500/30' : 'text-gray-400 hover:bg-gray-50'} flex items-center justify-center mb-1 transition-all duration-300"><i class="fa-solid ${tab.icon} text-[16px]"></i></div><span class="${p === tab.id || (tab.id === 'myhub' && p === 'pet') ? 'text-[#6B48FF] font-bold' : 'text-gray-400 font-bold'} text-[10px] tracking-widest uppercase">${tab.label}</span></button>`;
-                    return `<div class="fixed bottom-0 left-0 w-full bottom-nav-bar z-50"><nav class="flex w-full max-w-md mx-auto h-[72px] px-2 items-center">${tabs.map(renderBtn).join('')}</nav></div>`;
+                    const renderBtn = (tab) => `<button class="flex-1 flex flex-col items-center justify-center h-full active-scale transition-colors" onclick="App.navigate('${tab.id}')"><div class="w-16 h-10 md:w-20 md:h-12 rounded-2xl ${p === tab.id || (tab.id === 'myhub' && p === 'pet') ? 'bg-[#6B48FF] text-white shadow-lg shadow-indigo-500/30' : 'text-gray-400 hover:bg-gray-50'} flex items-center justify-center mb-1.5 transition-all duration-300"><i class="fa-solid ${tab.icon} text-[20px] md:text-[24px]"></i></div><span class="${p === tab.id || (tab.id === 'myhub' && p === 'pet') ? 'text-[#6B48FF] font-bold' : 'text-gray-400 font-bold'} text-[11px] md:text-[13px] tracking-widest uppercase">${tab.label}</span></button>`;
+                    return `<div class="fixed bottom-0 left-0 w-full bottom-nav-bar z-50 flex justify-center"><nav class="flex w-full max-w-[1100px] h-[80px] md:h-[96px] px-2 md:px-6 items-center gap-2">${tabs.map(renderBtn).join('')}</nav></div>`;
                 },
 
                 home() {
                     const user = XY_AUTH.getCurrentUser();
                     const bannerData = XY_BANNERS || XY_CAROUSEL;
                     const carouselCards = bannerData.map((item, idx) => {
-                        if (item.type === 'quote') return `<div class="carousel-slide bg-banner rounded-3xl p-6 text-white shadow-lg shadow-[#6B48FF]/20 absolute inset-0 select-none" data-idx="${idx}"><span class="uppercase text-[9px] tracking-[0.2em] font-bold bg-white/20 px-3 py-1 rounded-full backdrop-blur-sm pointer-events-none">PHILOSOPHY</span><h2 class="font-serif text-[19px] italic font-bold leading-tight mt-5 mb-3 pointer-events-none">"${App.escape(item.text)}"</h2><div class="w-8 h-0.5 bg-white/60 rounded my-3 pointer-events-none"></div><p class="text-[10px] tracking-[0.15em] uppercase text-white/90 font-bold pointer-events-none">${App.escape(item.author)}</p></div>`;
-                        else if (item.image) return `<div class="carousel-slide bg-gray-100 rounded-3xl overflow-hidden shadow-lg absolute inset-0 active-scale select-none cursor-pointer" data-idx="${idx}" onclick="window.open('${item.link || '#'}', '_blank')"><img src="${item.image}" class="w-full h-full object-cover pointer-events-none" onerror="this.src='https://via.placeholder.com/400x200?text=Image+Error'"/><div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none"></div><div class="absolute bottom-4 left-4 right-4 z-10 pointer-events-none"><span class="uppercase text-[9px] tracking-[0.2em] font-bold bg-[#6B48FF] text-white px-2 py-1 rounded-sm">${App.escape(item.tag)}</span><h2 class="text-[16px] text-white font-bold leading-tight mt-2 drop-shadow-md">${App.escape(item.title)}</h2></div></div>`;
-                        else return `<div class="carousel-slide bg-banner rounded-3xl p-6 text-white shadow-lg shadow-indigo-500/20 absolute inset-0 active-scale select-none cursor-pointer" data-idx="${idx}" onclick="window.open('${item.link || '#'}', '_blank')"><div class="absolute inset-0 bg-gradient-to-br from-[#6B48FF]/85 to-[#8B6CEF]/85 rounded-3xl pointer-events-none"></div><div class="relative z-10 pointer-events-none"><span class="uppercase text-[9px] tracking-[0.2em] font-bold bg-white/20 px-3 py-1 rounded-full backdrop-blur-sm">${App.escape(item.tag)}</span><h2 class="font-serif text-[20px] font-bold leading-tight mt-5 mb-2">${App.escape(item.title)}</h2><p class="text-xs text-white/85 leading-relaxed mt-3">${App.escape(item.description || item.desc)}</p></div></div>`;
+                        if (item.type === 'quote') return `<div class="carousel-slide bg-banner rounded-3xl p-6 md:p-10 text-white shadow-lg shadow-[#6B48FF]/20 absolute inset-0 select-none" data-idx="${idx}"><span class="uppercase text-[10px] md:text-xs tracking-[0.2em] font-bold bg-white/20 px-3 py-1 rounded-full backdrop-blur-sm pointer-events-none">PHILOSOPHY</span><h2 class="font-serif text-[22px] md:text-[30px] italic font-bold leading-tight mt-6 md:mt-10 mb-4 pointer-events-none">"${App.escape(item.text)}"</h2><div class="w-10 h-0.5 bg-white/60 rounded my-4 pointer-events-none"></div><p class="text-[11px] md:text-sm tracking-[0.15em] uppercase text-white/90 font-bold pointer-events-none">${App.escape(item.author)}</p></div>`;
+                        else if (item.image) return `<div class="carousel-slide bg-gray-100 rounded-3xl overflow-hidden shadow-lg absolute inset-0 active-scale select-none cursor-pointer" data-idx="${idx}" onclick="window.open('${item.link || '#'}', '_blank')"><img src="${item.image}" class="w-full h-full object-cover pointer-events-none" onerror="this.src='https://via.placeholder.com/600x300?text=Image+Error'"/><div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none"></div><div class="absolute bottom-5 left-5 right-5 z-10 pointer-events-none"><span class="uppercase text-[10px] md:text-xs tracking-[0.2em] font-bold bg-[#6B48FF] text-white px-2 py-1 rounded-sm">${App.escape(item.tag)}</span><h2 class="text-[18px] md:text-[26px] text-white font-bold leading-tight mt-2 md:mt-3 drop-shadow-md">${App.escape(item.title)}</h2></div></div>`;
+                        else return `<div class="carousel-slide bg-banner rounded-3xl p-6 md:p-10 text-white shadow-lg shadow-indigo-500/20 absolute inset-0 active-scale select-none cursor-pointer" data-idx="${idx}" onclick="window.open('${item.link || '#'}', '_blank')"><div class="absolute inset-0 bg-gradient-to-br from-[#6B48FF]/85 to-[#8B6CEF]/85 rounded-3xl pointer-events-none"></div><div class="relative z-10 pointer-events-none"><span class="uppercase text-[10px] md:text-xs tracking-[0.2em] font-bold bg-white/20 px-3 py-1 rounded-full backdrop-blur-sm">${App.escape(item.tag)}</span><h2 class="font-serif text-[24px] md:text-[34px] font-bold leading-tight mt-6 md:mt-10 mb-2 md:mb-4">${App.escape(item.title)}</h2><p class="text-sm md:text-base text-white/85 leading-relaxed mt-3">${App.escape(item.description || item.desc)}</p></div></div>`;
                     }).join('');
-                    const dots = bannerData.map((_, idx) => `<button class="carousel-dot w-1.5 h-1.5 rounded-full bg-white/40 transition-all" data-dot-idx="${idx}"></button>`).join('');
+                    const dots = bannerData.map((_, idx) => `<button class="carousel-dot w-2 h-2 rounded-full bg-white/40 transition-all" data-dot-idx="${idx}"></button>`).join('');
 
                     const classCards = XY_CLASSES.map((cls, i) => {
                         let isLocked = user && user.role === 'student' && !(user.classes || []).includes(cls.code);
                         const btnClass = isLocked ? 'bg-[#F4F5F8] text-[#A0A5B1] shadow-none' : 'bg-[#6B48FF] text-white shadow-md shadow-[#6B48FF]/20 active-scale';
-                        return `<div class="card-solid p-5 flex flex-col items-center text-center animate-stagger" style="animation-delay: ${(i*0.05)}s"><div class="w-14 h-14 rounded-full ${cls.bg} ${cls.color} flex items-center justify-center mb-3 text-[22px]"><i class="fa-solid ${cls.icon}"></i></div><h3 class="font-extrabold text-[15px] text-[#2D2A4A] tracking-tight mb-1 w-full truncate px-1">${App.escape(cls.name)}</h3><p class="text-[9px] tracking-widest text-gray-400 font-bold uppercase mb-4 w-full truncate px-1">${App.escape(cls.level)}</p><button onclick="${isLocked ? '' : `App.navigate('class', {code: '${cls.code}'})`}" class="w-full rounded-full py-2.5 text-[12px] font-bold flex items-center justify-center gap-1.5 transition-colors ${btnClass}">${isLocked ? `<i class="fa-solid fa-lock text-[10px]"></i> Locked` : `Enter`}</button></div>`;
+                        return `<div class="card-solid p-6 flex flex-col items-center text-center animate-stagger" style="animation-delay: ${(i*0.05)}s"><div class="w-16 h-16 md:w-20 md:h-20 rounded-full ${cls.bg} ${cls.color} flex items-center justify-center mb-4 text-[26px] md:text-[32px]"><i class="fa-solid ${cls.icon}"></i></div><h3 class="font-extrabold text-[16px] md:text-[18px] text-[#2D2A4A] tracking-tight mb-1 w-full truncate px-1">${App.escape(cls.name)}</h3><p class="text-[10px] md:text-[11px] tracking-widest text-gray-400 font-bold uppercase mb-5 w-full truncate px-1">${App.escape(cls.level)}</p><button onclick="${isLocked ? '' : `App.navigate('class', {code: '${cls.code}'})`}" class="w-full rounded-full py-3.5 text-[13px] md:text-[15px] font-bold flex items-center justify-center gap-2 transition-colors ${btnClass}">${isLocked ? `<i class="fa-solid fa-lock text-[11px]"></i> Locked` : `Enter`}</button></div>`;
                     }).join('');
 
-                    return this.header() + `<section class="px-6 pt-2 pb-6 animate-stagger"><div id="carousel-wrapper" class="relative touch-pan-y" style="height: 220px;">${carouselCards}<div class="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5 z-20">${dots}</div></div></section><section class="px-6 pb-6 animate-stagger" style="animation-delay: 0.1s"><div class="mb-5"><h2 class="text-[22px] font-extrabold text-[#2D2A4A] tracking-tight">All Courses</h2><p class="text-xs text-gray-500 mt-1">View our full course collection here.</p></div><div class="grid grid-cols-2 gap-4">${classCards}</div></section>`;
+                    return this.header() + `<section class="px-6 md:px-10 pt-2 pb-8 animate-stagger"><div id="carousel-wrapper" class="relative touch-pan-y h-[240px] md:h-[340px] lg:h-[400px]">${carouselCards}<div class="absolute bottom-4 left-0 right-0 flex justify-center gap-2 z-20">${dots}</div></div></section><section class="px-6 md:px-10 pb-10 animate-stagger" style="animation-delay: 0.1s"><div class="mb-6"><h2 class="text-[26px] md:text-[32px] font-extrabold text-[#2D2A4A] tracking-tight">All Courses</h2><p class="text-sm md:text-base text-gray-500 mt-1">View our full course collection here.</p></div><div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6 lg:gap-8">${classCards}</div></section>`;
                 },
 
                 myhub() {
@@ -426,21 +459,21 @@
                     let petSummaryHtml = '';
                     if (PetManager.state && PetManager.state.petId) {
                         const stageData = PetManager.getEvolutionStage();
-                        petSummaryHtml = `<div class="card-solid p-4 mb-6 active-scale cursor-pointer flex items-center justify-between border-l-[4px] border-l-[#6B48FF]" onclick="App.navigate('pet')"><div class="flex items-center gap-4"><div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#E9E5FF] to-[#F8F8FC] flex items-center justify-center text-3xl shadow-inner">${stageData.emoji}</div><div><h3 class="font-extrabold text-[16px] text-[#2D2A4A] tracking-tight">${PetManager.getPet().name}</h3><p class="text-[11px] text-[#6B48FF] font-bold tracking-wide">Lv ${PetManager.getLevel()} ${stageData.name} · ${PetManager.state.stars} ⭐</p></div></div><div class="w-9 h-9 rounded-full bg-[#F4F2FF] flex items-center justify-center text-[#6B48FF]"><i class="fa-solid fa-angle-right text-sm"></i></div></div>`;
+                        petSummaryHtml = `<div class="card-solid p-5 md:p-6 mb-8 active-scale cursor-pointer flex items-center justify-between border-l-[6px] border-l-[#6B48FF]" onclick="App.navigate('pet')"><div class="flex items-center gap-5"><div class="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-gradient-to-br from-[#E9E5FF] to-[#F8F8FC] flex items-center justify-center text-4xl shadow-inner">${stageData.emoji}</div><div><h3 class="font-extrabold text-[18px] md:text-[22px] text-[#2D2A4A] tracking-tight mb-1">${PetManager.getPet().name}</h3><p class="text-[12px] md:text-[14px] text-[#6B48FF] font-bold tracking-wide">Lv ${PetManager.getLevel()} ${stageData.name} · ${PetManager.state.stars} ⭐</p></div></div><div class="w-10 h-10 md:w-12 md:h-12 rounded-full bg-[#F4F2FF] flex items-center justify-center text-[#6B48FF]"><i class="fa-solid fa-angle-right text-lg"></i></div></div>`;
                     } else {
-                        petSummaryHtml = `<div class="card-solid p-4 mb-6 active-scale cursor-pointer flex items-center justify-between border-dashed border-2 border-gray-200 shadow-none" onclick="App.navigate('pet')"><div class="flex items-center gap-4"><div class="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center text-2xl text-gray-300">🥚</div><div><h3 class="font-extrabold text-[15px] text-[#2D2A4A]">My Companion</h3><p class="text-[11px] text-gray-400 font-medium">Adopt a pet to grow with you!</p></div></div><i class="fa-solid fa-angle-right text-gray-300 mr-2"></i></div>`;
+                        petSummaryHtml = `<div class="card-solid p-5 md:p-6 mb-8 active-scale cursor-pointer flex items-center justify-between border-dashed border-2 border-gray-200 shadow-none" onclick="App.navigate('pet')"><div class="flex items-center gap-5"><div class="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-gray-50 flex items-center justify-center text-4xl text-gray-300">🥚</div><div><h3 class="font-extrabold text-[18px] md:text-[22px] text-[#2D2A4A] mb-1">My Companion</h3><p class="text-[12px] md:text-[14px] text-gray-400 font-medium">Adopt a pet to grow with you!</p></div></div><i class="fa-solid fa-angle-right text-gray-300 mr-2 text-xl"></i></div>`;
                     }
 
                     const myClassesHtml = (user.classes || []).map((code, i) => {
                         const cls = XY_CLASSES.find(c => c.code === code); if(!cls) return '';
-                        return `<div class="card-solid p-5 flex flex-col items-center text-center animate-stagger" style="animation-delay: ${(i*0.05)}s"><div class="w-16 h-16 rounded-full ${cls.bg} ${cls.color} flex items-center justify-center mb-4 text-[26px]"><i class="fa-solid ${cls.icon}"></i></div><h3 class="font-extrabold text-[15px] text-[#2D2A4A] tracking-tight mb-1 w-full truncate px-1">${App.escape(cls.name)}</h3><p class="text-[9px] tracking-widest text-gray-400 font-bold uppercase mb-4 w-full truncate px-1">${App.escape(cls.level)}</p><button onclick="App.navigate('class', {code: '${cls.code}'})" class="w-full bg-[#6B48FF] text-white rounded-full py-2.5 text-[12px] font-bold shadow-md shadow-[#6B48FF]/20 active-scale transition-colors">Enter</button></div>`;
+                        return `<div class="card-solid p-6 flex flex-col items-center text-center animate-stagger" style="animation-delay: ${(i*0.05)}s"><div class="w-16 h-16 md:w-20 md:h-20 rounded-full ${cls.bg} ${cls.color} flex items-center justify-center mb-4 text-[26px] md:text-[32px]"><i class="fa-solid ${cls.icon}"></i></div><h3 class="font-extrabold text-[16px] md:text-[18px] text-[#2D2A4A] tracking-tight mb-1 w-full truncate px-1">${App.escape(cls.name)}</h3><p class="text-[10px] md:text-[11px] tracking-widest text-gray-400 font-bold uppercase mb-5 w-full truncate px-1">${App.escape(cls.level)}</p><button onclick="App.navigate('class', {code: '${cls.code}'})" class="w-full bg-[#6B48FF] text-white rounded-full py-3.5 text-[13px] md:text-[15px] font-bold shadow-md shadow-[#6B48FF]/20 active-scale transition-colors">Enter</button></div>`;
                     }).join('');
 
-                    return this.header() + `<section class="px-6 pt-4 animate-stagger"><h1 class="text-[26px] font-extrabold text-[#2D2A4A] tracking-tight leading-tight">My Hub</h1><p class="text-sm text-gray-500 mt-1 mb-6">Your companion & enrolled classes.</p></section><section class="px-6 animate-stagger" style="animation-delay: 0.1s">${petSummaryHtml}</section><section class="px-6 pb-6"><div class="grid grid-cols-2 gap-4">${myClassesHtml}</div></section>`;
+                    return this.header() + `<section class="px-6 md:px-10 pt-4 animate-stagger"><h1 class="text-[30px] md:text-[36px] font-extrabold text-[#2D2A4A] tracking-tight leading-tight">My Hub</h1><p class="text-sm md:text-base text-gray-500 mt-2 mb-8">Your companion & enrolled classes.</p></section><section class="px-6 md:px-10 animate-stagger" style="animation-delay: 0.1s">${petSummaryHtml}</section><section class="px-6 md:px-10 pb-10"><div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">${myClassesHtml}</div></section>`;
                 },
 
                 pet() {
-                    if (!PetManager.state || !PetManager.state.petId) return this.header(true) + `<div class="p-10 text-center text-gray-500 mt-20">Opening incubator...</div>`;
+                    if (!PetManager.state || !PetManager.state.petId) return this.header(true) + `<div class="p-10 text-center text-gray-500 mt-20 text-lg">Opening incubator...</div>`;
                     
                     const pet = PetManager.getPet(); const acc = PetManager.getAccessory(); const p = PetManager.getProgress(); 
                     const stageData = PetManager.getEvolutionStage();
@@ -451,7 +484,7 @@
                     const accRow = ACCESSORIES.map(a => {
                         const unlocked = PetManager.state.stars >= a.unlockStars; const active = PetManager.state.accessoryId === a.id;
                         const action = unlocked ? `PetManager.state.accessoryId='${a.id}';PetManager.save().then(()=>App.render());` : `App.actions.showAlert('Need ${a.unlockStars} stars to unlock!', '🔒 Locked')`;
-                        return `<button class="option-btn active-scale ${active ? 'active' : ''} ${!unlocked ? 'locked' : ''}" onclick="${action}">${a.icon ? `${a.icon} ${a.text}` : a.text}${!unlocked ? ` <span class="text-[9px] opacity-70 ml-1">🔒 ${a.unlockStars}⭐</span>` : ''}</button>`;
+                        return `<button class="option-btn active-scale ${active ? 'active' : ''} ${!unlocked ? 'locked' : ''}" onclick="${action}">${a.icon ? `${a.icon} ${a.text}` : a.text}${!unlocked ? ` <span class="text-[10px] opacity-70 ml-1">🔒 ${a.unlockStars}⭐</span>` : ''}</button>`;
                     }).join('');
 
                     const auraRow = AURAS.map(a => {
@@ -460,27 +493,33 @@
                     }).join('');
 
                     return this.header(true) + `
-                        <section class="px-6 pt-2 pb-6 animate-stagger">
-                            <div class="pet-hero p-5 mb-5 bg-gradient-to-br ${activeAura.gradient} transition-all duration-1000">
-                                <div class="flex items-center gap-4 relative z-10">
+                        <section class="px-6 md:px-10 pt-2 pb-10 animate-stagger max-w-3xl mx-auto">
+                            <div class="pet-hero p-6 md:p-8 mb-6 bg-gradient-to-br ${activeAura.gradient} transition-all duration-1000">
+                                <div class="flex items-center gap-6 relative z-10">
                                     <div class="pet-stage shrink-0 relative overflow-visible pet-3d-container">
                                         <canvas id="pet-aura-canvas"></canvas>
-                                        <div class="pet-3d-model absolute inset-0 z-10 flex items-center justify-center transition-all duration-1000 drop-shadow-[0_15px_15px_rgba(0,0,0,0.25)]" style="transform: ${stageData.scale}; font-size: 75px;">
+                                        <div class="pet-3d-model absolute inset-0 z-10 flex items-center justify-center transition-all duration-1000 drop-shadow-[0_15px_15px_rgba(0,0,0,0.25)] text-[80px] md:text-[110px]" style="transform: ${stageData.scale};">
                                             ${stageData.emoji}
                                             ${acc.icon && stageData.idx > 0 ? `<div class="absolute leading-none z-20 drop-shadow-md" style="font-size: ${acc.size}; ${acc.pos}">${acc.icon}</div>` : ''}
                                         </div>
                                     </div>
-                                    <div class="flex-1 drop-shadow-sm"><h2 class="text-[22px] font-extrabold text-[#2D2A4A] tracking-tight mb-1">${pet.name}</h2><p class="text-[11px] text-gray-600 font-bold mb-3">${stageData.name} ${pet.type}</p><div class="inline-block bg-[#1C1C28] text-white rounded-full px-3 py-1 text-[11px] font-bold tracking-wider mb-2 shadow-md">Lv ${PetManager.getLevel()}</div><div class="energy-bar-wrapper"><div class="energy-bar" style="width: ${p.pct}%"></div></div><p class="text-[10px] text-gray-500 mt-1 font-bold tracking-wide">${p.cur} / ${p.max} to Level Up</p></div>
+                                    <div class="flex-1 drop-shadow-sm">
+                                        <h2 class="text-[26px] md:text-[34px] font-extrabold text-[#2D2A4A] tracking-tight mb-1">${pet.name}</h2>
+                                        <p class="text-[13px] md:text-[16px] text-gray-600 font-bold mb-4">${stageData.name} ${pet.type}</p>
+                                        <div class="inline-block bg-[#1C1C28] text-white rounded-full px-4 py-1.5 text-[12px] md:text-[14px] font-bold tracking-wider mb-3 shadow-md">Lv ${PetManager.getLevel()}</div>
+                                        <div class="energy-bar-wrapper h-2.5 md:h-3 mb-1.5"><div class="energy-bar" style="width: ${p.pct}%"></div></div>
+                                        <p class="text-[11px] md:text-[13px] text-gray-600 font-bold tracking-wide">${p.cur} / ${p.max} to Level Up</p>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="grid grid-cols-3 gap-3 mb-6">
-                                <div class="card-solid py-3 px-2 text-center"><div class="text-xl font-black text-[#6B48FF]">${PetManager.state.stars}</div><div class="text-[9px] text-gray-400 font-bold uppercase mt-1">Stars</div></div>
-                                <div class="card-solid py-3 px-2 text-center"><div class="text-xl font-black text-[#2D2A4A]">${tasksDoneCount}</div><div class="text-[9px] text-gray-400 font-bold uppercase mt-1">Tasks</div></div>
-                                <div class="card-solid py-3 px-2 text-center"><div class="text-xl font-black text-[#2D2A4A]">${unlockedAccCount}/6</div><div class="text-[9px] text-gray-400 font-bold uppercase mt-1">Outfits</div></div>
+                            <div class="grid grid-cols-3 gap-4 mb-8">
+                                <div class="card-solid py-4 px-2 text-center"><div class="text-2xl md:text-3xl font-black text-[#6B48FF]">${PetManager.state.stars}</div><div class="text-[10px] md:text-[12px] text-gray-400 font-bold uppercase mt-2">Stars</div></div>
+                                <div class="card-solid py-4 px-2 text-center"><div class="text-2xl md:text-3xl font-black text-[#2D2A4A]">${tasksDoneCount}</div><div class="text-[10px] md:text-[12px] text-gray-400 font-bold uppercase mt-2">Tasks</div></div>
+                                <div class="card-solid py-4 px-2 text-center"><div class="text-2xl md:text-3xl font-black text-[#2D2A4A]">${unlockedAccCount}/6</div><div class="text-[10px] md:text-[12px] text-gray-400 font-bold uppercase mt-2">Outfits</div></div>
                             </div>
-                            <p class="text-[10px] tracking-widest font-bold text-gray-400 uppercase mb-3 ml-1">— Accessories —</p><div class="option-row mb-6">${accRow}</div>
-                            <p class="text-[10px] tracking-widest font-bold text-gray-400 uppercase mb-3 ml-1">— Aura —</p><div class="option-row mb-5">${auraRow}</div>
-                            <div class="grid grid-cols-2 gap-3 mt-2"><div class="card-solid p-4 text-center cursor-pointer active-scale bg-gradient-to-r from-red-50 to-orange-50 border-red-100" onclick="App.actions.openChangePetModal()"><i class="fa-solid fa-arrows-rotate text-red-400 mb-2 text-lg"></i><h3 class="text-[13px] font-bold text-red-900">Change (10⭐)</h3></div></div>
+                            <p class="text-[11px] md:text-[13px] tracking-widest font-bold text-gray-400 uppercase mb-4 ml-1">— Accessories —</p><div class="option-row mb-8">${accRow}</div>
+                            <p class="text-[11px] md:text-[13px] tracking-widest font-bold text-gray-400 uppercase mb-4 ml-1">— Aura —</p><div class="option-row mb-6">${auraRow}</div>
+                            <div class="grid grid-cols-2 gap-4 mt-4"><div class="card-solid p-5 text-center cursor-pointer active-scale bg-gradient-to-r from-red-50 to-orange-50 border-red-100" onclick="App.actions.openChangePetModal()"><i class="fa-solid fa-arrows-rotate text-red-400 mb-3 text-xl md:text-2xl"></i><h3 class="text-[14px] md:text-[16px] font-bold text-red-900">Change (10⭐)</h3></div></div>
                         </section>
                     `;
                 },
@@ -490,17 +529,17 @@
                     const user = XY_AUTH.getCurrentUser(); const header = this.header(true);
 
                     if (!user || (user.role === 'student' && !(user.classes || []).includes(classCode))) {
-                        return header + `<div class="px-6 flex flex-col items-center justify-center min-h-[75vh] text-center page-enter pb-20"><div class="text-[90px] leading-none mb-6 animate-float-bounce drop-shadow-2xl">🙈</div><h2 class="text-[28px] font-black mb-3 text-[#2D2A4A] tracking-tight">哒咩！走错门啦！</h2><p class="text-[14px] text-gray-500 mb-10 max-w-[260px] mx-auto leading-relaxed font-medium"><span class="text-[#6B48FF] font-extrabold text-[15px]">${App.escape(cls.name)}</span> 的封印还没解开 🪄<br><br>快去看看属于你自己的魔法课程吧！🏃‍♂️💨</p><button onclick="App.navigate('home')" class="bg-[#6B48FF] text-white px-10 py-3.5 rounded-full font-extrabold shadow-xl shadow-[#6B48FF]/30 active-scale text-[15px] flex items-center gap-2">返回我的主场 <i class="fa-solid fa-house text-xs"></i></button></div>`;
+                        return header + `<div class="px-6 flex flex-col items-center justify-center min-h-[75vh] text-center page-enter pb-20"><div class="text-[100px] leading-none mb-8 animate-float-bounce drop-shadow-2xl">🙈</div><h2 class="text-[32px] font-black mb-4 text-[#2D2A4A] tracking-tight">哒咩！走错门啦！</h2><p class="text-[16px] text-gray-500 mb-12 max-w-[300px] mx-auto leading-relaxed font-medium"><span class="text-[#6B48FF] font-extrabold text-[17px]">${App.escape(cls.name)}</span> 的封印还没解开 🪄<br><br>快去看看属于你自己的魔法课程吧！🏃‍♂️💨</p><button onclick="App.navigate('home')" class="bg-[#6B48FF] text-white px-12 py-4 rounded-full font-extrabold shadow-xl shadow-[#6B48FF]/30 active-scale text-[16px] flex items-center gap-2">返回我的主场 <i class="fa-solid fa-house text-sm"></i></button></div>`;
                     }
 
-                    const classInfo = `<section class="px-6 pt-4 mb-6 animate-stagger"><div class="relative overflow-hidden rounded-[20px] bg-gradient-to-r ${cls.gradient} p-6 text-white shadow-xl shadow-indigo-500/10"><i class="fa-solid ${cls.icon} absolute -right-6 -bottom-6 text-[130px] opacity-[0.12] transform -rotate-12 pointer-events-none"></i><div class="relative z-10"><span class="text-[9px] font-bold tracking-widest uppercase opacity-80">${App.escape(cls.level)} TRACK</span><h1 class="text-[28px] font-extrabold mt-1 tracking-tight">${App.escape(cls.name)}</h1></div></div></section>`;
+                    const classInfo = `<section class="px-6 md:px-10 pt-4 mb-8 animate-stagger"><div class="relative overflow-hidden rounded-[24px] bg-gradient-to-r ${cls.gradient} p-8 md:p-10 text-white shadow-xl shadow-indigo-500/10"><i class="fa-solid ${cls.icon} absolute -right-6 -bottom-6 text-[150px] md:text-[200px] opacity-[0.12] transform -rotate-12 pointer-events-none"></i><div class="relative z-10"><span class="text-[10px] md:text-[12px] font-bold tracking-widest uppercase opacity-80">${App.escape(cls.level)} TRACK</span><h1 class="text-[32px] md:text-[40px] font-extrabold mt-2 tracking-tight">${App.escape(cls.name)}</h1></div></div></section>`;
 
                     const overrides = getHwOverrides();
                     const classHw = XY_HOMEWORK.filter(hw => hw.classCode === classCode && (user.role === 'teacher' || (overrides[hw.id] !== undefined ? overrides[hw.id] : hw.status) === 'open'));
 
                     let hwHTML = '';
                     if (classHw.length === 0) {
-                        hwHTML = `<div class="col-span-2 card-solid p-8 text-center text-gray-400 border-dashed border-2 border-gray-200 shadow-none"><i class="fa-solid fa-inbox text-2xl mb-2 text-gray-300"></i><p class="text-xs font-bold text-gray-500">本周课程准备中</p></div>`;
+                        hwHTML = `<div class="col-span-2 md:col-span-3 lg:col-span-4 card-solid p-10 text-center text-gray-400 border-dashed border-2 border-gray-200 shadow-none"><i class="fa-solid fa-inbox text-3xl mb-3 text-gray-300"></i><p class="text-sm font-bold text-gray-500">本周课程准备中</p></div>`;
                     } else {
                         const units = [...new Set(classHw.map(h => h.unit))];
                         hwHTML = units.map(u => {
@@ -509,18 +548,18 @@
                                 const bestRecord = (user.role === 'student' && PetManager.state && PetManager.state.hwScores) ? PetManager.state.hwScores[hw.id] : null;
                                 const isDone = !!bestRecord;
                                 const statusTagHtml = isArchived 
-                                    ? '<span class="text-[9px] bg-gray-100 text-gray-500 font-bold px-2 py-1 rounded">ARCHIVED</span>' 
-                                    : (isDone ? `<span class="text-[9px] bg-green-100 text-green-600 font-bold px-2 py-1 rounded">BEST: ${bestRecord.score}分</span>` : '');
+                                    ? '<span class="text-[10px] md:text-[11px] bg-gray-100 text-gray-500 font-bold px-2 py-1 rounded">ARCHIVED</span>' 
+                                    : (isDone ? `<span class="text-[10px] md:text-[11px] bg-green-100 text-green-600 font-bold px-2 py-1 rounded">BEST: ${bestRecord.score}分</span>` : '');
                                     
                                 let onClickAction = `App.actions.openHomework('${hw.file}', '${hw.id}')`;
 
-                                return `<div class="card-solid p-5 flex flex-col items-start animate-stagger" style="animation-delay: ${(i*0.05)}s"><div class="w-8 h-8 rounded-full ${cls.bg} ${cls.color} flex items-center justify-center mb-4 text-sm"><i class="fa-solid fa-compass"></i></div><div class="flex items-center gap-1 mb-2">${statusTagHtml}</div><h3 class="font-extrabold text-[15px] text-[#2D2A4A] mb-4 leading-tight flex-1 ${isArchived ? 'opacity-60' : ''}">${App.escape(hw.title)}</h3><button onclick="${onClickAction}" class="w-full bg-[#6B48FF] text-white shadow-md shadow-[#6B48FF]/20 active-scale rounded-xl py-3 text-[13px] font-bold transition-colors">Enter</button></div>`;
+                                return `<div class="card-solid p-6 flex flex-col items-start animate-stagger" style="animation-delay: ${(i*0.05)}s"><div class="w-10 h-10 md:w-12 md:h-12 rounded-full ${cls.bg} ${cls.color} flex items-center justify-center mb-4 text-base"><i class="fa-solid fa-compass"></i></div><div class="flex items-center gap-2 mb-3">${statusTagHtml}</div><h3 class="font-extrabold text-[16px] md:text-[18px] text-[#2D2A4A] mb-5 leading-tight flex-1 ${isArchived ? 'opacity-60' : ''}">${App.escape(hw.title)}</h3><button onclick="${onClickAction}" class="w-full bg-[#6B48FF] text-white shadow-md shadow-[#6B48FF]/20 active-scale rounded-xl py-3.5 text-[14px] font-bold transition-colors">Enter</button></div>`;
                             }).join('');
-                            return `<div class="col-span-2 mt-2 mb-1"><h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider pl-1">${u}</h3></div>${unitHws}`;
+                            return `<div class="col-span-2 md:col-span-3 lg:col-span-4 mt-3 mb-2"><h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider pl-1">${u}</h3></div>${unitHws}`;
                         }).join('');
                     }
 
-                    return header + classInfo + `<section class="px-6 pb-6"><div class="grid grid-cols-2 gap-4">${hwHTML}</div></section>`;
+                    return header + classInfo + `<section class="px-6 md:px-10 pb-10"><div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">${hwHTML}</div></section>`;
                 },
 
                 teacherPanel() {
@@ -528,20 +567,21 @@
                     const overrides = getHwOverrides();
                     let openCount = 0; XY_HOMEWORK.forEach(hw => { if ((overrides[hw.id] !== undefined ? overrides[hw.id] : hw.status) === 'open') openCount++; });
 
-                    // 【核心修改】Edge-to-Edge 横向胶囊导航
+                    // 【升级：边缘无缝横向胶囊菜单】
                     const topTabs = [
-                        {id: 'students', icon: 'fa-user-graduate', label: '学生'},
-                        {id: 'homework', icon: 'fa-book', label: '作业'},
-                        {id: 'banners', icon: 'fa-image', label: '宣传'},
-                        {id: 'attendance', icon: 'fa-calendar-check', label: '考勤'},
-                        {id: 'analytics', icon: 'fa-chart-line', label: '分析'}
+                        {id: 'students', icon: 'fa-user-graduate', label: '学生管理'},
+                        {id: 'homework', icon: 'fa-book', label: '作业管理'},
+                        {id: 'banners', icon: 'fa-image', label: '主页宣传'},
+                        {id: 'attendance', icon: 'fa-calendar-check', label: '考勤管理'},
+                        {id: 'analytics', icon: 'fa-chart-line', label: '数据分析'}
                     ];
                     
                     const tabsHTML = `
-                        <div class="flex gap-2 overflow-x-auto hide-scrollbar pb-4 mb-4 -mx-6 px-6 touch-pan-x">
+                        <div class="flex gap-3 overflow-x-auto hide-scrollbar pb-5 mb-5 -mx-6 px-6 touch-pan-x md:mx-0 md:px-0">
                             ${topTabs.map(t => {
                                 const active = tab === t.id;
-                                return `<button onclick="App.state.teacherTab='${t.id}'; App.render()" class="shrink-0 px-5 py-2.5 rounded-full text-[13px] font-bold transition-all shadow-sm flex items-center gap-2 active-scale ${active ? 'bg-[#6B48FF] text-white shadow-md shadow-[#6B48FF]/30' : 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50'}"><i class="fa-solid ${t.icon}"></i> ${t.label}</button>`;
+                                // 使用 event.preventDefault 并在 actions 中实现无跳动切换
+                                return `<button onclick="App.actions.switchTeacherTab('${t.id}')" class="shrink-0 px-6 py-3 rounded-full text-[14px] md:text-[15px] font-bold transition-all shadow-sm flex items-center gap-2 active-scale ${active ? 'bg-[#6B48FF] text-white shadow-md shadow-[#6B48FF]/30' : 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50'}"><i class="fa-solid ${t.icon}"></i> ${t.label}</button>`;
                             }).join('')}
                         </div>
                     `;
@@ -554,11 +594,12 @@
                         let listHTML = classStudents.map(s => {
                             const petData = XY_ALL_PETS.find(p => p.student_id === s.id); const stars = petData ? petData.total_stars : 0;
                             let lvl = 1; for (let i = LVL_THRESHOLDS.length - 1; i >= 0; i--) { if (stars >= LVL_THRESHOLDS[i]) { lvl = Math.min(i + 1, 10); break; } }
-                            return `<div class="flex justify-between items-center p-3 border-b border-gray-50 last:border-0 bg-white"><div><p class="text-[14px] font-bold text-[#2D2A4A]">${App.escape(s.name)} <span class="text-xs text-gray-400 font-medium ml-1">${s.id}</span></p><p class="text-[10px] text-gray-500 mt-1 font-medium">PWD: <span class="text-[#6B48FF] font-mono font-bold">${s.password}</span> <span class="mx-1 text-gray-300">|</span> Pet: Lv.${lvl} (${stars}⭐)</p></div><button onclick="App.actions.deleteStudent('${s.id}', '${App.escape(s.name)}')" class="w-8 h-8 rounded-full bg-red-50 text-red-500 flex items-center justify-center active-scale shrink-0"><i class="fa-solid fa-trash-can text-xs"></i></button></div>`;
+                            return `<div class="flex justify-between items-center p-4 border-b border-gray-50 last:border-0 bg-white"><div><p class="text-[15px] md:text-[16px] font-bold text-[#2D2A4A]">${App.escape(s.name)} <span class="text-xs md:text-sm text-gray-400 font-medium ml-1">${s.id}</span></p><p class="text-[11px] md:text-[13px] text-gray-500 mt-1 font-medium">PWD: <span class="text-[#6B48FF] font-mono font-bold">${s.password}</span> <span class="mx-2 text-gray-300">|</span> Pet: Lv.${lvl} (${stars}⭐)</p></div><button onclick="App.actions.deleteStudent('${s.id}', '${App.escape(s.name)}')" class="w-10 h-10 rounded-full bg-red-50 text-red-500 flex items-center justify-center active-scale shrink-0 hover:bg-red-500 hover:text-white transition-colors"><i class="fa-solid fa-trash-can text-sm"></i></button></div>`;
                         }).join('');
-                        studentsPanelHTML += `<div class="mb-5 overflow-hidden rounded-xl border border-gray-100 shadow-sm"><div class="bg-[#F4F2FF] px-4 py-2.5 flex items-center gap-2"><i class="fa-solid ${cls.icon} text-[#6B48FF] text-sm"></i><h3 class="text-xs font-extrabold text-[#6B48FF]">${cls.name} <span class="font-medium opacity-60">(${classStudents.length})</span></h3></div><div>${listHTML}</div></div>`;
+                        studentsPanelHTML += `<div class="mb-6 overflow-hidden rounded-xl border border-gray-100 shadow-sm"><div class="bg-[#F4F2FF] px-5 py-3 flex items-center gap-2"><i class="fa-solid ${cls.icon} text-[#6B48FF] text-base"></i><h3 class="text-sm font-extrabold text-[#6B48FF]">${cls.name} <span class="font-medium opacity-60">(${classStudents.length})</span></h3></div><div>${listHTML}</div></div>`;
                     });
-                    const studentsPanel = `<div class="tab-content ${tab === 'students' ? 'active' : ''}"><div class="mb-8"><h2 class="text-sm font-extrabold text-[#2D2A4A] mb-4 pl-1">班级名单与进度概览</h2><div class="max-h-[400px] overflow-y-auto hide-scrollbar pb-4">${studentsPanelHTML || '<p class="text-xs text-gray-400">暂无学生数据</p>'}</div></div><h2 class="text-lg font-extrabold text-[#2D2A4A] mb-3 pl-1">添加新学生</h2><div class="card-solid p-5 pb-10"><div class="flex gap-3 mb-4"><div class="flex-1"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">ID (可修改)</label><input type="text" id="form-id" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-[#6B48FF] outline-none focus:border-[#6B48FF]"></div><div class="flex-1"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 flex justify-between">PWD <i class="fa-solid fa-rotate text-[#6B48FF] cursor-pointer active-scale" onclick="App.actions.regenPwd()"></i></label><input type="text" id="form-pwd" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-[#6B48FF] outline-none focus:border-[#6B48FF]"></div></div><div class="mb-4"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">Name</label><input type="text" id="form-name" placeholder="输入姓名" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:border-[#6B48FF]"></div><div class="mb-6"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-2 block">Assign Classes (多选)</label><div class="flex flex-wrap gap-2" id="chip-container">${XY_CLASSES.map(c => `<div onclick="App.actions.toggleChip('${c.code}', this)" class="chip bg-[#F8F8FC] text-gray-500 text-[11px] px-3.5 py-2 rounded-xl">${App.escape(c.name)}</div>`).join('')}</div></div><button onclick="App.actions.saveStudentToDB()" class="w-full bg-[#2D2A4A] text-white font-bold rounded-xl py-3.5 shadow-lg active-scale" id="btn-register">直接添加至云端</button></div></div>`;
+                    
+                    const studentsPanel = `<div class="tab-content ${tab === 'students' ? 'active' : ''}"><div class="mb-10"><h2 class="text-base md:text-lg font-extrabold text-[#2D2A4A] mb-5 pl-1">班级名单与进度概览</h2><div class="max-h-[500px] overflow-y-auto hide-scrollbar pb-5">${studentsPanelHTML || '<p class="text-sm text-gray-400">暂无学生数据</p>'}</div></div><h2 class="text-xl md:text-2xl font-extrabold text-[#2D2A4A] mb-4 pl-1">添加新学生</h2><div class="card-solid p-6 md:p-8 pb-10"><div class="md:grid md:grid-cols-2 md:gap-5"><div class="mb-5 md:mb-0"><label class="text-[11px] md:text-[13px] font-bold text-gray-400 uppercase ml-1 mb-2 block">ID (可修改)</label><input type="text" id="form-id" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-5 py-4 text-base font-bold text-[#6B48FF] outline-none focus:border-[#6B48FF]"></div><div class="mb-5 md:mb-0"><label class="text-[11px] md:text-[13px] font-bold text-gray-400 uppercase ml-1 mb-2 flex justify-between">PWD <i class="fa-solid fa-rotate text-[#6B48FF] cursor-pointer active-scale" onclick="App.actions.regenPwd()"></i></label><input type="text" id="form-pwd" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-5 py-4 text-base font-bold text-[#6B48FF] outline-none focus:border-[#6B48FF]"></div></div><div class="mb-5 mt-5"><label class="text-[11px] md:text-[13px] font-bold text-gray-400 uppercase ml-1 mb-2 block">Name</label><input type="text" id="form-name" placeholder="输入姓名" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-5 py-4 text-base font-medium outline-none focus:border-[#6B48FF]"></div><div class="mb-8"><label class="text-[11px] md:text-[13px] font-bold text-gray-400 uppercase ml-1 mb-3 block">Assign Classes (多选)</label><div class="flex flex-wrap gap-2 md:gap-3" id="chip-container">${XY_CLASSES.map(c => `<div onclick="App.actions.toggleChip('${c.code}', this)" class="chip bg-[#F8F8FC] text-gray-500 text-[13px] md:text-[14px] px-4 py-2.5 rounded-xl">${App.escape(c.name)}</div>`).join('')}</div></div><button onclick="App.actions.saveStudentToDB()" class="w-full bg-[#2D2A4A] text-white font-bold rounded-xl py-4 text-base shadow-lg active-scale" id="btn-register">直接添加至云端</button></div></div>`;
 
                     // --- 面板 2: 作业管理 ---
                     let hwPanelHTML = '';
@@ -570,19 +611,19 @@
                             const unitHws = classHw.filter(h => h.unit === u);
                             const toggles = unitHws.map(hw => {
                                 const isOp = overrides[hw.id] !== undefined ? (overrides[hw.id] === 'open') : (hw.status === 'open');
-                                return `<div class="flex justify-between items-center py-2.5 border-b border-gray-50 last:border-0 pl-4"><p class="text-[13px] font-bold text-[#2D2A4A] truncate pr-2">${App.escape(hw.title)}</p><div class="flex items-center gap-3 shrink-0"><label class="toggle-switch"><input type="checkbox" id="tgl-${hw.id}" ${isOp ? 'checked' : ''} onchange="App.actions.toggleHw('${hw.id}', this.checked)"/><span class="toggle-slider"></span></label><button onclick="App.actions.deleteHomework('${hw.id}')" class="w-7 h-7 rounded-full bg-red-50 text-red-500 flex items-center justify-center active-scale hover:bg-red-500 hover:text-white transition-colors shadow-sm"><i class="fa-solid fa-trash-can text-[10px]"></i></button></div></div>`;
+                                return `<div class="flex justify-between items-center py-3 border-b border-gray-50 last:border-0 pl-5"><p class="text-[14px] md:text-[16px] font-bold text-[#2D2A4A] truncate pr-3">${App.escape(hw.title)}</p><div class="flex items-center gap-4 shrink-0"><label class="toggle-switch"><input type="checkbox" id="tgl-${hw.id}" ${isOp ? 'checked' : ''} onchange="App.actions.toggleHw('${hw.id}', this.checked)"/><span class="toggle-slider"></span></label><button onclick="App.actions.deleteHomework('${hw.id}')" class="w-9 h-9 rounded-full bg-red-50 text-red-500 flex items-center justify-center active-scale hover:bg-red-500 hover:text-white transition-colors shadow-sm"><i class="fa-solid fa-trash-can text-sm"></i></button></div></div>`;
                             }).join('');
-                            return `<div class="mb-3"><div class="text-[11px] font-bold text-[#6B48FF] bg-[#F4F2FF] px-4 py-1.5 rounded-t-xl">${App.escape(u)}</div><div class="border border-t-0 border-[#F4F2FF] rounded-b-xl px-2 bg-white shadow-sm">${toggles}</div></div>`;
+                            return `<div class="mb-4"><div class="text-[12px] md:text-[14px] font-bold text-[#6B48FF] bg-[#F4F2FF] px-5 py-2 rounded-t-xl">${App.escape(u)}</div><div class="border border-t-0 border-[#F4F2FF] rounded-b-xl px-2 bg-white shadow-sm">${toggles}</div></div>`;
                         }).join('');
-                        hwPanelHTML += `<div class="mb-6"><h3 class="text-sm font-extrabold text-[#2D2A4A] mb-2 pl-1"><i class="fa-solid ${cls.icon} text-gray-400 mr-1 text-xs"></i> ${cls.name}</h3>${unitHTML}</div>`;
+                        hwPanelHTML += `<div class="mb-8"><h3 class="text-base md:text-lg font-extrabold text-[#2D2A4A] mb-3 pl-1"><i class="fa-solid ${cls.icon} text-gray-400 mr-2 text-sm"></i> ${cls.name}</h3>${unitHTML}</div>`;
                     });
-                    const hwPanel = `<div class="tab-content ${tab === 'homework' ? 'active' : ''}"><div class="flex justify-between items-end mb-3 px-1"><h2 class="text-lg font-extrabold text-[#2D2A4A]">单元管理 (<span id="ui-hw-count" class="text-[#00BFA5]">${openCount}</span> 在线)</h2><button onclick="App.actions.closeAllOldHw()" class="text-xs font-bold text-red-500 bg-red-50 px-3 py-1.5 rounded-lg active-scale">一键关闭旧作业</button></div><div class="overflow-hidden mb-8 max-h-[400px] overflow-y-auto hide-scrollbar">${hwPanelHTML || '<div class="card-solid p-4 text-center text-xs text-gray-400">暂无作业</div>'}</div><h2 class="text-lg font-extrabold text-[#2D2A4A] mb-3 pl-1">添加新作业配置</h2><div class="card-solid p-5 pb-10"><div class="mb-4"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">班级 (Class Code)</label><select id="hw-class" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-[#6B48FF] outline-none">${XY_CLASSES.map(c => `<option value="${c.code}">${c.name}</option>`).join('')}</select></div><div class="flex gap-3 mb-4"><div class="w-1/3"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">单元(Unit)</label><input type="text" id="hw-unit" placeholder="U1" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none"></div><div class="w-2/3"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">标题(Title)</label><input type="text" id="hw-title" placeholder="Food & Drink" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none"></div></div><div class="mb-6"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">文件名 (HTML File)</label><input type="text" id="hw-file" placeholder="u1_test.html" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none"></div><button id="btn-add-hw" onclick="App.actions.addHomeworkToDB()" class="w-full bg-[#00BFA5] text-white font-bold rounded-xl py-3.5 shadow-lg active-scale">添加并在全网发布</button></div></div>`;
+                    const hwPanel = `<div class="tab-content ${tab === 'homework' ? 'active' : ''}"><div class="flex justify-between items-end mb-4 px-1"><h2 class="text-xl md:text-2xl font-extrabold text-[#2D2A4A]">在线大纲 (<span id="ui-hw-count" class="text-[#00BFA5]">${openCount}</span>)</h2><button onclick="App.actions.closeAllOldHw()" class="text-sm font-bold text-red-500 bg-red-50 px-4 py-2 rounded-lg active-scale">一键关闭旧作业</button></div><div class="overflow-hidden mb-10 max-h-[500px] overflow-y-auto hide-scrollbar">${hwPanelHTML || '<div class="card-solid p-6 text-center text-sm text-gray-400">暂无作业</div>'}</div><h2 class="text-xl md:text-2xl font-extrabold text-[#2D2A4A] mb-4 pl-1">添加新作业配置</h2><div class="card-solid p-6 md:p-8 pb-10"><div class="mb-5"><label class="text-[11px] md:text-[13px] font-bold text-gray-400 uppercase ml-1 mb-2 block">班级 (Class Code)</label><select id="hw-class" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-5 py-4 text-base font-bold text-[#6B48FF] outline-none">${XY_CLASSES.map(c => `<option value="${c.code}">${c.name}</option>`).join('')}</select></div><div class="md:grid md:grid-cols-2 md:gap-5 mb-5"><div class="mb-5 md:mb-0"><label class="text-[11px] md:text-[13px] font-bold text-gray-400 uppercase ml-1 mb-2 block">单元(Unit)</label><input type="text" id="hw-unit" placeholder="U1" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-5 py-4 text-base font-medium outline-none"></div><div><label class="text-[11px] md:text-[13px] font-bold text-gray-400 uppercase ml-1 mb-2 block">标题(Title)</label><input type="text" id="hw-title" placeholder="Food & Drink" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-5 py-4 text-base font-medium outline-none"></div></div><div class="mb-8"><label class="text-[11px] md:text-[13px] font-bold text-gray-400 uppercase ml-1 mb-2 block">文件名 (HTML File)</label><input type="text" id="hw-file" placeholder="classes/..." class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-5 py-4 text-base font-medium outline-none"></div><button id="btn-add-hw" onclick="App.actions.addHomeworkToDB()" class="w-full bg-[#00BFA5] text-white font-bold rounded-xl py-4 text-base shadow-lg active-scale">添加并在全网发布</button></div></div>`;
 
                     // --- 面板 3: 宣传图 ---
-                    let bannersList = (XY_BANNERS || []).map(b => `<div class="card-solid p-3 mb-3 flex items-center gap-3"><div class="w-16 h-12 bg-gray-100 rounded-lg overflow-hidden shrink-0"><img src="${b.image}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/150?text=IMG'"/></div><div class="flex-1 overflow-hidden"><p class="text-[13px] font-bold text-[#2D2A4A] truncate">${App.escape(b.title)}</p><p class="text-[10px] text-gray-400 truncate mt-0.5">Tag: ${App.escape(b.tag)}</p></div><button onclick="App.actions.deleteBanner('${b.id}')" class="w-8 h-8 rounded-full bg-red-50 text-red-500 flex items-center justify-center active-scale shrink-0"><i class="fa-solid fa-trash-can text-xs"></i></button></div>`).join('');
-                    const bannersPanel = `<div class="tab-content ${tab === 'banners' ? 'active' : ''}"><div class="mb-6"><h2 class="text-sm font-extrabold text-[#2D2A4A] mb-3 pl-1">当前主页宣传图</h2><div class="max-h-[300px] overflow-y-auto hide-scrollbar">${bannersList || '<p class="text-xs text-gray-400 pl-1">使用的是内置默认卡片。</p>'}</div></div><h2 class="text-lg font-extrabold text-[#2D2A4A] mb-3 pl-1">发布新图文卡片</h2><div class="card-solid p-5 pb-8 bg-gradient-to-b from-white to-[#F8F8FC]"><div class="mb-4"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">图片直链 (Image URL)</label><input type="text" id="ban-img" placeholder="https://..." class="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none"></div><div class="mb-4"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">跳转网页链接 (Link URL)</label><input type="text" id="ban-link" placeholder="点击后跳转的文章或网址" class="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none"></div><div class="flex gap-3 mb-6"><div class="w-1/3"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">标签 (Tag)</label><input type="text" id="ban-tag" placeholder="NEW" class="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none"></div><div class="w-2/3"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">大标题 (Title)</label><input type="text" id="ban-title" placeholder="宣传标题" class="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none"></div></div><button id="btn-add-ban" onclick="App.actions.addBannerToDB()" class="w-full bg-[#6B48FF] text-white font-bold rounded-xl py-3.5 shadow-lg shadow-[#6B48FF]/30 active-scale">上传至主页</button></div></div>`;
+                    let bannersList = (XY_BANNERS || []).map(b => `<div class="card-solid p-4 mb-4 flex items-center gap-4"><div class="w-24 h-16 bg-gray-100 rounded-lg overflow-hidden shrink-0 shadow-sm"><img src="${b.image}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/200?text=IMG'"/></div><div class="flex-1 overflow-hidden"><p class="text-[15px] md:text-[16px] font-bold text-[#2D2A4A] truncate">${App.escape(b.title)}</p><p class="text-[11px] md:text-[13px] text-gray-400 truncate mt-1">Tag: ${App.escape(b.tag)}</p></div><button onclick="App.actions.deleteBanner('${b.id}')" class="w-10 h-10 rounded-full bg-red-50 text-red-500 flex items-center justify-center active-scale shrink-0 hover:bg-red-500 hover:text-white transition-colors"><i class="fa-solid fa-trash-can text-sm"></i></button></div>`).join('');
+                    const bannersPanel = `<div class="tab-content ${tab === 'banners' ? 'active' : ''}"><div class="mb-8"><h2 class="text-base md:text-lg font-extrabold text-[#2D2A4A] mb-4 pl-1">当前主页宣传图</h2><div class="max-h-[400px] overflow-y-auto hide-scrollbar">${bannersList || '<p class="text-sm text-gray-400 pl-1">使用的是内置默认卡片。</p>'}</div></div><h2 class="text-xl md:text-2xl font-extrabold text-[#2D2A4A] mb-4 pl-1">发布新图文卡片</h2><div class="card-solid p-6 md:p-8 pb-10 bg-gradient-to-b from-white to-[#F8F8FC]"><div class="mb-5"><label class="text-[11px] md:text-[13px] font-bold text-gray-400 uppercase ml-1 mb-2 block">图片直链 (Image URL)</label><input type="text" id="ban-img" placeholder="https://..." class="w-full bg-white border border-gray-200 rounded-xl px-5 py-4 text-base font-medium outline-none"></div><div class="mb-5"><label class="text-[11px] md:text-[13px] font-bold text-gray-400 uppercase ml-1 mb-2 block">跳转网页链接 (Link URL)</label><input type="text" id="ban-link" placeholder="点击后跳转的文章或网址" class="w-full bg-white border border-gray-200 rounded-xl px-5 py-4 text-base font-medium outline-none"></div><div class="md:grid md:grid-cols-2 md:gap-5 mb-8"><div class="mb-5 md:mb-0"><label class="text-[11px] md:text-[13px] font-bold text-gray-400 uppercase ml-1 mb-2 block">标签 (Tag)</label><input type="text" id="ban-tag" placeholder="NEW" class="w-full bg-white border border-gray-200 rounded-xl px-5 py-4 text-base font-medium outline-none"></div><div><label class="text-[11px] md:text-[13px] font-bold text-gray-400 uppercase ml-1 mb-2 block">大标题 (Title)</label><input type="text" id="ban-title" placeholder="宣传标题" class="w-full bg-white border border-gray-200 rounded-xl px-5 py-4 text-base font-medium outline-none"></div></div><button id="btn-add-ban" onclick="App.actions.addBannerToDB()" class="w-full bg-[#6B48FF] text-white font-bold rounded-xl py-4 text-base shadow-lg shadow-[#6B48FF]/30 active-scale">上传至主页</button></div></div>`;
 
-                    // --- 面板 4: 考勤管理 (独立) ---
+                    // --- 面板 4: 考勤管理 ---
                     let anaHtml = '';
                     if (App.state.attendance && App.state.attendance.report) {
                         const ana = App.state.attendance;
@@ -598,17 +639,17 @@
                             if (isFull) fullAttendCount++;
                             
                             return `
-                                <div class="flex items-center justify-between p-3 border-b border-gray-50 last:border-0 bg-white">
+                                <div class="flex items-center justify-between p-4 border-b border-gray-50 last:border-0 bg-white">
                                     <div>
-                                        <p class="text-[14px] font-bold text-[#2D2A4A]">${App.escape(r.name)} <span class="text-[10px] text-gray-400 ml-1 font-mono">${uid}</span></p>
-                                        <p class="text-[10px] text-gray-500 mt-1">打卡: <span class="text-[#00BFA5] font-bold">${r.actual.size}天</span> <span class="mx-1 opacity-50">|</span> 豁免: <span class="text-orange-400 font-bold">${r.exempt.size}天</span></p>
+                                        <p class="text-[15px] md:text-[16px] font-bold text-[#2D2A4A]">${App.escape(r.name)} <span class="text-[11px] text-gray-400 ml-1 font-mono">${uid}</span></p>
+                                        <p class="text-[11px] md:text-[13px] text-gray-500 mt-1.5">打卡: <span class="text-[#00BFA5] font-bold">${r.actual.size}天</span> <span class="mx-2 opacity-50">|</span> 豁免: <span class="text-orange-400 font-bold">${r.exempt.size}天</span></p>
                                     </div>
-                                    <div class="flex items-center gap-3">
+                                    <div class="flex items-center gap-4">
                                         <div class="text-right">
-                                            <p class="text-[16px] font-black ${isFull ? 'text-green-500' : 'text-[#6B48FF]'}">${validDays}/${totalTargetDays}</p>
-                                            <p class="text-[9px] ${isFull ? 'text-green-500' : 'text-gray-400'} font-bold uppercase">${isFull ? '全勤 🏆' : '达标率'}</p>
+                                            <p class="text-[18px] md:text-[20px] font-black ${isFull ? 'text-green-500' : 'text-[#6B48FF]'}">${validDays}/${totalTargetDays}</p>
+                                            <p class="text-[10px] md:text-[11px] ${isFull ? 'text-green-500' : 'text-gray-400'} font-bold uppercase">${isFull ? '全勤 🏆' : '达标率'}</p>
                                         </div>
-                                        <button onclick="App.actions.openExemptModal('${uid}', '${App.escape(r.name)}')" class="w-8 h-8 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center active-scale shrink-0 shadow-sm" title="添加豁免"><i class="fa-solid fa-notes-medical text-xs"></i></button>
+                                        <button onclick="App.actions.openExemptModal('${uid}', '${App.escape(r.name)}')" class="w-10 h-10 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center active-scale shrink-0 shadow-sm hover:bg-orange-500 hover:text-white transition-colors" title="添加豁免"><i class="fa-solid fa-notes-medical text-sm"></i></button>
                                     </div>
                                 </div>
                             `;
@@ -618,26 +659,26 @@
                         const isClassFull = (fullAttendCount === totalStudents && totalStudents > 0);
                         
                         anaHtml = `
-                            <div class="mb-8 mt-2 animate-stagger">
+                            <div class="mb-10 mt-4 animate-stagger">
                                 ${isClassFull ? `
-                                <div class="bg-gradient-to-r from-yellow-400 to-orange-500 rounded-[20px] p-5 text-white shadow-xl shadow-orange-500/30 mb-5 flex items-center gap-4 relative overflow-hidden">
-                                    <div class="absolute -right-2 -bottom-2 text-[80px] opacity-20 pointer-events-none">🏆</div>
-                                    <div class="text-[40px] drop-shadow-md">🐉</div>
+                                <div class="bg-gradient-to-r from-yellow-400 to-orange-500 rounded-[24px] p-6 md:p-8 text-white shadow-xl shadow-orange-500/30 mb-6 flex items-center gap-5 relative overflow-hidden">
+                                    <div class="absolute -right-2 -bottom-2 text-[100px] opacity-20 pointer-events-none">🏆</div>
+                                    <div class="text-[50px] drop-shadow-md">🐉</div>
                                     <div class="relative z-10">
-                                        <h3 class="font-black text-[20px] tracking-tight">全班集体全勤！</h3>
-                                        <p class="text-xs font-bold opacity-90 mt-1">集体宠物获得巨量成长值大爆发！</p>
+                                        <h3 class="font-black text-[22px] md:text-[26px] tracking-tight">全班集体全勤！</h3>
+                                        <p class="text-sm md:text-base font-bold opacity-90 mt-1.5">集体宠物获得巨量成长值大爆发！</p>
                                     </div>
                                 </div>
                                 ` : ''}
-                                <div class="flex justify-between items-end mb-2 px-1">
-                                    <h3 class="text-sm font-extrabold text-[#2D2A4A]">考勤打卡报表</h3>
-                                    <span class="text-xs text-gray-500 font-bold">目标: ${totalTargetDays} 天</span>
+                                <div class="flex justify-between items-end mb-3 px-1">
+                                    <h3 class="text-base md:text-lg font-extrabold text-[#2D2A4A]">考勤打卡报表</h3>
+                                    <span class="text-sm text-gray-500 font-bold">目标: ${totalTargetDays} 天</span>
                                 </div>
-                                <div class="overflow-hidden rounded-[16px] border border-gray-100 shadow-sm">
-                                    <div class="bg-[#F4F2FF] px-4 py-3 flex justify-between items-center">
-                                        <h3 class="text-xs font-extrabold text-[#6B48FF]"><i class="fa-solid fa-users mr-1"></i> 全勤人数: ${fullAttendCount} / ${totalStudents}</h3>
+                                <div class="overflow-hidden rounded-[20px] border border-gray-100 shadow-sm">
+                                    <div class="bg-[#F4F2FF] px-5 py-4 flex justify-between items-center">
+                                        <h3 class="text-sm md:text-base font-extrabold text-[#6B48FF]"><i class="fa-solid fa-users mr-2"></i> 全勤人数: ${fullAttendCount} / ${totalStudents}</h3>
                                     </div>
-                                    <div class="max-h-[350px] overflow-y-auto hide-scrollbar">${listHtml || '<p class="p-4 text-center text-xs text-gray-400">该班级暂无学生数据</p>'}</div>
+                                    <div class="max-h-[450px] overflow-y-auto hide-scrollbar">${listHtml || '<p class="p-6 text-center text-sm text-gray-400">该班级暂无学生数据</p>'}</div>
                                 </div>
                             </div>
                         `;
@@ -645,25 +686,25 @@
                     
                     const attendancePanel = `
                         <div class="tab-content ${tab === 'attendance' ? 'active' : ''}">
-                            <div class="card-solid p-5 mb-5">
-                                <h2 class="text-lg font-extrabold text-[#2D2A4A] mb-4 pl-1">考勤与豁免管理</h2>
-                                <div class="mb-4">
-                                    <label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">选择班级</label>
-                                    <select id="att-class" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-[#6B48FF] outline-none">
+                            <div class="card-solid p-6 md:p-8 mb-6">
+                                <h2 class="text-xl md:text-2xl font-extrabold text-[#2D2A4A] mb-6 pl-1">打卡与豁免权管理</h2>
+                                <div class="mb-5">
+                                    <label class="text-[11px] md:text-[13px] font-bold text-gray-400 uppercase ml-1 mb-2 block">选择班级</label>
+                                    <select id="att-class" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-5 py-4 text-base font-bold text-[#6B48FF] outline-none">
                                         ${XY_CLASSES.map(c => `<option value="${c.code}" ${App.state.attendance?.classCode === c.code ? 'selected' : ''}>${c.name}</option>`).join('')}
                                     </select>
                                 </div>
-                                <div class="flex gap-3 mb-6">
-                                    <div class="flex-1">
-                                        <label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">开始日期</label>
-                                        <input type="date" id="att-start" value="${App.state.attendance?.startDate || ''}" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-3 py-3 text-sm font-bold text-[#6B48FF] outline-none">
+                                <div class="md:grid md:grid-cols-2 md:gap-5 mb-8">
+                                    <div class="mb-5 md:mb-0">
+                                        <label class="text-[11px] md:text-[13px] font-bold text-gray-400 uppercase ml-1 mb-2 block">开始日期</label>
+                                        <input type="date" id="att-start" value="${App.state.attendance?.startDate || ''}" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-4 text-base font-bold text-[#6B48FF] outline-none">
                                     </div>
-                                    <div class="flex-1">
-                                        <label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">结束日期</label>
-                                        <input type="date" id="att-end" value="${App.state.attendance?.endDate || ''}" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-3 py-3 text-sm font-bold text-[#6B48FF] outline-none">
+                                    <div>
+                                        <label class="text-[11px] md:text-[13px] font-bold text-gray-400 uppercase ml-1 mb-2 block">结束日期</label>
+                                        <input type="date" id="att-end" value="${App.state.attendance?.endDate || ''}" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-4 text-base font-bold text-[#6B48FF] outline-none">
                                     </div>
                                 </div>
-                                <button onclick="App.actions.generateAttendance()" id="btn-att-gen" class="w-full bg-[#2D2A4A] text-white font-bold rounded-xl py-3.5 shadow-lg active-scale transition-colors">
+                                <button onclick="App.actions.generateAttendance()" id="btn-att-gen" class="w-full bg-[#2D2A4A] text-white font-bold rounded-xl py-4 text-base shadow-lg active-scale transition-colors">
                                     <i class="fa-solid fa-clipboard-user mr-2"></i> 结算去重打卡天数
                                 </button>
                             </div>
@@ -671,84 +712,85 @@
                         </div>
                     `;
 
-                    // --- 面板 5: 数据分析 (4板块 + 核心成长图表引擎) ---
+                    // --- 面板 5: 数据分析 (4板块 + 多线成长图表引擎) ---
                     const chartConfig = App.state.chartConfig;
                     const chartClassStudents = XY_STUDENTS.filter(s => (s.classes || []).includes(chartConfig.classCode));
                     
                     const analyticsPanel = `
                         <div class="tab-content ${tab === 'analytics' ? 'active' : ''}">
-                            <!-- 恢复经典的4大分析卡片 -->
-                            <div class="grid grid-cols-2 gap-3 mb-6">
-                                <div class="card-solid p-4 text-center">
-                                    <i class="fa-solid fa-file-contract text-2xl text-blue-400 mb-2"></i>
-                                    <h3 class="text-xs font-extrabold text-[#2D2A4A] mt-1">全景做题报告</h3>
+                            <!-- 经典的4大分析卡片 -->
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                                <div class="card-solid p-5 text-center transition-transform hover:-translate-y-1">
+                                    <i class="fa-solid fa-file-contract text-3xl md:text-4xl text-blue-400 mb-3 md:mb-4 block"></i>
+                                    <h3 class="text-sm md:text-base font-extrabold text-[#2D2A4A] mt-1">全景做题报告</h3>
                                 </div>
-                                <div class="card-solid p-4 text-center">
-                                    <i class="fa-solid fa-chart-line text-2xl text-purple-400 mb-2"></i>
-                                    <h3 class="text-xs font-extrabold text-[#2D2A4A] mt-1">纵向成长曲线</h3>
+                                <div class="card-solid p-5 text-center transition-transform hover:-translate-y-1">
+                                    <i class="fa-solid fa-chart-line text-3xl md:text-4xl text-purple-400 mb-3 md:mb-4 block"></i>
+                                    <h3 class="text-sm md:text-base font-extrabold text-[#2D2A4A] mt-1">纵向成长曲线</h3>
                                 </div>
-                                <div class="card-solid p-4 text-center">
-                                    <i class="fa-solid fa-chart-pie text-2xl text-emerald-400 mb-2"></i>
-                                    <h3 class="text-xs font-extrabold text-[#2D2A4A] mt-1">横向雷达图</h3>
+                                <div class="card-solid p-5 text-center transition-transform hover:-translate-y-1">
+                                    <i class="fa-solid fa-chart-pie text-3xl md:text-4xl text-emerald-400 mb-3 md:mb-4 block"></i>
+                                    <h3 class="text-sm md:text-base font-extrabold text-[#2D2A4A] mt-1">横向雷达图</h3>
                                 </div>
-                                <div class="card-solid p-4 text-center">
-                                    <i class="fa-solid fa-users-rays text-2xl text-orange-400 mb-2"></i>
-                                    <h3 class="text-xs font-extrabold text-[#2D2A4A] mt-1">同伴分布对比</h3>
+                                <div class="card-solid p-5 text-center transition-transform hover:-translate-y-1">
+                                    <i class="fa-solid fa-users-rays text-3xl md:text-4xl text-orange-400 mb-3 md:mb-4 block"></i>
+                                    <h3 class="text-sm md:text-base font-extrabold text-[#2D2A4A] mt-1">同伴分布对比</h3>
                                 </div>
                             </div>
 
-                            <div class="card-solid p-5 mb-5">
-                                <h2 class="text-lg font-extrabold text-[#2D2A4A] mb-4 pl-1">数据可视化：多线对比引擎</h2>
+                            <div class="card-solid p-6 md:p-8 mb-6">
+                                <h2 class="text-xl md:text-2xl font-extrabold text-[#2D2A4A] mb-6 pl-1">数据可视化：多线对比引擎</h2>
                                 
-                                <div class="mb-4">
-                                    <label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">选择班级</label>
-                                    <select id="chart-class" onchange="App.actions.updateChartTargets(this.value)" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-[#6B48FF] outline-none">
-                                        ${XY_CLASSES.map(c => `<option value="${c.code}" ${chartConfig.classCode === c.code ? 'selected' : ''}>${c.name}</option>`).join('')}
-                                    </select>
-                                </div>
-
-                                <div class="mb-4">
-                                    <label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">分析模式</label>
-                                    <select id="chart-mode" onchange="App.actions.changeChartMode(this.value)" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-[#6B48FF] outline-none">
-                                        <option value="ALL" ${chartConfig.mode === 'ALL' ? 'selected' : ''}>🌍 全班综合平均分趋势</option>
-                                        <option value="CUSTOM" ${chartConfig.mode === 'CUSTOM' ? 'selected' : ''}>🧑‍🎓 自定义多维对比 (单人/多人)</option>
-                                    </select>
+                                <div class="md:grid md:grid-cols-2 md:gap-5 mb-5">
+                                    <div class="mb-5 md:mb-0">
+                                        <label class="text-[11px] md:text-[13px] font-bold text-gray-400 uppercase ml-1 mb-2 block">选择班级</label>
+                                        <select id="chart-class" onchange="App.actions.updateChartTargets(this.value)" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-5 py-4 text-base font-bold text-[#6B48FF] outline-none">
+                                            ${XY_CLASSES.map(c => `<option value="${c.code}" ${chartConfig.classCode === c.code ? 'selected' : ''}>${c.name}</option>`).join('')}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="text-[11px] md:text-[13px] font-bold text-gray-400 uppercase ml-1 mb-2 block">分析模式</label>
+                                        <select id="chart-mode" onchange="App.actions.changeChartMode(this.value)" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-5 py-4 text-base font-bold text-[#6B48FF] outline-none">
+                                            <option value="ALL" ${chartConfig.mode === 'ALL' ? 'selected' : ''}>🌍 全班综合平均分趋势</option>
+                                            <option value="CUSTOM" ${chartConfig.mode === 'CUSTOM' ? 'selected' : ''}>🧑‍🎓 自定义多维对比 (单/多人)</option>
+                                        </select>
+                                    </div>
                                 </div>
 
                                 ${chartConfig.mode === 'CUSTOM' ? `
-                                <div class="mb-5 fade-in">
-                                    <label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-2 block">选择对比学生 (点击勾选)</label>
-                                    <div class="flex flex-wrap gap-2">
+                                <div class="mb-6 fade-in">
+                                    <label class="text-[11px] md:text-[13px] font-bold text-gray-400 uppercase ml-1 mb-3 block">选择对比学生 (点击勾选，最多5人)</label>
+                                    <div class="flex flex-wrap gap-2 md:gap-3">
                                         ${chartClassStudents.map(s => {
                                             const isSel = (chartConfig.selectedStudents || []).includes(s.id);
-                                            return `<div onclick="App.actions.toggleChartStudent('${s.id}')" class="chip bg-[#F8F8FC] text-gray-500 text-[11px] px-3.5 py-2 rounded-xl ${isSel ? 'selected' : ''}">${App.escape(s.name)}</div>`;
+                                            return `<div onclick="App.actions.toggleChartStudent('${s.id}')" class="chip bg-[#F8F8FC] text-gray-500 text-[13px] md:text-[14px] px-4 py-2.5 rounded-xl ${isSel ? 'selected' : ''}">${App.escape(s.name)}</div>`;
                                         }).join('')}
                                     </div>
                                 </div>
                                 ` : ''}
 
-                                <div class="flex gap-3 mb-6">
-                                    <div class="flex-1">
-                                        <label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">开始日期</label>
-                                        <input type="date" id="chart-start" value="${chartConfig.startDate}" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-3 py-3 text-sm font-bold text-[#6B48FF] outline-none">
+                                <div class="md:grid md:grid-cols-2 md:gap-5 mb-8">
+                                    <div class="mb-5 md:mb-0">
+                                        <label class="text-[11px] md:text-[13px] font-bold text-gray-400 uppercase ml-1 mb-2 block">开始日期</label>
+                                        <input type="date" id="chart-start" value="${chartConfig.startDate}" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-4 text-base font-bold text-[#6B48FF] outline-none">
                                     </div>
-                                    <div class="flex-1">
-                                        <label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">结束日期</label>
-                                        <input type="date" id="chart-end" value="${chartConfig.endDate}" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-3 py-3 text-sm font-bold text-[#6B48FF] outline-none">
+                                    <div>
+                                        <label class="text-[11px] md:text-[13px] font-bold text-gray-400 uppercase ml-1 mb-2 block">结束日期</label>
+                                        <input type="date" id="chart-end" value="${chartConfig.endDate}" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-4 text-base font-bold text-[#6B48FF] outline-none">
                                     </div>
                                 </div>
-                                <button onclick="App.actions.generateChart()" id="btn-chart-gen" class="w-full bg-[#6B48FF] text-white font-bold rounded-xl py-3.5 shadow-lg shadow-[#6B48FF]/30 active-scale transition-colors">
+                                <button onclick="App.actions.generateChart()" id="btn-chart-gen" class="w-full bg-[#6B48FF] text-white font-bold rounded-xl py-4 text-base shadow-lg shadow-[#6B48FF]/30 active-scale transition-colors">
                                     <i class="fa-solid fa-wand-magic-sparkles mr-2"></i> 生成多线图表
                                 </button>
                             </div>
 
-                            <div class="card-solid p-4 mb-4 overflow-hidden relative">
-                                <canvas id="growth-chart-canvas" class="w-full h-[250px] block"></canvas>
+                            <div class="card-solid p-5 md:p-8 mb-4 overflow-hidden relative">
+                                <canvas id="growth-chart-canvas" class="w-full h-[280px] md:h-[400px] block"></canvas>
                             </div>
                         </div>
                     `;
 
-                    return this.header() + `<section class="px-6 pt-4 mb-8"><h1 class="text-[26px] font-extrabold text-[#2D2A4A] mb-1">Teacher Admin</h1><p class="text-xs text-gray-500 mb-4">工作室数据总览与控制中心。</p>${tabsHTML}${studentsPanel}${hwPanel}${bannersPanel}${attendancePanel}${analyticsPanel}</section>`;
+                    return this.header() + `<section class="px-6 md:px-10 pt-4 mb-8 max-w-5xl mx-auto"><h1 class="text-[30px] md:text-[36px] font-extrabold text-[#2D2A4A] mb-2 tracking-tight">Teacher Admin</h1><p class="text-sm md:text-base text-gray-500 mb-6">工作室数据总览与控制中心。</p>${tabsHTML}${studentsPanel}${hwPanel}${bannersPanel}${attendancePanel}${analyticsPanel}</section>`;
                 }
             },
 
@@ -762,7 +804,7 @@
                     const showSlide = (idx) => {
                         if (idx < 0) idx = slides.length - 1; if (idx >= slides.length) idx = 0;
                         slides.forEach((s, i) => { s.style.opacity = i===idx?'1':'0'; s.style.pointerEvents = i===idx?'auto':'none'; s.style.transition = 'opacity 0.6s cubic-bezier(0.2,0.8,0.2,1)'; });
-                        dots.forEach((d, i) => { d.className = i===idx ? 'carousel-dot w-[18px] h-1.5 rounded-full bg-white transition-all' : 'carousel-dot w-1.5 h-1.5 rounded-full bg-white/40 transition-all'; });
+                        dots.forEach((d, i) => { d.className = i===idx ? 'carousel-dot w-2 md:w-3 h-2 md:h-3 rounded-full bg-white transition-all' : 'carousel-dot w-2 h-2 rounded-full bg-white/40 transition-all'; });
                         this._carouselIdx = idx;
                     };
                     showSlide(0);
@@ -773,11 +815,17 @@
                     wrapper.addEventListener('touchstart', e => { startX = e.changedTouches[0].screenX; }, { passive: true });
                     wrapper.addEventListener('touchend', e => { endX = e.changedTouches[0].screenX; if (endX < startX - 50) { showSlide(this._carouselIdx + 1); startTimer(); } if (endX > startX + 50) { showSlide(this._carouselIdx - 1); startTimer(); } }, { passive: true });
                 },
+                
+                // 【核心修复：切换标签静默渲染，去除跳动】
+                switchTeacherTab(tabId) {
+                    App.state.teacherTab = tabId;
+                    App.render();
+                },
 
                 toggleLoginModal(show) {
                     const root = document.getElementById('modal-root');
                     if (!show) { root.innerHTML = ''; return; }
-                    root.innerHTML = `<div class="fixed inset-0 z-[9999] flex items-end justify-center"><div class="absolute inset-0 bg-black/40 backdrop-blur-sm fade-in" onclick="App.actions.toggleLoginModal(false)"></div><div class="bg-white rounded-t-[32px] p-8 w-full max-w-md relative z-10 shadow-2xl" style="animation: slideUpFade 0.4s cubic-bezier(0.2,0.8,0.2,1) forwards"><div class="text-center mb-6"><div class="w-14 h-14 bg-[#F4F2FF] rounded-full mx-auto flex items-center justify-center text-[#6B48FF] mb-3 border-4 border-white shadow-sm"><i class="fa-solid fa-user-astronaut text-xl"></i></div><h2 class="text-2xl font-black text-[#2D2A4A]">Welcome</h2><p class="text-xs text-gray-500 mt-1 font-medium">请登录访问你的课程内容</p></div><div class="space-y-4 mb-6"><input type="text" id="login-id" placeholder="Account ID (e.g. S01)" class="w-full bg-[#F8F8FC] border border-transparent rounded-2xl px-5 py-4 text-[15px] font-bold focus:bg-white focus:border-[#6B48FF] outline-none transition-colors"><input type="password" id="login-pwd" placeholder="Password" class="w-full bg-[#F8F8FC] border border-transparent rounded-2xl px-5 py-4 text-[15px] font-bold focus:bg-white focus:border-[#6B48FF] outline-none transition-colors"></div><button onclick="App.actions.doLogin()" class="w-full bg-[#6B48FF] text-white font-bold rounded-2xl py-4 shadow-lg shadow-[#6B48FF]/30 active-scale">Sign In</button><p id="login-error" class="text-red-500 text-xs text-center mt-4 hidden font-bold">账号或密码错误，请重试</p></div></div>`;
+                    root.innerHTML = `<div class="fixed inset-0 z-[9999] flex items-end md:items-center justify-center"><div class="absolute inset-0 bg-black/40 backdrop-blur-sm fade-in" onclick="App.actions.toggleLoginModal(false)"></div><div class="bg-white rounded-t-[32px] md:rounded-[32px] p-8 md:p-10 w-full max-w-md relative z-10 shadow-2xl" style="animation: slideUpFade 0.4s cubic-bezier(0.2,0.8,0.2,1) forwards"><div class="text-center mb-8"><div class="w-16 h-16 bg-[#F4F2FF] rounded-full mx-auto flex items-center justify-center text-[#6B48FF] mb-4 border-4 border-white shadow-sm"><i class="fa-solid fa-user-astronaut text-2xl"></i></div><h2 class="text-3xl font-black text-[#2D2A4A]">Welcome</h2><p class="text-sm text-gray-500 mt-2 font-medium">请登录访问你的课程内容</p></div><div class="space-y-5 mb-8"><input type="text" id="login-id" placeholder="Account ID (e.g. S01)" class="w-full bg-[#F8F8FC] border border-transparent rounded-2xl px-6 py-4 text-[16px] font-bold focus:bg-white focus:border-[#6B48FF] outline-none transition-colors"><input type="password" id="login-pwd" placeholder="Password" class="w-full bg-[#F8F8FC] border border-transparent rounded-2xl px-6 py-4 text-[16px] font-bold focus:bg-white focus:border-[#6B48FF] outline-none transition-colors"></div><button onclick="App.actions.doLogin()" class="w-full bg-[#6B48FF] text-white font-bold rounded-2xl py-4 text-lg shadow-lg shadow-[#6B48FF]/30 active-scale">Sign In</button><p id="login-error" class="text-red-500 text-sm text-center mt-5 hidden font-bold">账号或密码错误，请重试</p></div></div>`;
                 },
 
                 async doLogin() {
@@ -809,7 +857,7 @@
                 showConfirm(msg, title = '⚠️ 警告', confirmText = '确定', confirmClass = 'bg-red-500 shadow-red-500/30', actionFn) {
                     const root = document.getElementById('modal-root');
                     window.__xy_confirm_action = actionFn;
-                    root.innerHTML = `<div class="fixed inset-0 z-[9999] flex items-center justify-center p-4"><div class="absolute inset-0 bg-black/40 backdrop-blur-sm fade-in" onclick="document.getElementById('modal-root').innerHTML=''"></div><div class="bg-white rounded-[32px] p-6 w-full max-w-sm relative z-10 shadow-2xl text-center" style="animation: slideUpFade 0.3s forwards"><div class="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 text-3xl"><i class="fa-solid fa-triangle-exclamation"></i></div><h3 class="text-[18px] font-black text-[#2D2A4A] mb-3">${title}</h3><p class="text-[14px] text-gray-500 mb-6 font-medium whitespace-pre-wrap leading-relaxed">${msg}</p><div class="flex gap-3"><button onclick="document.getElementById('modal-root').innerHTML=''" class="flex-1 bg-gray-100 text-gray-600 font-bold rounded-2xl py-3.5 active-scale">取消</button><button onclick="document.getElementById('modal-root').innerHTML=''; window.__xy_confirm_action();" class="flex-1 ${confirmClass} text-white font-bold rounded-2xl py-3.5 shadow-lg active-scale">${confirmText}</button></div></div></div>`;
+                    root.innerHTML = `<div class="fixed inset-0 z-[9999] flex items-center justify-center p-4"><div class="absolute inset-0 bg-black/40 backdrop-blur-sm fade-in" onclick="document.getElementById('modal-root').innerHTML=''"></div><div class="bg-white rounded-[32px] p-8 w-full max-w-sm relative z-10 shadow-2xl text-center" style="animation: slideUpFade 0.3s forwards"><div class="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-5 text-red-500 text-4xl"><i class="fa-solid fa-triangle-exclamation"></i></div><h3 class="text-[20px] font-black text-[#2D2A4A] mb-3">${title}</h3><p class="text-[15px] text-gray-500 mb-8 font-medium whitespace-pre-wrap leading-relaxed">${msg}</p><div class="flex gap-4"><button onclick="document.getElementById('modal-root').innerHTML=''" class="flex-1 bg-gray-100 text-gray-600 font-bold rounded-2xl py-4 active-scale">取消</button><button onclick="document.getElementById('modal-root').innerHTML=''; window.__xy_confirm_action();" class="flex-1 ${confirmClass} text-white font-bold rounded-2xl py-4 shadow-lg active-scale">${confirmText}</button></div></div></div>`;
                 },
 
                 closeAllOldHw() {
@@ -865,7 +913,7 @@
 
                 showAlert(msg, title = '提示') {
                     const root = document.getElementById('modal-root');
-                    root.innerHTML = `<div class="fixed inset-0 z-[9999] flex items-center justify-center p-4"><div class="absolute inset-0 bg-black/40 backdrop-blur-sm fade-in" onclick="document.getElementById('modal-root').innerHTML=''"></div><div class="bg-white rounded-[32px] p-6 w-full max-w-sm relative z-10 shadow-2xl text-center" style="animation: slideUpFade 0.3s forwards"><h3 class="text-[18px] font-black text-[#2D2A4A] mb-3">${title}</h3><p class="text-[14px] text-gray-500 mb-6 font-medium whitespace-pre-wrap leading-relaxed">${msg}</p><button onclick="document.getElementById('modal-root').innerHTML=''" class="w-full bg-[#6B48FF] text-white font-bold rounded-2xl py-3.5 shadow-lg shadow-[#6B48FF]/30 active-scale">我知道了</button></div></div>`;
+                    root.innerHTML = `<div class="fixed inset-0 z-[9999] flex items-center justify-center p-4"><div class="absolute inset-0 bg-black/40 backdrop-blur-sm fade-in" onclick="document.getElementById('modal-root').innerHTML=''"></div><div class="bg-white rounded-[32px] p-8 w-full max-w-sm relative z-10 shadow-2xl text-center" style="animation: slideUpFade 0.3s forwards"><h3 class="text-[20px] font-black text-[#2D2A4A] mb-3">${title}</h3><p class="text-[15px] text-gray-500 mb-8 font-medium whitespace-pre-wrap leading-relaxed">${msg}</p><button onclick="document.getElementById('modal-root').innerHTML=''" class="w-full bg-[#6B48FF] text-white font-bold rounded-2xl py-4 text-base shadow-lg shadow-[#6B48FF]/30 active-scale">我知道了</button></div></div>`;
                 },
 
                 saveStudentToDB() {
@@ -956,13 +1004,12 @@
                         const dateStr = document.getElementById('exemp-date').value;
                         if(!dateStr) return App.actions.showAlert('请选择日期');
                         
-                        // 禁用按钮防多次连点
                         const btn = document.querySelector('button[onclick="window.__xy_exemp_action()"]');
                         if (btn) { btn.innerText = '正在发放...'; btn.disabled = true; }
                         
                         const hwId = 'EXEMP_' + dateStr;
                         
-                        // 核心修复：先查询是否已经发放过，防止数据库唯一性冲突报错
+                        // 先查询是否已经发放过
                         const { data: existing } = await sb.from('growth_logs').select('id').eq('student_id', studentId).eq('homework_id', hwId).maybeSingle();
                         
                         if (existing) {
@@ -970,7 +1017,12 @@
                             return App.actions.showAlert(`${studentName} 同学在 ${dateStr} 已经有豁免记录啦，不需要重复发放哦！`, '⚠️ 提示');
                         }
 
-                        // 如果没发过，再执行插入
+                        // 先注册隐藏作业，满足 Foreign Key 约束
+                        await sb.from('homework').upsert({ 
+                            id: hwId, class_code: 'SYSTEM', unit: 'EXEMP', title: '医疗豁免记录 (' + dateStr + ')', 
+                            date: new Date(dateStr).toISOString(), file: 'none', status: 'closed'
+                        });
+
                         const {error} = await sb.from('growth_logs').insert({ student_id: studentId, homework_id: hwId, score: 0, stars_earned: 0, attempt_count: 1, is_best_score: true });
                         root.innerHTML = '';
                         
@@ -980,7 +1032,7 @@
                         App.actions.generateAttendance(); // Refresh
                     };
 
-                    root.innerHTML = `<div class="fixed inset-0 z-[9999] flex items-center justify-center p-4"><div class="absolute inset-0 bg-black/40 backdrop-blur-sm fade-in" onclick="document.getElementById('modal-root').innerHTML=''"></div><div class="bg-white rounded-[32px] p-6 w-full max-w-sm relative z-10 shadow-2xl text-center" style="animation: slideUpFade 0.3s forwards"><div class="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-4 text-orange-500 text-3xl"><i class="fa-solid fa-kit-medical"></i></div><h3 class="text-[18px] font-black text-[#2D2A4A] mb-2">发放豁免权</h3><p class="text-[12px] text-gray-500 mb-5 font-medium">指定日期因病或事假免签，系统将视为有效打卡</p><div class="mb-6 text-left"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">学生姓名</label><div class="bg-gray-50 rounded-xl p-3 text-sm font-bold text-gray-600 border border-gray-100">${App.escape(studentName)} <span class="font-mono text-[10px] ml-1 text-gray-400">${studentId}</span></div></div><div class="mb-6 text-left"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">指定豁免日期</label><input type="date" id="exemp-date" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-[#6B48FF] outline-none" value="${defaultDate}"></div><div class="flex gap-3"><button onclick="document.getElementById('modal-root').innerHTML=''" class="flex-1 bg-gray-100 text-gray-600 font-bold rounded-2xl py-3.5 active-scale">取消</button><button onclick="window.__xy_exemp_action()" class="flex-1 bg-orange-500 text-white font-bold rounded-2xl py-3.5 shadow-lg shadow-orange-500/30 active-scale">确认发放</button></div></div></div>`;
+                    root.innerHTML = `<div class="fixed inset-0 z-[9999] flex items-center justify-center p-4"><div class="absolute inset-0 bg-black/40 backdrop-blur-sm fade-in" onclick="document.getElementById('modal-root').innerHTML=''"></div><div class="bg-white rounded-[32px] p-8 w-full max-w-sm relative z-10 shadow-2xl text-center" style="animation: slideUpFade 0.3s forwards"><div class="w-20 h-20 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-5 text-orange-500 text-4xl"><i class="fa-solid fa-kit-medical"></i></div><h3 class="text-[20px] font-black text-[#2D2A4A] mb-3">发放豁免权</h3><p class="text-[14px] text-gray-500 mb-6 font-medium">指定日期因病或事假免签，系统将视为有效打卡</p><div class="mb-6 text-left"><label class="text-[11px] font-bold text-gray-400 uppercase ml-1 mb-2 block">学生姓名</label><div class="bg-gray-50 rounded-xl p-4 text-base font-bold text-gray-600 border border-gray-100">${App.escape(studentName)} <span class="font-mono text-xs ml-1 text-gray-400">${studentId}</span></div></div><div class="mb-8 text-left"><label class="text-[11px] font-bold text-gray-400 uppercase ml-1 mb-2 block">指定豁免日期</label><input type="date" id="exemp-date" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-5 py-4 text-base font-bold text-[#6B48FF] outline-none" value="${defaultDate}"></div><div class="flex gap-4"><button onclick="document.getElementById('modal-root').innerHTML=''" class="flex-1 bg-gray-100 text-gray-600 font-bold rounded-2xl py-4 active-scale">取消</button><button onclick="window.__xy_exemp_action()" class="flex-1 bg-orange-500 text-white font-bold rounded-2xl py-4 shadow-lg shadow-orange-500/30 active-scale">确认发放</button></div></div></div>`;
                 },
 
                 // --- Analytics Chart System (自定义多线成长图表) ---
@@ -1001,7 +1053,7 @@
                 toggleChartStudent(uid) {
                     let sel = App.state.chartConfig.selectedStudents || [];
                     if (sel.includes(uid)) sel = sel.filter(id => id !== uid);
-                    else if (sel.length < 5) sel.push(uid); // 最多对比5人，防止图表太乱
+                    else if (sel.length < 5) sel.push(uid); 
                     else return this.showAlert('为了图表清晰，最多支持同时对比 5 名同学哦。');
                     App.state.chartConfig.selectedStudents = sel;
                     App.render();
@@ -1021,20 +1073,17 @@
                     const btn = document.getElementById('btn-chart-gen'); const orig = btn.innerHTML;
                     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> 数据聚合中...'; btn.disabled = true;
 
-                    // 获取班级学生
                     const classStudents = XY_STUDENTS.filter(s => (s.classes || []).includes(classCode));
                     const studentIds = classStudents.map(s => s.id);
                     if(studentIds.length === 0) { btn.innerHTML = orig; btn.disabled=false; return this.showAlert('该班级无学生'); }
 
-                    // 拉取数据并过滤豁免记录
-                    const { data: logs, error } = await sb.from('growth_logs').select('student_id, score, created_at').in('student_id', studentIds);
+                    const { data: logs, error } = await sb.from('growth_logs').select('student_id, score, created_at, homework_id').in('student_id', studentIds);
                     btn.innerHTML = orig; btn.disabled = false;
                     if(error) return this.showAlert('获取数据失败');
 
-                    // 分组与计算每天每人的最高分
-                    const dayMap = {}; // { '04/25': { 'S01': 95, 'S02': 80 } }
+                    const dayMap = {}; 
                     logs.forEach(log => {
-                        if(log.homework_id && log.homework_id.startsWith('EXEMP_')) return; // 豁免不计入分数曲线
+                        if(log.homework_id && log.homework_id.startsWith('EXEMP_')) return; 
 
                         const d = new Date(log.created_at);
                         const fullDateStr = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
@@ -1048,7 +1097,7 @@
                     });
 
                     const datasets = [];
-                    const palette = ['#6B48FF', '#00BFA5', '#FF4B72', '#FFB800', '#3949AB']; // 漂亮的多线对比配色
+                    const palette = ['#6B48FF', '#00BFA5', '#FF4B72', '#FFB800', '#3949AB']; 
 
                     if (mode === 'ALL') {
                         const dataPts = {};
@@ -1077,19 +1126,17 @@
                     if(!canvas) return;
                     const ctx = canvas.getContext('2d');
                     const rect = canvas.getBoundingClientRect();
-                    // 处理高分屏抗锯齿
                     canvas.width = rect.width * 2; canvas.height = rect.height * 2;
                     ctx.scale(2, 2);
                     const w = rect.width; const h = rect.height;
                     ctx.clearRect(0,0,w,h);
 
-                    // 找到有数据的所有唯一的日期（X轴）
                     const allDates = new Set();
                     datasets.forEach(ds => Object.keys(ds.data).forEach(d => allDates.add(d)));
                     const dates = Array.from(allDates).sort();
 
                     if(dates.length === 0) {
-                        ctx.fillStyle = '#A0A5B1'; ctx.font = '14px sans-serif'; ctx.textAlign = 'center';
+                        ctx.fillStyle = '#A0A5B1'; ctx.font = '16px sans-serif'; ctx.textAlign = 'center';
                         ctx.fillText('该时间区间内无有效做题记录', w/2, h/2);
                         return;
                     }
@@ -1098,26 +1145,23 @@
                     const chartW = w - pad.left - pad.right; 
                     const chartH = h - pad.top - pad.bottom;
 
-                    // 1. 绘制网格和 Y 轴标签
                     ctx.strokeStyle = '#F0F0F5'; ctx.lineWidth = 1; ctx.textAlign = 'right';
-                    ctx.fillStyle = '#A0A5B1'; ctx.font = '10px sans-serif';
+                    ctx.fillStyle = '#A0A5B1'; ctx.font = '12px sans-serif';
                     for(let i=0; i<=5; i++) {
                         const y = pad.top + chartH - (i/5)*chartH;
                         ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(w - pad.right, y); ctx.stroke();
-                        ctx.fillText(i*20, pad.left - 8, y + 3);
+                        ctx.fillText(i*20, pad.left - 8, y + 4);
                     }
 
-                    // 2. 绘制多线图表的图例 (Legend)
                     let legendX = pad.left;
                     datasets.forEach(ds => {
                         ctx.fillStyle = ds.color;
                         ctx.beginPath(); ctx.roundRect(legendX, 10, 16, 6, 3); ctx.fill();
-                        ctx.fillStyle = '#2D2A4A'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'left';
-                        ctx.fillText(ds.name, legendX + 22, 17);
-                        legendX += ctx.measureText(ds.name).width + 36; // 动态计算下一个图例的位置
+                        ctx.fillStyle = '#2D2A4A'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'left';
+                        ctx.fillText(ds.name, legendX + 22, 18);
+                        legendX += ctx.measureText(ds.name).width + 36; 
                     });
 
-                    // 3. 绘制折线
                     const stepX = dates.length > 1 ? chartW / (dates.length - 1) : chartW / 2;
                     
                     datasets.forEach(ds => {
@@ -1131,55 +1175,52 @@
                                 else { ctx.lineTo(x,y); }
                             }
                         });
-                        ctx.strokeStyle = ds.color; ctx.lineWidth = 3; ctx.stroke();
+                        ctx.strokeStyle = ds.color; ctx.lineWidth = 4; ctx.stroke();
 
-                        // 仅当只有一条线（如全班综合）时，绘制渐变背景提升美感
                         if (datasets.length === 1) {
                             ctx.lineTo(pad.left + (dates.length > 1 ? (dates.length-1)*stepX : stepX), pad.top + chartH);
                             ctx.lineTo(pad.left + (dates.length > 1 ? 0 : stepX), pad.top + chartH);
                             ctx.closePath();
                             const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + chartH);
-                            grad.addColorStop(0, ds.color + '40'); // 25% opacity
+                            grad.addColorStop(0, ds.color + '40'); 
                             grad.addColorStop(1, ds.color + '00');
                             ctx.fillStyle = grad; ctx.fill();
                         }
 
-                        // 绘制数据点和数值
                         ctx.textAlign = 'center';
                         dates.forEach((date, i) => {
                             if (ds.data[date] !== undefined) {
                                 const x = pad.left + (dates.length > 1 ? i * stepX : stepX);
                                 const y = pad.top + chartH - (ds.data[date]/100)*chartH;
                                 
-                                ctx.beginPath(); ctx.arc(x,y, 4, 0, Math.PI*2);
+                                ctx.beginPath(); ctx.arc(x,y, 5, 0, Math.PI*2);
                                 ctx.fillStyle = '#FFF'; ctx.fill();
-                                ctx.lineWidth = 2; ctx.strokeStyle = ds.color; ctx.stroke();
+                                ctx.lineWidth = 2.5; ctx.strokeStyle = ds.color; ctx.stroke();
                                 
-                                ctx.fillStyle = ds.color; ctx.font = 'bold 11px sans-serif';
+                                ctx.fillStyle = ds.color; ctx.font = 'bold 13px sans-serif';
                                 ctx.fillText(ds.data[date], x, y - 12);
                             }
                         });
                     });
 
-                    // 4. 绘制 X 轴日期标签
-                    ctx.fillStyle = '#A0A5B1'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+                    ctx.fillStyle = '#A0A5B1'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
                     dates.forEach((date, i) => {
                         const x = pad.left + (dates.length > 1 ? i * stepX : stepX);
-                        ctx.fillText(date, x, pad.top + chartH + 20);
+                        ctx.fillText(date, x, pad.top + chartH + 22);
                     });
                 },
 
                 // --- 宠物系统 ---
                 openPetSelection() {
                     const root = document.getElementById('modal-root');
-                    const grid = PET_DB.map(p => `<div class="card-solid p-4 text-center cursor-pointer active-scale border-2 border-transparent hover:border-[#6B48FF] transition-colors" onclick="App.actions.selectPet('${p.id}')"><div class="text-[40px] mb-2">${p.stages[2]}</div><h4 class="font-bold text-sm">${p.name}</h4><p class="text-[9px] text-gray-500 uppercase">${p.type}</p></div>`).join('');
-                    root.innerHTML = `<div class="fixed inset-0 z-[9999] flex items-center justify-center p-4"><div class="absolute inset-0 bg-black/60 backdrop-blur-sm fade-in"></div><div class="bg-white rounded-[32px] p-6 w-full max-w-md relative z-10 shadow-2xl" style="animation: slideUpFade 0.4s cubic-bezier(0.2,0.8,0.2,1) forwards"><h2 class="text-2xl font-black text-center text-[#2D2A4A] mb-1">Choose Companion</h2><p class="text-xs text-center text-gray-500 mb-6">This companion will grow with you.</p><div class="grid grid-cols-2 gap-3 mb-6">${grid}</div></div></div>`;
+                    const grid = PET_DB.map(p => `<div class="card-solid p-5 text-center cursor-pointer active-scale border-2 border-transparent hover:border-[#6B48FF] transition-colors" onclick="App.actions.selectPet('${p.id}')"><div class="text-[50px] mb-3">${p.stages[2]}</div><h4 class="font-bold text-base">${p.name}</h4><p class="text-[11px] text-gray-500 uppercase">${p.type}</p></div>`).join('');
+                    root.innerHTML = `<div class="fixed inset-0 z-[9999] flex items-center justify-center p-4"><div class="absolute inset-0 bg-black/60 backdrop-blur-sm fade-in"></div><div class="bg-white rounded-[32px] p-8 md:p-10 w-full max-w-lg relative z-10 shadow-2xl" style="animation: slideUpFade 0.4s cubic-bezier(0.2,0.8,0.2,1) forwards"><h2 class="text-3xl font-black text-center text-[#2D2A4A] mb-2">Choose Companion</h2><p class="text-sm text-center text-gray-500 mb-8">This companion will grow with you.</p><div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">${grid}</div></div></div>`;
                 },
                 selectPet(id) { PetManager.state.petId = id; PetManager.state.adoptionDate = new Date().toISOString(); PetManager.save(); document.getElementById('modal-root').innerHTML = ''; App.render(); },
 
                 openChangePetModal() {
                     const root = document.getElementById('modal-root'); const canAfford = PetManager.state.stars >= 10;
-                    root.innerHTML = `<div class="fixed inset-0 z-[9999] flex items-center justify-center p-6"><div class="absolute inset-0 bg-black/60 backdrop-blur-sm fade-in" onclick="App.actions.closeModal()"></div><div class="bg-white rounded-[32px] p-6 w-full max-w-sm relative z-10 shadow-2xl text-center" style="animation: slideUpFade 0.4s cubic-bezier(0.2,0.8,0.2,1) forwards"><div class="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 text-3xl"><i class="fa-solid fa-arrows-rotate"></i></div><h2 class="text-xl font-black text-[#2D2A4A] mb-2">Change Companion?</h2><p class="text-[13px] text-gray-500 mb-6 leading-relaxed">This will release your current companion and let you choose a new one. <br><br><span class="font-bold text-[#2D2A4A]">Cost: 10 ⭐</span> (You have ${PetManager.state.stars} ⭐)</p><div class="flex gap-3"><button onclick="App.actions.closeModal()" class="flex-1 bg-gray-100 text-gray-600 font-bold rounded-2xl py-3.5 active-scale">Cancel</button><button onclick="${canAfford ? 'App.actions.executeFarewell()' : 'App.actions.showAlert(\\\'Not enough stars!\\\', \\\'⚠️ Oops\\\')'}" class="flex-1 ${canAfford ? 'bg-[#6B48FF] text-white shadow-lg shadow-[#6B48FF]/30' : 'bg-gray-300 text-white cursor-not-allowed'} font-bold rounded-2xl py-3.5 active-scale">${canAfford ? 'Confirm' : 'Need 10 ⭐'}</button></div></div></div>`;
+                    root.innerHTML = `<div class="fixed inset-0 z-[9999] flex items-center justify-center p-6"><div class="absolute inset-0 bg-black/60 backdrop-blur-sm fade-in" onclick="App.actions.closeModal()"></div><div class="bg-white rounded-[32px] p-8 w-full max-w-sm relative z-10 shadow-2xl text-center" style="animation: slideUpFade 0.4s cubic-bezier(0.2,0.8,0.2,1) forwards"><div class="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-5 text-red-500 text-4xl"><i class="fa-solid fa-arrows-rotate"></i></div><h2 class="text-2xl font-black text-[#2D2A4A] mb-3">Change Companion?</h2><p class="text-[15px] text-gray-500 mb-8 leading-relaxed">This will release your current companion and let you choose a new one. <br><br><span class="font-bold text-[#2D2A4A]">Cost: 10 ⭐</span> (You have ${PetManager.state.stars} ⭐)</p><div class="flex gap-4"><button onclick="App.actions.closeModal()" class="flex-1 bg-gray-100 text-gray-600 font-bold rounded-2xl py-4 active-scale">Cancel</button><button onclick="${canAfford ? 'App.actions.executeFarewell()' : 'App.actions.showAlert(\\\'Not enough stars!\\\', \\\'⚠️ Oops\\\')'}" class="flex-1 ${canAfford ? 'bg-[#6B48FF] text-white shadow-lg shadow-[#6B48FF]/30' : 'bg-gray-300 text-white cursor-not-allowed'} font-bold rounded-2xl py-4 active-scale">${canAfford ? 'Confirm' : 'Need 10 ⭐'}</button></div></div></div>`;
                 },
                 executeFarewell() { this.closeModal(); PetManager.state.stars -= 10; PetManager.save(); this.playFarewellEpic(); },
                 closeModal() { document.getElementById('modal-root').innerHTML = ''; },
@@ -1187,7 +1228,7 @@
                 playFarewellEpic() {
                     const overlay = document.createElement('div');
                     overlay.className = 'fixed inset-0 bg-[#0B0C10] z-[9999] flex flex-col items-center justify-center transition-opacity duration-1000';
-                    overlay.innerHTML = `<div class="absolute inset-0 overflow-hidden z-0" id="fw-stars"></div><div class="text-[100px] z-10 animate-pulse" style="filter: drop-shadow(0 0 20px rgba(255,255,255,0.5)); transform: translateY(-50px);">${PetManager.getPet().stages[PetManager.getEvolutionStage().idx]}</div><h2 class="text-2xl text-white font-serif italic mt-8 z-10 fade-in">Every journey has an end...</h2>`;
+                    overlay.innerHTML = `<div class="absolute inset-0 overflow-hidden z-0" id="fw-stars"></div><div class="text-[120px] md:text-[160px] z-10 animate-pulse" style="filter: drop-shadow(0 0 20px rgba(255,255,255,0.5)); transform: translateY(-50px);">${PetManager.getPet().stages[PetManager.getEvolutionStage().idx]}</div><h2 class="text-3xl text-white font-serif italic mt-8 z-10 fade-in">Every journey has an end...</h2>`;
                     document.body.appendChild(overlay);
                     
                     const bg = document.getElementById('fw-stars');
