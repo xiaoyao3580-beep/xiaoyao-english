@@ -1,1 +1,0 @@
-import{t as e}from"./jsx-runtime-BnxRlLMJ.js";import{c as t,s as n}from"./index-B2mj-d9J.js";var r=e(),i=()=>(0,r.jsx)(n,{to:`/`,replace:!0,state:{...t().state,openLogin:!0}});export{i as default};

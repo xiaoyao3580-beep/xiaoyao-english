@@ -54,12 +54,12 @@
         const loaded = await loadLesson();
         const target = loaded.target;
         let html = loaded.html;
-        html = html.replace(/lesson-standalone\.html(?:\?v=[^"'#<\s]*)?/g, 'lesson-standalone.html?v=20260508-records-3');
-        const standaloneSrc = new URL('../_yu1/lesson-standalone.html?v=20260508-records-3', location.href).href;
+        html = html.replace(/lesson-standalone\.html(?:\?v=[^"'#<\s]*)?/g, 'lesson-standalone.html?v=20260511-lesson-only');
+        const standaloneSrc = new URL('../_yu1/lesson-standalone.html?v=20260511-lesson-only', location.href).href;
         html = html.replace(/(["'])((?:\.\.\/|\.\/)?_yu1\/)?lesson-standalone\.html(?:\?v=[^"'#<\s]*)?/g, '$1' + standaloneSrc);
         const baseHref = new URL('./', target).href;
         const baseTag = '<base href="' + baseHref.replace(/"/g, '&quot;') + '">';
-        const bridgeSrc = new URL('../_yu1/xy-record-bridge.js?v=20260508-records-3', location.href).href;
+        const bridgeSrc = new URL('../_yu1/xy-record-bridge.js?v=20260511-content-sync', location.href).href;
         const bridgeTag = '<script src="' + bridgeSrc.replace(/"/g, '&quot;') + '" defer><\/script>';
         html = /<head[^>]*>/i.test(html) ? html.replace(/<head([^>]*)>/i, '<head$1>' + baseTag) : baseTag + html;
         html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, bridgeTag + '</head>') : bridgeTag + html;
