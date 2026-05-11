@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Talent A1+ U6-2 Dubbing & Magic Quiz</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;900&family=Playfair+Display:ital,wght@0,700;1,700&display=swap');
+
+    html, body {
+      margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; position: fixed; 
+      top: 0; left: 0; background-color: #0f172a; 
+      font-family: 'Nunito', sans-serif; -webkit-tap-highlight-color: transparent;
+    }
+
+    #root { width: 100%; height: 100%; }
+
+    .font-serif-magic { font-family: 'Playfair Display', serif; }
+
+    .pb-safe-bar { padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 16px)); }
+    .pb-safe-scroll { padding-bottom: calc(3rem + env(safe-area-inset-bottom, 16px)); }
+    
+    .custom-scrollbar::-webkit-scrollbar { display: none; }
+    .custom-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    /* Animations */
+    .fade-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+    .bounce-in { animation: bounceIn 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards; }
+    @keyframes bounceIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+    .pulse-glow { animation: pulseGlow 2s infinite alternate; }
+    @keyframes pulseGlow { from { box-shadow: 0 0 0 rgba(251, 191, 36, 0); } to { box-shadow: 0 0 20px rgba(251, 191, 36, 0.6); } }
+    .active-scale:active { transform: scale(0.96); transition: transform 0.1s; }
+    .slide-in-right { animation: slideInRight 0.3s ease-out forwards; }
+    @keyframes slideInRight { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+
+    /* Magical Items Falling Animation */
+    .magic-item {
+      position: fixed;
+      top: -10vh;
+      color: rgba(251, 191, 36, 0.6); 
+      font-size: 1.2rem;
+      user-select: none;
+      pointer-events: none;
+      z-index: 0;
+      animation: magicFall linear infinite;
+      text-shadow: 0 0 8px rgba(251, 191, 36, 0.8);
+    }
+    @keyframes magicFall {
+      0% { transform: translateY(-10vh) translateX(0) rotate(0deg); opacity: 0; }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { transform: translateY(110vh) translateX(30px) rotate(360deg); opacity: 0; }
+    }
+
+    /* Waveform Bars */
+    .wave-bar { transition: height 0.2s ease; }
+
+    /* Tooltip */
+    @keyframes tooltip-bounce {
+      0% { transform: translate(-50%, 10px) scale(0.8); opacity: 0; }
+      50% { transform: translate(-50%, -5px) scale(1.05); opacity: 1; }
+      100% { transform: translate(-50%, 0) scale(1); opacity: 1; }
+    }
+    .tooltip-anim { animation: tooltip-bounce 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+  </style>
+</head>
+<body class="w-full flex flex-col bg-slate-900 text-white">
+  <div id="root" class="h-full w-full flex flex-col relative z-10"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo } = React;
+
+    // --- MAGICAL FALLING EFFECTS ---
+    const MagicEffects = () => {
+      const icons = ['fa-wand-magic-sparkles', 'fa-broom', 'fa-hat-wizard', 'fa-star'];
+      const items = useMemo(() => Array.from({ length: 20 }).map((_, i) => ({
+        id: i,
+        icon: icons[Math.floor(Math.random() * icons.length)],
+        left: Math.random() * 100,
+        animDuration: Math.random() * 5 + 6,
+        animDelay: Math.random() * 8,
+        opacity: Math.random() * 0.4 + 0.2,
+        fontSize: Math.random() * 0.8 + 0.8
+      })), []);
+
+      return (
+        <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden="true">
+          {items.map(item => (
+            <i key={item.id} className={`fa-solid ${item.icon} magic-item`} style={{
+              left: `${item.left}vw`,
+              animationDuration: `${item.animDuration}s`,
+              animationDelay: `${item.animDelay}s`,
+              opacity: item.opacity,
+              fontSize: `${item.fontSize}rem`
+            }}></i>
+          ))}
+        </div>
+      );
+    };
+
+    // --- AUDIO ENGINE ---
+    const ELEVENLABS_API_KEY = "sk_4299808cce5c3a9dd32917410f631fc345cd7be54dff0070";
+    const VOICES = { voiceA: 'UgBBYS2sOqTuMpoF3BR0', voiceB: 'kdmDKE6EkgrWrrykO9Qt' };
+
+    const playTone = (type) => {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        const ctx = new AudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        
+        if (type === 'pop') {
+          osc.type = 'sine'; osc.frequency.setValueAtTime(600, ctx.currentTime);
+          gain.gain.setValueAtTime(0.1, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+          osc.start(); osc.stop(ctx.currentTime + 0.1);
+        } else if (type === 'success') {
+          osc.type = 'triangle'; osc.frequency.setValueAtTime(440, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.1);
+          osc.frequency.exponentialRampToValueAtTime(1100, ctx.currentTime + 0.2);
+          gain.gain.setValueAtTime(0.3, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+          osc.start(); osc.stop(ctx.currentTime + 0.3);
+        } else if (type === 'correct') {
+          osc.type = 'sine'; osc.frequency.setValueAtTime(523.25, ctx.currentTime); osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1);
+          gain.gain.setValueAtTime(0, ctx.currentTime); gain.gain.linearRampToValueAtTime(0.2, ctx.currentTime + 0.05); gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.3);
+          osc.start(); osc.stop(ctx.currentTime + 0.3);
+        } else if (type === 'wrong' || type === 'deduct') {
+          osc.type = 'sawtooth'; osc.frequency.setValueAtTime(200, ctx.currentTime); osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.2);
+          gain.gain.setValueAtTime(0, ctx.currentTime); gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.05); gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.3);
+          osc.start(); osc.stop(ctx.currentTime + 0.3);
+        }
+      } catch (e) {}
+    };
+
+    const playElevenLabsAudio = async (text, voiceId, audioRef, setPlayingState) => {
+      try {
+        setPlayingState(true);
+        if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
+        const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+          method: 'POST',
+          headers: { 'xi-api-key': ELEVENLABS_API_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: text, model_id: 'eleven_turbo_v2_5', voice_settings: { stability: 0.45, similarity_boost: 0.8 } })
+        });
+        if (!response.ok) throw new Error("Audio fetch failed");
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audio.onended = () => setPlayingState(false);
+        audio.onerror = () => setPlayingState(false);
+        audioRef.current = audio;
+        
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+           playPromise.catch(error => { console.warn("Audio playback interrupted:", error); setPlayingState(false); });
+        }
+      } catch (error) {
+        console.error(error);
+        setPlayingState(false);
+      }
+    };
+
+    // --- DATA ---
+    const ipaDict = {
+      "I": "/aɪ/", "spent": "/spent/", "the": "/ðə/", "summer": "/ˈsʌmər/", "devising": "/dɪˈvaɪzɪŋ/", "a": "/ə/", "whole": "/hoʊl/", "new": "/njuː/", "Quidditch": "/ˈkwɪdɪtʃ/", "program": "/ˈproʊɡræm/",
+      "We're": "/wɪr/", "gonna": "/ˈɡɔːnə/", "train": "/treɪn/", "earlier": "/ˈɜːrliər/", "harder": "/ˈhɑːrdər/", "and": "/ənd/", "longer": "/ˈlɔːŋɡər/", "What": "/wʌt/", "don't": "/doʊnt/", "believe": "/bɪˈliːv/", 
+      "it": "/ɪt/", "Where": "/wer/", "you": "/juː/", "think": "/θɪŋk/", "you're": "/jʊr/", "going": "/ˈɡoʊɪŋ/", "Flint": "/flɪnt/", "practice": "/ˈpræktɪs/", "booked": "/bʊkt/", "pitch": "/pɪtʃ/", "for": "/fɔːr/",
+      "Gryffindor": "/ˈɡrɪfɪndɔːr/", "today": "/təˈdeɪ/", "Easy": "/ˈiːzi/", "Wood": "/wʊd/", "I've": "/aɪv/", "got": "/ɡɑːt/", "note": "/noʊt/", "smell": "/smel/", "trouble": "/ˈtrʌbl/", "Professor": "/prəˈfesər/",
+      "Severus": "/ˈsɛvərəs/", "Snape": "/sneɪp/", "do": "/duː/", "hereby": "/ˌhɪrˈbaɪ/", "give": "/ɡɪv/", "Slytherin": "/ˈslɪðərɪn/", "team": "/tiːm/", "permission": "/pərˈmɪʃn/", "to": "/tuː/", "owing": "/ˈoʊɪŋ/",
+      "need": "/niːd/", "their": "/ðer/", "Seeker": "/ˈsiːkər/", "Who": "/huː/", "Malfoy": "/ˈmælfɔɪ/", "That's": "/ðæts/", "right": "/raɪt/", "And": "/ænd/", "not": "/nɑːt/", "all": "/ɔːl/", "that's": "/ðæts/",
+      "this": "/ðɪs/", "year": "/jɪr/", "Those": "/ðoʊz/", "are": "/ɑːr/", "Nimbus": "/ˈnɪmbəs/", "How": "/haʊ/", "did": "/dɪd/", "get": "/ɡet/", "those": "/ðoʊz/", "A": "/ə/", "gift": "/ɡɪft/", "from": "/frəm/",
+      "Draco's": "/ˈdreɪkoʊz/", "father": "/ˈfɑːðər/", "You": "/juː/", "see": "/siː/", "Weasley": "/ˈwiːzli/", "unlike": "/ʌnˈlaɪk/", "some": "/sʌm/", "my": "/maɪ/", "can": "/kən/", "afford": "/əˈfɔːrd/", "best": "/best/",
+      "At": "/æt/", "least": "/liːst/", "no": "/noʊ/", "one": "/wʌn/", "on": "/ɑːn/", "had": "/hæd/", "buy": "/baɪ/", "way": "/weɪ/", "in": "/ɪn/", "They": "/ðeɪ/", "pure": "/pjʊr/", "talent": "/ˈtælənt/"
+    };
+    const cleanWord = (w) => w.replace(/[^a-zA-Z']/g, '');
+    const getIPA = (w) => ipaDict[cleanWord(w)] || `/${cleanWord(w).toLowerCase()}/`;
+    const isVowelStart = (w) => /^[aeiouAEIOU]/.test(cleanWord(w));
+    const isConsonantEnd = (w) => { const c = cleanWord(w); return c && !['a','e','i','o','u','w','y'].includes(c.slice(-1).toLowerCase()); };
+    const isStressed = (w) => { const c = cleanWord(w); return c.length > 3 && !['that', 'this', 'with', 'from', 'they', 'your'].includes(c.toLowerCase()); };
+
+    const videoSource = "https://uswaesqafxtekmgbaguz.supabase.co/storage/v1/object/sign/Video/Harry.mp4?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8xYzRjNzE2Ni1iMGEwLTRhYjItODJiZC0wMGE5N2UzMWZkODUiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJWaWRlby9IYXJyeS5tcDQiLCJpYXQiOjE3NzU4OTYzNDksImV4cCI6MTgwNzQzMjM0OX0.CgKnfUfTkXihGAAH7Ti3shYuaJNR5O5DGFbYYsdS584";
+    const subtitles = [
+        { speaker: "WOOD", start: 0.333, end: 3.266, en: "I spent the summer devising a whole new Quidditch program.", zh: "我花了一整个夏天设计了全新的魁地奇训练计划。" },
+        { speaker: "WOOD", start: 3.266, end: 7.066, en: "We're gonna train earlier, harder and longer.", zh: "我们要练得更早、更狠、时间更长。" },
+        { speaker: "HARRY", start: 7.066, end: 10.433, en: "What-? I don't believe it.", zh: "什么——？我简直不敢相信。" },
+        { speaker: "WOOD & FLINT", start: 13.133, end: 16.033, en: "Where you think you're going, Flint? Quidditch practice.", zh: "- 你以为你要去哪里，弗林特？ - 魁地奇训练。" },
+        { speaker: "WOOD", start: 16.033, end: 18.000, en: "I booked the pitch for Gryffindor today.", zh: "我今天为格兰芬多预定了球场。" },
+        { speaker: "FLINT", start: 18.000, end: 20.400, en: "Easy, Wood. I've got a note.", zh: "别激动，伍德。我有张条子。" },
+        { speaker: "RON", start: 21.833, end: 24.033, en: "Uh-oh. I smell trouble.", zh: "呃哦。我闻到了麻烦的味道。" },
+        { speaker: "WOOD", start: 24.666, end: 28.333, en: "I, Professor Severus Snape, do hereby give the Slytherin team...", zh: "“我，西弗勒斯·斯内普教授，特此批准斯莱特林球队……" },
+        { speaker: "WOOD", start: 28.333, end: 31.833, en: "...permission to practice today, owing to the need to train their new Seeker.", zh: "……今天进行训练，因为他们需要训练新的找球手。”" },
+        { speaker: "WOOD", start: 32.000, end: 34.666, en: "You've got a new Seeker. Who?", zh: "你们有了新的找球手。是谁？" },
+        { speaker: "HARRY & DRACO", start: 38.666, end: 41.233, en: "Malfoy? That's right.", zh: "- 马尔福？ - 没错。" },
+        { speaker: "DRACO", start: 41.433, end: 44.200, en: "And that's not all that's new this year.", zh: "而且这还不是今年唯一的新鲜事。" },
+        { speaker: "RON", start: 45.066, end: 48.500, en: "Those are Nimbus 2001s. How did you get those?", zh: "那是光轮2001。你们怎么弄到的？" },
+        { speaker: "DRACO", start: 48.700, end: 50.733, en: "A gift from Draco's father.", zh: "德拉科父亲送的礼物。" },
+        { speaker: "DRACO", start: 50.900, end: 54.666, en: "You see, Weasley, unlike some, my father can afford the best.", zh: "你看，韦斯莱，不像某些人，我父亲买得起最好的。" },
+        { speaker: "HERMIONE", start: 54.866, end: 57.866, en: "At least no one on the Gryffindor team had to buy their way in.", zh: "至少格兰芬多队里没有人是靠花钱进来的。" },
+        { speaker: "HERMIONE", start: 58.033, end: 60.900, en: "They got in on pure talent.", zh: "他们全凭真正的天赋入选。" }
+    ];
+
+    const activeWords = [
+      { word: 'spent', phonetic: '/spent/', pos: 'v.', meaning: '花费（时间、金钱）', scenario: '他花了一整个夏天练习魔法。', sentences: ["I spent the summer devising a whole new program.", "She spent a lot of money on books."] },
+      { word: 'afford', phonetic: '/əˈfɔːrd/', pos: 'v.', meaning: '负担得起', scenario: '这把飞天扫帚太贵了，我买不起。', sentences: ["My father can afford the best.", "I can't afford to buy a new car."] },
+      { word: 'talent', phonetic: '/ˈtælənt/', pos: 'n.', meaning: '天赋；才能', scenario: '她是一个非常有天赋的女孩。', sentences: ["They got in on pure talent.", "He has a great talent for magic."] },
+      { word: 'permission', phonetic: '/pərˈmɪʃn/', pos: 'n.', meaning: '许可；允许', scenario: '没有老师的允许，不能进入禁林。', sentences: ["I give the Slytherin team permission to practice.", "You need permission to enter."] },
+      { word: 'devising', phonetic: '/dɪˈvaɪzɪŋ/', pos: 'v.', meaning: '设计；想出', scenario: '队长正在想出一个新的战术。', sentences: ["I spent the summer devising a whole new Quidditch program.", "They are devising a plan."] }
+    ];
+
+    const recognitionWords = [
+      { word: 'Quidditch', meaning: '魁地奇' }, { word: 'pitch', meaning: '球场' }, { word: 'Seeker', meaning: '找球手' }, { word: 'Nimbus 2001', meaning: '光轮2001' },
+      { word: 'booked', meaning: '预订' }, { word: 'owing to', meaning: '由于' }, { word: 'hereby', meaning: '特此；兹' }, { word: 'at least', meaning: '至少' }
+    ];
+
+    // --- MEGA QUIZ POOLS (With Explanations) ---
+    const MEGA_VOCAB_POOL = [
+      { q: "I ______ the whole weekend reading the magic book.", options: ["spent", "afford", "devising"], a: "spent", explain: "spend time doing sth. 表示'花费时间做某事'。" },
+      { q: "We can't ______ to buy a new Nimbus 2000.", options: ["spent", "afford", "talent"], a: "afford", explain: "afford to do sth. 表示'负担得起（通常指金钱）'。" },
+      { q: "Harry has a natural ______ for flying.", options: ["permission", "talent", "pitch"], a: "talent", explain: "have a talent for... 意为'有……的天赋'。" },
+      { q: "You must ask for ______ before entering the Forbidden Forest.", options: ["permission", "talent", "afford"], a: "permission", explain: "ask for permission 意为'请求许可'。" },
+      { q: "Hermione is ______ a new plan to pass the test.", options: ["devising", "spending", "booking"], a: "devising", explain: "devise a plan 意为'设计/想出一个计划'。" },
+      { q: "How much time did you ______ on your potions homework?", options: ["spend", "afford", "devise"], a: "spend", explain: "spend time on sth. 表示'在某事上花费时间'。" },
+      { q: "Only rich wizard families can ______ this expensive wand.", options: ["spend", "talent", "afford"], a: "afford", explain: "afford 表示'买得起，负担得起'。" },
+      { q: "It takes pure ______ to catch the Golden Snitch so fast.", options: ["talent", "permission", "devising"], a: "talent", explain: "pure talent 意为'纯粹的天赋'。" },
+      { q: "Did Professor Snape give you ______ to be here?", options: ["talent", "permission", "afford"], a: "permission", explain: "give permission 意为'给予许可'。" },
+      { q: "The twins are always ______ new tricks.", options: ["devising", "affording", "spending"], a: "devising", explain: "devise new tricks 意为'设计新的恶作剧把戏'。" }
+    ];
+
+    const MEGA_GRAMMAR_POOL = [
+      { q: "This broomstick is ______ (fast) than the old one.", options: ["fast", "faster", "fastest"], a: "faster", explain: "看到 than 要用比较级，fast 的比较级是 faster。" },
+      { q: "We need to train ______ (hard) than before.", options: ["hard", "harder", "hardest"], a: "harder", explain: "看到 than 用比较级，hard 的比较级是 harder。" },
+      { q: "Who is the ______ (good) Seeker in the school?", options: ["better", "best", "good"], a: "best", explain: "在全校(in the school)范围内比较，用最高级 best。" },
+      { q: "I _____ (book) the Quidditch pitch yesterday.", options: ["book", "booked", "booking"], a: "booked", explain: "yesterday 是一般过去时的标志，book 过去式为 booked。" },
+      { q: "She ______ (spend) all her money in Diagon Alley last week.", options: ["spends", "spent", "spending"], a: "spent", explain: "last week 是一般过去时的标志，spend 的过去式是不规则变化 spent。" },
+      { q: "I _____ a note from the professor.", options: ["have got", "has got", "getting"], a: "have got", explain: "主语是 I，拥有某物用 have got。" },
+      { q: "______ you got a new broom?", options: ["Do", "Did", "Have"], a: "Have", explain: "have got 句型的疑问句把 Have 提前：Have you got...?" },
+      { q: "How ______ you get those new brooms yesterday?", options: ["do", "have", "did"], a: "did", explain: "一般过去时(yesterday)的特殊疑问句，借用助动词 did。" },
+      { q: "That was the ______ (bad) match I have ever seen.", options: ["worse", "worst", "baddest"], a: "worst", explain: "I have ever seen (我见过的最...) 需要用最高级，bad 的最高级是 worst。" },
+      { q: "Gryffindor ______ (play) very well in the last game.", options: ["plays", "played", "playing"], a: "played", explain: "in the last game 是一般过去时标志，用 played。" },
+      { q: "He is much ______ (tall) than his brother.", options: ["tall", "taller", "tallest"], a: "taller", explain: "much 修饰比较级，tall 的比较级是 taller。" },
+      { q: "I ______ (not see) the Golden Snitch during the match.", options: ["didn't see", "don't see", "haven't seen"], a: "didn't see", explain: "一般过去时的否定形式为 didn't + 动词原形。" },
+      { q: "We _____ (have got) to win this cup!", options: ["'ve got", "'s got", "'re got"], a: "'ve got", explain: "We 后面接 have got，缩写为 We've got。" },
+      { q: "The weather today is ______ (cold) than yesterday.", options: ["cold", "colder", "coldest"], a: "colder", explain: "看到 than 用比较级，cold 的比较级是 colder。" },
+      { q: "Draco's father ______ (buy) brooms for the whole team last week.", options: ["buys", "bought", "buying"], a: "bought", explain: "last week 是一般过去时标志，buy 的过去式是不规则变化 bought。" }
+    ];
+
+    // --- COMPONENTS ---
+    const StudioLogo = ({ className = "" }) => (
+      <div className={`flex items-center space-x-2 ${className}`}>
+        <div className="relative flex items-center justify-center w-10 h-10 bg-gradient-to-br from-indigo-900 to-purple-900 rounded-xl shadow-[0_0_15px_rgba(168,85,247,0.4)] border border-purple-500/50">
+          <i className="fa-solid fa-hat-wizard text-amber-300 text-lg"></i>
+          <i className="fa-solid fa-star absolute -bottom-1 -right-1 text-[8px] text-yellow-300 animate-pulse"></i>
+        </div>
+        <div className="flex flex-col text-left">
+          <span className="text-amber-400 font-sans font-black text-[12px] tracking-[0.2em] leading-none">XIAOYAO</span>
+          <span className="text-[8px] text-indigo-300 tracking-[0.45em] leading-none mt-1 font-bold">STUDIO</span>
+        </div>
+      </div>
+    );
+
+    const WordWithWaveform = ({ word, nextWord, onWordClick }) => {
+        const stressed = isStressed(word);
+        const tie = nextWord && isConsonantEnd(word) && isVowelStart(nextWord);
+        const hasPunctuation = /[.,?!]/.test(word);
+        const bars = Array.from({length: Math.max(3, cleanWord(word).length)}).map((_, i) => {
+            const height = stressed ? 40 + Math.random() * 60 : 20 + Math.random() * 30;
+            return <div key={i} className={`w-1 rounded-t-sm wave-bar ${stressed ? 'bg-amber-400' : 'bg-indigo-400/60'}`} style={{height: `${height}%`}} />;
+        });
+
+        return (
+            <div className="inline-flex flex-col items-center mx-1.5 relative group">
+                <span className={`text-xl md:text-2xl font-bold cursor-pointer transition-colors ${stressed ? 'text-indigo-100' : 'text-slate-400'} hover:text-amber-400`} onClick={(e) => onWordClick(cleanWord(word), e)}>
+                  {word}
+                </span>
+                <div className="h-6 flex items-end gap-[2px] mt-1 w-full justify-center opacity-60 group-hover:opacity-100 transition-opacity">
+                    {bars}
+                </div>
+                {tie && !hasPunctuation && <div className="absolute -right-[12px] bottom-0 text-rose-400 font-bold text-lg opacity-80 translate-y-1">‿</div>}
+                {hasPunctuation && <div className="absolute -right-2 top-1 text-slate-500 font-black text-xl">|</div>}
+            </div>
+        );
+    };
+
+    const Header = ({ activeTab, setActiveTab }) => {
+      const [menuOpen, setMenuOpen] = useState(false);
+      const tabs = [
+        { id: 'dubbing', icon: 'fa-film', label: '1. Dubbing Studio' },
+        { id: 'vocab', icon: 'fa-spell-check', label: '2. Vocabulary' },
+        { id: 'grammar', icon: 'fa-layer-group', label: '3. Magic Grammar' },
+        { id: 'quiz', icon: 'fa-bolt', label: '4. Daily Magic Quiz' }
+      ];
+
+      return (
+        <header className="bg-indigo-950/80 backdrop-blur-md pt-10 pb-4 px-6 shadow-xl z-50 flex-shrink-0 relative border-b border-indigo-800">
+          <div className="relative z-10 flex justify-between items-center">
+            <div className="flex items-center space-x-3">
+              <StudioLogo />
+              <div className="pl-3 border-l border-indigo-700/50">
+                <h1 className="text-xl font-bold font-serif-magic tracking-wider text-indigo-50 leading-none">Talent A1+</h1>
+                <p className="text-amber-400/80 text-[10px] mt-1 uppercase tracking-widest font-bold">Unit 6-2 Review</p>
+              </div>
+            </div>
+            <button onClick={() => { playTone('pop'); setMenuOpen(!menuOpen); }} className="w-10 h-10 bg-indigo-900/50 rounded-xl flex items-center justify-center text-xl active:bg-indigo-800 transition-colors border border-indigo-700/50">
+              <i className={`fa-solid ${menuOpen ? 'fa-xmark text-amber-400' : 'fa-bars-staggered text-indigo-200'}`}></i>
+            </button>
+          </div>
+          
+          {menuOpen && (
+            <div className="absolute top-full left-0 w-full bg-indigo-950/95 backdrop-blur-xl shadow-2xl border-t border-indigo-800 overflow-hidden fade-in z-50 origin-top">
+              {tabs.map(tab => (
+                <button
+                  key={tab.id} onClick={() => { playTone('pop'); setActiveTab(tab.id); setMenuOpen(false); }}
+                  className={`w-full text-left px-6 py-5 flex items-center space-x-4 border-b border-indigo-900/50 last:border-0 transition-all ${activeTab === tab.id ? 'bg-indigo-900 text-amber-400 font-bold' : 'text-indigo-200 font-medium hover:bg-indigo-900/50'}`}
+                >
+                  <div className={`w-8 text-center text-lg ${activeTab === tab.id ? 'scale-110 drop-shadow-[0_0_8px_rgba(251,191,36,0.6)]' : ''}`}><i className={`fa-solid ${tab.icon}`}></i></div>
+                  <span className="tracking-wider text-[15px]">{tab.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </header>
+      );
+    };
+
+    // --- TABS ---
+    const DubbingTab = () => {
+      const videoRef = useRef(null);
+      const [currentIndex, setCurrentIndex] = useState(0);
+      const [isPlaying, setIsPlaying] = useState(false);
+      const [videoRuntimeSrc, setVideoRuntimeSrc] = useState('');
+      const [videoSourceMode, setVideoSourceMode] = useState('blob');
+      const [videoLoadState, setVideoLoadState] = useState('loading');
+      const [playbackRate, setPlaybackRate] = useState(1);
+      const [loopA, setLoopA] = useState(null);
+      const [loopB, setLoopB] = useState(null);
+      const [isABLooping, setIsABLooping] = useState(false);
+      const [ipaTip, setIpaTip] = useState({ visible: false, word: '', ipa: '', x: 0, y: 0 });
+
+      useEffect(() => {
+        let objectUrl = '';
+        let cancelled = false;
+        const controller = new AbortController();
+
+        const loadVideoAsBlob = async () => {
+          try {
+            setVideoLoadState('loading');
+            const response = await fetch(videoSource, {
+              method: 'GET',
+              mode: 'cors',
+              credentials: 'omit',
+              signal: controller.signal
+            });
+            if (!response.ok) throw new Error(`Video fetch failed: ${response.status}`);
+            const blob = await response.blob();
+            if (cancelled) return;
+            objectUrl = URL.createObjectURL(blob);
+            setVideoRuntimeSrc(objectUrl);
+            setVideoSourceMode('blob');
+          } catch (error) {
+            if (controller.signal.aborted || cancelled) return;
+            console.error(error);
+            setVideoLoadState('error');
+          }
+        };
+
+        loadVideoAsBlob();
+
+        return () => {
+          cancelled = true;
+          controller.abort();
+          if (objectUrl) URL.revokeObjectURL(objectUrl);
+        };
+      }, []);
+
+      useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+
+        video.setAttribute('playsinline', 'true');
+        video.setAttribute('webkit-playsinline', 'true');
+        video.setAttribute('x5-playsinline', 'true');
+        video.setAttribute('x5-video-player-type', 'h5-page');
+        video.setAttribute('x5-video-player-fullscreen', 'false');
+        video.setAttribute('x-webkit-airplay', 'deny');
+        video.setAttribute('controlsList', 'nodownload nofullscreen noremoteplayback');
+      }, [videoRuntimeSrc]);
+
+      useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+        const handleTimeUpdate = () => {
+          const time = video.currentTime;
+          if (isABLooping && loopA !== null && loopB !== null) {
+            const startT = subtitles[loopA].start;
+            const endT = subtitles[loopB].end;
+            if (time >= endT) {
+              video.currentTime = startT;
+              if (video.paused && isPlaying) video.play().catch(()=>{});
+            }
+            const newIndex = subtitles.findIndex(s => time >= s.start && time < s.end);
+            if (newIndex !== -1 && newIndex !== currentIndex && newIndex >= loopA && newIndex <= loopB) setCurrentIndex(newIndex);
+          } else {
+            const newIndex = subtitles.findIndex(s => time >= s.start && time < s.end);
+            if (newIndex !== -1 && newIndex !== currentIndex) setCurrentIndex(newIndex);
+          }
+        };
+        video.addEventListener('timeupdate', handleTimeUpdate);
+        return () => video.removeEventListener('timeupdate', handleTimeUpdate);
+      }, [currentIndex, isABLooping, loopA, loopB, isPlaying]);
+
+      useEffect(() => {
+        if (videoRef.current && videoRuntimeSrc) {
+          videoRef.current.load();
+        }
+      }, [videoRuntimeSrc]);
+
+      const enableCompatibilityMode = (e) => {
+        e.stopPropagation();
+        setVideoRuntimeSrc(videoSource);
+        setVideoSourceMode('direct');
+        setVideoLoadState('loading');
+      };
+
+      const playSentence = (idx) => {
+        setCurrentIndex(idx);
+        if (videoRef.current && videoLoadState === 'ready') {
+          videoRef.current.currentTime = subtitles[idx].start;
+          videoRef.current.play().catch(()=>{});
+          setIsPlaying(true);
+        }
+      };
+
+      const togglePlay = () => {
+         if (videoLoadState !== 'ready' || !videoRef.current) return;
+         if(videoRef.current.paused) { videoRef.current.play(); setIsPlaying(true); } 
+         else { videoRef.current.pause(); setIsPlaying(false); }
+      };
+
+      const handleWordClick = (word, e) => {
+         const rect = e.target.getBoundingClientRect();
+         setIpaTip({ visible: true, word: word, ipa: getIPA(word), x: rect.left + rect.width / 2, y: rect.top - 10 });
+         playTone('tick');
+         setTimeout(() => setIpaTip(prev => ({...prev, visible: false})), 2500);
+      };
+
+      const currentWords = subtitles[currentIndex].en.split(' ');
+
+      return (
+        <div className="flex flex-col h-full fade-in p-4 pb-safe-scroll overflow-y-auto relative z-10">
+          <div className="relative w-full rounded-[2rem] border border-indigo-500/30 bg-indigo-950/80 shadow-[0_10px_30px_rgba(0,0,0,0.5)] overflow-hidden mb-4 shrink-0" onClick={togglePlay} onContextMenu={(e) => e.preventDefault()}>
+            <video 
+              ref={videoRef}
+              src={videoRuntimeSrc || undefined}
+              playsInline
+              webkit-playsinline="true"
+              x5-playsinline="true"
+              x5-video-player-type="h5-page"
+              x5-video-player-fullscreen="false"
+              x-webkit-airplay="deny"
+              disableRemotePlayback
+              disablePictureInPicture
+              controlsList="nodownload nofullscreen noremoteplayback"
+              preload="metadata"
+              onLoadedMetadata={() => setVideoLoadState('ready')}
+              onCanPlay={() => setVideoLoadState('ready')}
+              onError={() => {
+                setVideoLoadState('error');
+              }}
+              onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)}
+              className="w-full aspect-video object-contain pointer-events-none select-none"
+            />
+            {videoLoadState !== 'ready' && (
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-indigo-950/90 text-indigo-100 text-center px-6">
+                <i className={`fa-solid ${videoLoadState === 'error' ? 'fa-circle-exclamation text-rose-400' : 'fa-spinner fa-spin text-amber-400'} text-3xl mb-4`}></i>
+                <p className="font-black text-lg mb-2">{videoLoadState === 'error' ? '视频加载失败' : '正在准备页内视频'}</p>
+                <p className="text-sm text-indigo-300 font-bold">
+                  {videoLoadState === 'error'
+                    ? '页内视频模式暂时没有成功加载。'
+                    : videoSourceMode === 'direct'
+                      ? '已切换为 UC 兼容加载模式，优先保证页内可播放。'
+                      : '正在转换为站内播放，尽量避免浏览器外部播放器劫持。'}
+                </p>
+                {videoLoadState === 'error' && videoSourceMode !== 'direct' && (
+                  <button type="button" onClick={enableCompatibilityMode} className="mt-5 px-5 py-3 rounded-2xl bg-amber-500 text-indigo-950 font-black text-sm shadow-lg border border-amber-300 active-scale">
+                    使用兼容模式直连播放
+                  </button>
+                )}
+                {videoLoadState === 'error' && videoSourceMode !== 'direct' && (
+                  <p className="mt-3 text-[11px] text-indigo-400 font-bold">注意：兼容模式在 UC 里可能再次被浏览器外部播放器劫持。</p>
+                )}
+              </div>
+            )}
+            <button type="button" aria-label={isPlaying ? "Pause video" : "Play video"} className={`absolute inset-0 z-10 bg-transparent ${videoLoadState === 'ready' ? 'cursor-pointer active-scale' : 'cursor-wait'}`}></button>
+          </div>
+
+          <div className="flex-1 bg-indigo-900/60 backdrop-blur-sm rounded-[2rem] shadow-lg border border-indigo-700/50 flex flex-col items-center justify-center p-6 relative overflow-hidden shrink-0 min-h-[220px]">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none"></div>
+              
+              <div className="mb-4 flex flex-wrap items-center justify-center gap-2 relative z-10 w-full">
+                  <span className="bg-indigo-800/80 text-indigo-200 px-3 py-1 rounded-full text-xs font-black tracking-widest border border-indigo-600/50">
+                      SENTENCE {currentIndex + 1} / {subtitles.length}
+                  </span>
+                  <button onClick={() => {setLoopA(currentIndex); setLoopB(null); setIsABLooping(false); playTone('tick');}} disabled={loopA !== null} className={`px-3 py-1 rounded-full text-xs font-black transition-all border ${loopA === currentIndex ? 'bg-amber-500 border-amber-400 text-indigo-900 shadow-md' : loopA === null ? 'bg-transparent border-amber-500/50 text-amber-500' : 'opacity-30 cursor-not-allowed'}`}>A</button>
+                  <button onClick={() => {if(loopA!==null && currentIndex>=loopA){setLoopB(currentIndex); setIsABLooping(true); playTone('success'); playSentence(loopA);}}} disabled={loopA === null || currentIndex < loopA} className={`px-3 py-1 rounded-full text-xs font-black transition-all border ${(loopB === currentIndex && isABLooping) ? 'bg-emerald-500 border-emerald-400 text-white shadow-md' : (loopA !== null && currentIndex >= loopA) ? 'bg-transparent border-emerald-500/50 text-emerald-500' : 'opacity-30 cursor-not-allowed'}`}>B</button>
+                  {(loopA !== null || loopB !== null) && <button onClick={() => {setLoopA(null); setLoopB(null); setIsABLooping(false); playTone('pop');}} className="px-2 py-1 rounded-full text-xs bg-rose-900/50 text-rose-300 border border-rose-500/50"><i className="fa-solid fa-rotate-right"></i></button>}
+              </div>
+
+              <div className="flex flex-wrap justify-center items-end mb-4 relative z-10 w-full min-h-[80px]">
+                  {currentWords.map((w, i) => <WordWithWaveform key={i} word={w} nextWord={currentWords[i+1]} onWordClick={handleWordClick} />)}
+              </div>
+              <p className="text-sm text-indigo-300 font-bold bg-indigo-950/80 px-4 py-2 rounded-xl border border-indigo-800/50 relative z-10 text-center">{subtitles[currentIndex].zh}</p>
+          </div>
+
+          <div className="mt-4 bg-indigo-900/80 backdrop-blur-md rounded-3xl p-3 border border-indigo-700/50 flex items-center justify-between shadow-lg shrink-0 relative z-10">
+              <button onClick={() => { if(currentIndex > 0) playSentence(currentIndex - 1); playTone('pop'); }} className="w-12 h-12 flex items-center justify-center text-indigo-200 hover:bg-indigo-800 rounded-xl transition-colors active-scale">
+                 <i className="fa-solid fa-backward-step"></i>
+              </button>
+              <button onClick={togglePlay} className="w-14 h-14 bg-amber-500 text-indigo-950 rounded-full flex items-center justify-center shadow-[0_0_15px_rgba(251,191,36,0.5)] transition-all active-scale border-2 border-amber-300">
+                 <i className={`fa-solid ${isPlaying ? 'fa-pause' : 'fa-play pl-1'} text-xl`}></i>
+              </button>
+              <button onClick={() => { if(currentIndex < subtitles.length - 1) playSentence(currentIndex + 1); playTone('pop'); }} className="w-12 h-12 flex items-center justify-center text-indigo-200 hover:bg-indigo-800 rounded-xl transition-colors active-scale">
+                 <i className="fa-solid fa-forward-step"></i>
+              </button>
+              
+              <div className="w-px h-8 bg-indigo-700 mx-1"></div>
+              
+              <div className="flex items-center gap-1 bg-indigo-950/50 p-1.5 rounded-xl border border-indigo-800/50">
+                {[1.0, 0.8].map(s => (
+                  <button key={s} onClick={() => {setPlaybackRate(s); if(videoRef.current) videoRef.current.playbackRate = s; playTone('pop');}} className={`px-2 py-1.5 rounded-lg font-bold text-[10px] transition-all ${playbackRate === s ? 'bg-indigo-600 text-white shadow-sm' : 'text-indigo-400 hover:text-indigo-200'}`}>
+                    {s}x
+                  </button>
+                ))}
+              </div>
+          </div>
+
+          {ipaTip.visible && (
+              <div className="fixed z-[300] bg-indigo-800 text-white px-4 py-2 rounded-xl shadow-2xl tooltip-anim border border-indigo-400 pointer-events-none flex flex-col items-center" style={{ left: ipaTip.x, top: ipaTip.y - 60 }}>
+                  <div className="text-lg font-black text-amber-400 tracking-wide">{ipaTip.ipa}</div>
+                  <div className="absolute -bottom-1.5 left-1/2 transform -translate-x-1/2 w-3 h-3 bg-indigo-800 rotate-45 border-r border-b border-indigo-400"></div>
+              </div>
+          )}
+        </div>
+      )
+    };
+
+    const VocabTab = () => {
+      const [playingId, setPlayingId] = useState(null);
+      const [ipaTip, setIpaTip] = useState({ visible: false, word: '', ipa: '', x: 0, y: 0 });
+      const audioRef = useRef(null);
+
+      const playWordAudio = (text, id) => {
+        if (playingId === id) return; 
+        playElevenLabsAudio(text, VOICES.voiceA, audioRef, (isPlaying) => { setPlayingId(isPlaying ? id : null); });
+      };
+
+      const handleRecClick = (w, e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        setIpaTip({ visible: true, word: w.word, ipa: getIPA(w.word), x: rect.left + rect.width / 2, y: rect.top - 10 });
+        playWordAudio(w.word, `rec_${w.word}`);
+        setTimeout(() => setIpaTip(prev => ({...prev, visible: false})), 2500);
+      };
+
+      const highlightWord = (sentence, word) => {
+        const parts = sentence.split(new RegExp(`(${word})`, 'gi'));
+        return parts.map((part, index) => part.toLowerCase() === word.toLowerCase() ? <strong key={index} className="text-amber-400">{part}</strong> : part);
+      };
+
+      return (
+        <div className="p-4 pb-safe-scroll overflow-y-auto h-full fade-in relative z-10">
+          <div className="mb-6 flex items-center border-b border-indigo-800/50 pb-3">
+            <i className="fa-solid fa-spell-check text-amber-400 text-2xl mr-3 drop-shadow-[0_0_8px_rgba(251,191,36,0.6)]"></i>
+            <h2 className="text-2xl text-indigo-50 font-black tracking-wider uppercase font-serif-magic">Vocabulary</h2>
+          </div>
+
+          <div className="space-y-4 mb-8">
+            {activeWords.map((w, i) => (
+              <div key={i} className="bg-indigo-900/40 backdrop-blur-md p-5 rounded-2xl border border-indigo-700/50 shadow-md">
+                <div className="flex justify-between items-start mb-3">
+                   <div>
+                      <h3 className="text-2xl font-black text-indigo-100 flex items-baseline gap-2 flex-wrap">
+                         <span className="text-indigo-400 text-lg">{i+1}.</span> {w.word}
+                         <span className="text-sm text-slate-400 font-mono">{w.phonetic}</span>
+                      </h3>
+                      <p className="text-sm font-bold text-indigo-200 mt-1"><span className="text-amber-400/80 font-sans italic mr-1">{w.pos}</span> {w.meaning}</p>
+                   </div>
+                   <button onClick={() => playWordAudio(w.word, `vw_${i}`)} className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center border transition-all ${playingId === `vw_${i}` ? 'bg-amber-500 text-indigo-950 border-amber-400 animate-pulse' : 'bg-indigo-800/80 text-indigo-300 border-indigo-600/50 active-scale'}`}>
+                      <i className={`fa-solid ${playingId === `vw_${i}` ? 'fa-volume-high' : 'fa-volume-up'}`}></i>
+                   </button>
+                </div>
+                <div className="bg-indigo-950/50 rounded-xl p-3 border border-indigo-800/50 text-sm text-indigo-300 font-medium italic mb-3">
+                  <i className="fa-solid fa-lightbulb text-amber-500 mr-2"></i>{w.scenario}
+                </div>
+                <div className="space-y-2">
+                  {w.sentences.map((sent, idx) => (
+                    <div key={idx} className="flex items-start">
+                      <button onClick={() => playWordAudio(sent, `sent_${i}_${idx}`)} className={`w-6 h-6 mt-0.5 mr-2 shrink-0 rounded-full flex items-center justify-center transition-all ${playingId === `sent_${i}_${idx}` ? 'bg-amber-500 text-indigo-950 shadow-sm animate-pulse' : 'bg-indigo-800/60 text-indigo-300 hover:bg-indigo-700 active-scale'}`}>
+                        <i className={`fa-solid ${playingId === `sent_${i}_${idx}` ? 'fa-volume-high' : 'fa-volume-up'} text-[10px]`}></i>
+                      </button>
+                      <p className="text-sm text-indigo-100 font-medium leading-relaxed">
+                        "{highlightWord(sent, w.word)}"
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mb-6 flex items-center border-b border-indigo-800/50 pb-3">
+            <i className="fa-solid fa-eye text-sky-400 text-xl mr-3"></i>
+            <h3 className="text-lg text-indigo-50 font-black tracking-wider uppercase font-serif-magic">Recognition</h3>
+          </div>
+          <div className="flex flex-wrap gap-2.5">
+             {recognitionWords.map((w, i) => (
+               <button 
+                  key={i} 
+                  onClick={(e) => handleRecClick(w, e)} 
+                  className="bg-indigo-900/40 hover:bg-indigo-800/60 backdrop-blur-sm px-3 py-2 rounded-xl border border-indigo-700/50 flex items-center shadow-sm transition-colors active-scale text-left"
+               >
+                 <span className="font-bold text-indigo-100 text-sm mr-2">{w.word}</span>
+                 <span className="text-[11px] text-sky-300 font-bold bg-indigo-950/50 px-1.5 py-0.5 rounded pointer-events-none">{w.meaning}</span>
+               </button>
+             ))}
+          </div>
+
+          {ipaTip.visible && (
+              <div className="fixed z-[300] bg-indigo-800 text-white px-4 py-2 rounded-xl shadow-2xl tooltip-anim border border-indigo-400 pointer-events-none flex flex-col items-center" style={{ left: ipaTip.x, top: ipaTip.y - 60 }}>
+                  <div className="text-lg font-black text-amber-400 tracking-wide">{ipaTip.ipa}</div>
+                  <div className="absolute -bottom-1.5 left-1/2 transform -translate-x-1/2 w-3 h-3 bg-indigo-800 rotate-45 border-r border-b border-indigo-400"></div>
+              </div>
+          )}
+        </div>
+      )
+    };
+
+    const GrammarTab = () => {
+      return (
+        <div className="p-4 pb-safe-scroll overflow-y-auto h-full fade-in relative z-10">
+          <div className="mb-6 flex items-center border-b border-indigo-800/50 pb-3">
+            <i className="fa-solid fa-layer-group text-emerald-400 text-2xl mr-3 drop-shadow-[0_0_8px_rgba(52,211,153,0.6)]"></i>
+            <h2 className="text-2xl text-indigo-50 font-black tracking-wider uppercase font-serif-magic">Magic Grammar</h2>
+          </div>
+
+          <div className="space-y-6">
+            <div className="bg-indigo-900/40 backdrop-blur-md rounded-[2rem] border border-indigo-700/50 shadow-md overflow-hidden">
+               <div className="bg-indigo-800/60 px-5 py-3 border-b border-indigo-700/50 flex items-center justify-between">
+                  <span className="font-black text-indigo-100 text-lg">Comparatives</span>
+                  <i className="fa-solid fa-bolt text-amber-400"></i>
+               </div>
+               <div className="p-5 space-y-4">
+                  <div className="bg-indigo-950/50 p-4 rounded-xl border border-indigo-800/50">
+                     <p className="text-xs font-bold text-amber-400 mb-2 uppercase tracking-widest">Adding -er / -est</p>
+                     <p className="text-sm font-medium text-indigo-200">We're gonna train <span className="text-emerald-400 font-bold">earlier</span>, <span className="text-emerald-400 font-bold">harder</span> and <span className="text-emerald-400 font-bold">longer</span>.</p>
+                  </div>
+                  <div className="bg-indigo-950/50 p-4 rounded-xl border border-indigo-800/50">
+                     <p className="text-xs font-bold text-amber-400 mb-2 uppercase tracking-widest">Irregular (不规则变化)</p>
+                     <p className="text-sm font-medium text-indigo-200 mb-1">My father can afford the <span className="text-emerald-400 font-bold">best</span>.</p>
+                     <p className="text-xs text-indigo-400/80 font-mono">(good &rarr; better &rarr; best)</p>
+                  </div>
+               </div>
+            </div>
+
+            <div className="bg-indigo-900/40 backdrop-blur-md rounded-[2rem] border border-indigo-700/50 shadow-md overflow-hidden">
+               <div className="bg-indigo-800/60 px-5 py-3 border-b border-indigo-700/50 flex items-center justify-between">
+                  <span className="font-black text-indigo-100 text-lg">Past Simple & Have got</span>
+                  <i className="fa-solid fa-clock-rotate-left text-sky-400"></i>
+               </div>
+               <div className="p-5 space-y-4">
+                  <div className="bg-indigo-950/50 p-4 rounded-xl border border-indigo-800/50">
+                     <p className="text-xs font-bold text-sky-400 mb-2 uppercase tracking-widest">Past Simple (过去时)</p>
+                     <p className="text-sm font-medium text-indigo-200 mb-2"><i className="fa-solid fa-caret-right text-indigo-500 mr-2"></i>I <span className="text-amber-400 font-bold">spent</span> the summer devising a program.</p>
+                     <p className="text-sm font-medium text-indigo-200"><i className="fa-solid fa-caret-right text-indigo-500 mr-2"></i>I <span className="text-amber-400 font-bold">booked</span> the pitch for Gryffindor.</p>
+                  </div>
+                  <div className="bg-indigo-950/50 p-4 rounded-xl border border-indigo-800/50">
+                     <p className="text-xs font-bold text-sky-400 mb-2 uppercase tracking-widest">Have got (拥有)</p>
+                     <p className="text-sm font-medium text-indigo-200 mb-2"><i className="fa-solid fa-caret-right text-indigo-500 mr-2"></i>I<span className="text-amber-400 font-bold">'ve got</span> a note. <span className="text-xs text-indigo-400 opacity-80">(I have got)</span></p>
+                     <p className="text-sm font-medium text-indigo-200"><i className="fa-solid fa-caret-right text-indigo-500 mr-2"></i>You<span className="text-amber-400 font-bold">'ve got</span> a new Seeker.</p>
+                  </div>
+               </div>
+            </div>
+          </div>
+        </div>
+      )
+    };
+
+    // 4. Daily Quiz Tab (Enhanced with Review)
+    const DailyQuizTab = () => {
+      const [quizState, setQuizState] = useState('intro'); // intro, playing, result
+      const [questions, setQuestions] = useState([]);
+      const [currentIdx, setCurrentIdx] = useState(0);
+      const [answers, setAnswers] = useState({});
+      const [feedback, setFeedback] = useState(null); // null, true, false
+      const [score, setScore] = useState(0);
+
+      const generateQuiz = () => {
+         playTone('pop');
+         const selectedVocab = [...MEGA_VOCAB_POOL].sort(() => 0.5 - Math.random()).slice(0, 5).map(q => ({...q, type: 'Vocab'}));
+         const selectedGrammar = [...MEGA_GRAMMAR_POOL].sort(() => 0.5 - Math.random()).slice(0, 10).map(q => ({...q, type: 'Grammar'}));
+         const combined = [...selectedVocab, ...selectedGrammar].sort(() => 0.5 - Math.random());
+         
+         setQuestions(combined);
+         setCurrentIdx(0);
+         setAnswers({});
+         setFeedback(null);
+         setScore(0);
+         setQuizState('playing');
+      };
+
+      const handleOptionClick = (opt) => {
+         if (feedback !== null) return; 
+         const q = questions[currentIdx];
+         const isCorrect = opt === q.a;
+         
+         setAnswers(prev => ({...prev, [currentIdx]: opt}));
+         setFeedback(isCorrect);
+         if (isCorrect) { playTone('correct'); setScore(s => s + 1); }
+         else { playTone('wrong'); }
+
+         setTimeout(() => {
+            if (currentIdx < 14) {
+               setCurrentIdx(idx => idx + 1);
+               setFeedback(null);
+            } else {
+               playTone('success');
+               setQuizState('result');
+            }
+         }, 1200);
+      };
+
+      if (quizState === 'intro') {
+        return (
+          <div className="p-6 pb-safe-scroll h-full flex flex-col items-center justify-center fade-in relative z-10">
+             <i className="fa-solid fa-bolt text-[80px] text-amber-400 mb-6 animate-pulse drop-shadow-[0_0_20px_rgba(251,191,36,0.6)]"></i>
+             <h2 className="text-3xl font-black text-indigo-50 font-serif-magic mb-2 text-center uppercase tracking-widest">Daily Magic Quiz</h2>
+             <p className="text-indigo-300 text-sm font-bold mb-10 text-center px-4">
+                挑战 15 道随机生成的魔法题目（5道词汇 + 10道语法）。<br/>证明你的巫师等级吧！
+             </p>
+             <button onClick={generateQuiz} className="bg-amber-500 text-indigo-950 px-10 py-4 rounded-[2rem] font-black text-xl shadow-[0_0_20px_rgba(251,191,36,0.5)] active-scale border-2 border-amber-300 w-full max-w-[280px] uppercase tracking-wider">
+                <i className="fa-solid fa-wand-sparkles mr-2"></i> Start Quiz
+             </button>
+          </div>
+        );
+      }
+
+      if (quizState === 'playing') {
+        const q = questions[currentIdx];
+        return (
+          <div className="p-4 pb-safe-scroll h-full flex flex-col fade-in relative z-10">
+            <div className="flex justify-between items-center mb-6 mt-2 shrink-0">
+              <button onClick={() => {playTone('pop'); setQuizState('intro');}} className="w-10 h-10 bg-indigo-900/60 shadow-sm rounded-full flex items-center justify-center text-indigo-300 active-scale border border-indigo-700/50">
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+              <div className="text-xs font-black text-amber-400 bg-indigo-900/60 px-4 py-1.5 rounded-full border border-amber-500/30 uppercase tracking-widest shadow-sm">
+                Q <span className="text-base mx-1">{currentIdx + 1}</span> / 15
+              </div>
+            </div>
+
+            <div className="w-full bg-indigo-950/80 h-2 rounded-full overflow-hidden mb-6 shadow-inner shrink-0 border border-indigo-800/50">
+               <div className="bg-amber-400 h-full transition-all duration-300" style={{width: `${((currentIdx + 1) / 15) * 100}%`}}></div>
+            </div>
+
+            <div className="flex-1 flex flex-col justify-center pb-10">
+               <div className="bg-indigo-900/50 backdrop-blur-md p-6 rounded-[2rem] shadow-lg border border-indigo-700/50 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 px-3 py-1 bg-indigo-800/80 text-indigo-300 text-[10px] font-black uppercase rounded-bl-xl border-l border-b border-indigo-600/50 tracking-widest">
+                     {q.type} Test
+                  </div>
+                  
+                  <h3 className="text-xl md:text-2xl font-bold font-serif-magic text-indigo-50 leading-relaxed mb-8 mt-4 text-center">
+                     {q.q}
+                  </h3>
+
+                  <div className="space-y-3">
+                     {q.options.map((opt, i) => {
+                        const isSelected = answers[currentIdx] === opt;
+                        const isCorrect = opt === q.a;
+                        let btnClass = 'border-indigo-600/50 bg-indigo-950/60 text-indigo-200';
+                        let icon = null;
+
+                        if (feedback !== null) {
+                           if (isCorrect) {
+                              btnClass = 'border-emerald-500 bg-emerald-500/20 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.3)]';
+                              icon = <i className="fa-solid fa-check text-emerald-400 bounce-in"></i>;
+                           } else if (isSelected) {
+                              btnClass = 'border-rose-500 bg-rose-500/20 text-rose-400';
+                              icon = <i className="fa-solid fa-xmark text-rose-400 bounce-in"></i>;
+                           } else {
+                              btnClass = 'border-indigo-800/30 bg-indigo-950/30 text-indigo-500/50';
+                           }
+                        } else {
+                           btnClass += ' hover:bg-indigo-800 hover:border-amber-400 hover:text-white active-scale';
+                        }
+
+                        return (
+                           <button key={i} onClick={() => handleOptionClick(opt)} disabled={feedback !== null} className={`w-full p-4 rounded-2xl border-2 transition-all font-bold text-base flex items-center justify-between ${btnClass}`}>
+                              <span>{opt}</span> {icon}
+                           </button>
+                        );
+                     })}
+                  </div>
+               </div>
+            </div>
+          </div>
+        );
+      }
+
+      if (quizState === 'result') {
+         const accuracy = Math.round((score / 15) * 100);
+         let grade = ''; let comment = ''; let icon = ''; let color = '';
+
+         if (accuracy === 100) {
+            grade = 'O (Outstanding)'; comment = '梅林胡子啊！你简直是个魔法天才！'; icon = 'fa-medal'; color = 'text-amber-400';
+         } else if (accuracy >= 80) {
+            grade = 'E (Exceeds Expectations)'; comment = '干得漂亮！你的魔法基础非常扎实！'; icon = 'fa-star'; color = 'text-emerald-400';
+         } else if (accuracy >= 60) {
+            grade = 'A (Acceptable)'; comment = '进步空间很大，继续挥舞你的魔杖练习吧！'; icon = 'fa-hat-wizard'; color = 'text-sky-400';
+         } else {
+            grade = 'T (Troll)'; comment = '哎呀，是不是中了混淆咒？再复习一下魔法笔记吧！'; icon = 'fa-ghost'; color = 'text-rose-400';
+         }
+
+         const now = new Date();
+         const reportDate = now.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' });
+         const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+         const fullTimeStr = `${reportDate} ${timeStr}`;
+
+         const wrongItems = questions.map((q, idx) => ({ q: q, ans: answers[idx] })).filter(item => item.ans !== item.q.a);
+         
+         const vocabWrongCount = wrongItems.filter(item => item.q.type === 'Vocab').length;
+         const grammarWrongCount = wrongItems.filter(item => item.q.type === 'Grammar').length;
+         const comparativeWrongCount = wrongItems.filter(item => /比较级|最高级/.test(item.q.explain)).length;
+         const pastSimpleWrongCount = wrongItems.filter(item => /一般过去时/.test(item.q.explain)).length;
+         const haveGotWrongCount = wrongItems.filter(item => /have got|Have you got/i.test(item.q.explain) || /have got|Have you got/i.test(item.q.q)).length;
+         
+         let analysisText = "";
+         if (wrongItems.length === 0) {
+             analysisText = "完美无瑕！你的词汇与语法掌控力都达到了霍格沃茨的大师级别，没有任何破绽！";
+         } else if (vocabWrongCount > 0 && grammarWrongCount === 0) {
+             analysisText = `你的【语法咒语】念得非常标准，但在【词汇运用】上失了 ${vocabWrongCount} 分。建议多复习魁地奇球场上的核心生词！`;
+         } else if (grammarWrongCount > 0 && vocabWrongCount === 0) {
+             analysisText = `你的【词汇储备】令人惊叹，但在【语法结构】上丢了 ${grammarWrongCount} 分。特别要注意比较级和过去时的时态变化哦！`;
+         } else {
+             const vocabErrorRate = vocabWrongCount / 5;
+             const grammarErrorRate = grammarWrongCount / 10;
+             if (vocabErrorRate > grammarErrorRate) {
+                 analysisText = `你的【语法基础】相对稳固，但【词汇运用】失误较多（错了 ${vocabWrongCount} 题）。请着重加强对核心生词的记忆与理解！`;
+             } else if (grammarErrorRate > vocabErrorRate) {
+                 analysisText = `你的【词汇储备】还不错，但【语法结构】是目前的薄弱环节（错了 ${grammarWrongCount} 题）。请仔细回顾过去时与比较级的魔法规则！`;
+             } else {
+                 analysisText = `你在【词汇】和【语法】上都有待提升（词汇错 ${vocabWrongCount} 题，语法错 ${grammarWrongCount} 题）。别灰心，多看几次魔法笔记，你的魔力一定会大增！`;
+             }
+         }
+
+         const magicLevel = accuracy === 100
+            ? '传奇大法师'
+            : accuracy >= 80
+              ? '高阶魔导师'
+              : accuracy >= 60
+                ? '进阶见习法师'
+                : '基础修炼中';
+
+         const focusTips = [];
+         if (vocabWrongCount > 0) {
+            focusTips.push(`词汇运用：本轮词汇题错了 ${vocabWrongCount} 题，建议重点回看 spent、afford、talent、permission、devising 的词义和固定搭配。`);
+         }
+         if (comparativeWrongCount > 0) {
+            focusTips.push(`比较级与最高级：相关题错了 ${comparativeWrongCount} 题，尤其要抓住 than、the best、the worst 这类提示词。`);
+         }
+         if (pastSimpleWrongCount > 0) {
+            focusTips.push(`一般过去时：相关题错了 ${pastSimpleWrongCount} 题，要加强 yesterday、last week、in the last game 这些过去时信号词的判断。`);
+         }
+         if (haveGotWrongCount > 0) {
+            focusTips.push(`have got 句型：相关题错了 ${haveGotWrongCount} 题，注意 I/We/You 后接 have got，疑问句要把 Have 提前。`);
+         }
+         if (grammarWrongCount > 0 && comparativeWrongCount === 0 && pastSimpleWrongCount === 0 && haveGotWrongCount === 0) {
+            focusTips.push(`语法结构：本轮语法题整体还有提升空间，建议把比较级、过去时和 have got 三块再系统复习一遍。`);
+         }
+         if (focusTips.length === 0) {
+            focusTips.push("本轮没有明显薄弱项，继续保持词汇记忆和语法判断的稳定度即可。");
+         }
+
+         return (
+            <div className="p-4 pb-safe-scroll overflow-y-auto h-full min-h-0 fade-in relative z-10 flex flex-col custom-scrollbar">
+               <div className="w-full max-w-md mx-auto mt-4 bg-indigo-900/60 backdrop-blur-md rounded-[2.5rem] p-6 shadow-[0_0_40px_rgba(0,0,0,0.5)] border border-indigo-700/50 relative">
+                  <div className="absolute inset-0 z-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20 pointer-events-none rounded-[2.5rem]"></div>
+
+                  <div className="relative z-10">
+                     <div className="text-center mb-6">
+                        <i className={`fa-solid ${icon} text-[64px] ${color} mb-4 drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]`}></i>
+                        <p className="text-[11px] font-black text-indigo-300 uppercase tracking-[0.28em] mb-2">Magic Grade Report</p>
+                        <h2 className={`text-3xl font-black font-serif-magic ${color} tracking-wider`}>{grade}</h2>
+                        <p className="text-indigo-100 text-sm font-bold mt-3 italic bg-indigo-800/30 p-3 rounded-xl border-l-4 border-amber-400 text-left shadow-inner">
+                           “{comment}”
+                        </p>
+                     </div>
+
+                     <div className="grid grid-cols-2 gap-3 mb-5">
+                        <div className="bg-indigo-950/80 rounded-2xl p-4 border border-indigo-800/50 shadow-inner">
+                           <p className="text-[10px] text-indigo-400 uppercase tracking-widest font-bold mb-1">答对题数</p>
+                           <p className="text-2xl font-black text-white">{score}<span className="text-sm text-indigo-500"> / 15</span></p>
+                        </div>
+                        <div className="bg-indigo-950/80 rounded-2xl p-4 border border-indigo-800/50 shadow-inner">
+                           <p className="text-[10px] text-indigo-400 uppercase tracking-widest font-bold mb-1">正确率</p>
+                           <p className="text-2xl font-black text-amber-400">{accuracy}<span className="text-sm">%</span></p>
+                        </div>
+                        <div className="bg-indigo-950/80 rounded-2xl p-4 border border-indigo-800/50 shadow-inner">
+                           <p className="text-[10px] text-indigo-400 uppercase tracking-widest font-bold mb-1">打卡日期</p>
+                           <p className="text-sm font-black text-indigo-50 leading-tight">{reportDate}</p>
+                           <p className="text-[11px] text-indigo-400 mt-1">{timeStr}</p>
+                        </div>
+                        <div className="bg-indigo-950/80 rounded-2xl p-4 border border-indigo-800/50 shadow-inner">
+                           <p className="text-[10px] text-indigo-400 uppercase tracking-widest font-bold mb-1">魔法等级</p>
+                           <p className="text-sm font-black text-emerald-300 leading-tight">{magicLevel}</p>
+                           <p className="text-[11px] text-indigo-400 mt-1">{grade}</p>
+                        </div>
+                     </div>
+
+                     <div className="bg-indigo-950/80 rounded-2xl p-4 border border-indigo-800/50 mb-5 text-left shadow-inner">
+                        <p className="text-[11px] text-amber-400 uppercase tracking-widest font-bold mb-2 border-b border-indigo-800/50 pb-1 flex items-center">
+                           <i className="fa-solid fa-wand-magic-sparkles mr-2"></i> 学习诊断
+                        </p>
+                        <p className="text-indigo-200 text-sm font-medium leading-relaxed mb-3">
+                          {analysisText}
+                        </p>
+                        <div className="space-y-2">
+                           {focusTips.map((tip, idx) => (
+                              <div key={idx} className="bg-indigo-900/50 border border-indigo-800/50 rounded-xl px-3 py-2 text-sm text-indigo-100 font-medium leading-relaxed">
+                                 <i className="fa-solid fa-lightbulb text-amber-400 mr-2"></i>{tip}
+                              </div>
+                           ))}
+                        </div>
+                     </div>
+
+                     <div className="flex items-center justify-center text-[11px] font-bold text-indigo-400 mb-5 bg-indigo-950 px-3 py-2 rounded-full border border-indigo-800/50 shadow-sm w-fit mx-auto">
+                        <i className="fa-regular fa-clock mr-2 text-amber-500"></i> {fullTimeStr}
+                     </div>
+
+                     <button onClick={() => {playTone('pop'); setQuizState('intro');}} className="w-full bg-amber-500 hover:bg-amber-400 text-indigo-950 py-4 rounded-2xl font-black text-lg active-scale shadow-[0_0_15px_rgba(251,191,36,0.4)] transition-all uppercase tracking-wider border border-amber-300">
+                        <i className="fa-solid fa-rotate-right mr-2"></i> Retake Quiz
+                     </button>
+                  </div>
+               </div>
+
+               {wrongItems.length > 0 && (
+                  <div className="w-full max-w-md mx-auto mt-8 space-y-4 text-left">
+                     <h3 className="text-lg font-black text-indigo-200 ml-2 border-l-4 border-amber-400 pl-2">错题解析 Review</h3>
+                     {wrongItems.map((item, i) => (
+                       <div key={i} className="bg-indigo-900/40 p-5 rounded-2xl shadow-sm border border-rose-500/30 slide-in-right">
+                         <div className="flex items-center justify-between mb-3 border-b border-indigo-800/50 pb-2">
+                           <span className="text-[10px] font-black text-indigo-400 tracking-widest uppercase">{item.q.type}</span>
+                           <i className="fa-solid fa-triangle-exclamation text-rose-400"></i>
+                         </div>
+                         <p className="font-bold text-indigo-50 font-serif-magic mb-3 leading-relaxed text-lg">{item.q.q}</p>
+                         <div className="space-y-2 text-sm font-bold">
+                            <p className="text-rose-400"><i className="fa-solid fa-xmark mr-2"></i>你的答案: <span className="line-through opacity-80">{item.ans}</span></p>
+                            <p className="text-emerald-400"><i className="fa-solid fa-check mr-2"></i>正确答案: {item.q.a}</p>
+                            <div className="mt-3 pt-3 border-t border-indigo-800/50 bg-indigo-950/50 p-3 rounded-lg">
+                               <p className="text-indigo-300 mt-1 leading-relaxed text-sm"><i className="fa-solid fa-lightbulb mr-2 text-amber-400"></i>{item.q.explain}</p>
+                            </div>
+                         </div>
+                       </div>
+                     ))}
+                  </div>
+               )}
+               
+               <p className="text-indigo-500/50 text-xs mt-8 mb-4 font-bold flex items-center justify-center"><i className="fa-solid fa-camera mr-1.5"></i> 截图记录你的魔法评级</p>
+            </div>
+         );
+      }
+    };
+
+    // --- MAIN APP ---
+    const App = () => {
+      const [activeTab, setActiveTab] = useState('dubbing');
+
+      return (
+        <div className="flex flex-col h-full w-full font-sans relative overflow-hidden bg-slate-900">
+          <MagicEffects />
+          <Header activeTab={activeTab} setActiveTab={setActiveTab} />
+          <main className="flex-1 min-h-0 overflow-hidden relative flex flex-col z-10">
+            {activeTab === 'dubbing' && <DubbingTab />}
+            {activeTab === 'vocab' && <VocabTab />}
+            {activeTab === 'grammar' && <GrammarTab />}
+            {activeTab === 'quiz' && <DailyQuizTab />}
+          </main>
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
+

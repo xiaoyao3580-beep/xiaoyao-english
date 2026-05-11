@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Talent F2 Review U14</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <style>
+    @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-5px); } }
+    .animate-float { animation: float 3s ease-in-out infinite; }
+    
+    @keyframes bounce-soft { 0%, 100% { transform: scale(1) translateY(0); } 50% { transform: scale(1.05) translateY(-3px); } }
+    .animate-bounce-soft { animation: bounce-soft 2s ease-in-out infinite; }
+
+    .fade-in-text { opacity: 0; animation: gentleFade 0.4s ease-out forwards; }
+    @keyframes gentleFade { to { opacity: 1; transform: translateY(0); } from { opacity: 0; transform: translateY(5px); } }
+
+    /* 隐藏滚动条但保留滚动功能 */
+    ::-webkit-scrollbar { display: none; }
+    * { -ms-overflow-style: none; scrollbar-width: none; }
+
+    /* ================= 核心 App 级布局架构 ================= */
+    html, body { 
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden; 
+      background-color: #f8fafc; 
+      overscroll-behavior-y: none; 
+      touch-action: pan-x pan-y;
+    }
+
+    @supports (-webkit-touch-callout: none) {
+      html, body {
+        min-height: -webkit-fill-available;
+      }
+    }
+
+    #root {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .bg-pattern {
+      position: absolute; inset: 0; z-index: -1; pointer-events: none;
+      background-image: radial-gradient(#e2e8f0 2px, transparent 2px); 
+      background-size: 20px 20px; 
+    }
+    
+    .btn-3d { transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1); }
+    .btn-3d:active { transform: translateY(3px); box-shadow: 0 0px 0 transparent !important; }
+
+    .hidden-text-bubble { background: repeating-linear-gradient(45deg, #f8fafc, #f8fafc 10px, #f1f5f9 10px, #f1f5f9 20px); border: 2px dashed #cbd5e1; }
+
+    .stress { color: #0284c7; text-decoration: underline; text-decoration-color: #bae6fd; text-decoration-thickness: 3px; }
+
+    .blank-input { border: none; border-bottom: 2px dashed #94a3b8; background-color: transparent; font-family: inherit; font-size: inherit; color: #334155; padding: 2px 4px; width: 100%; transition: all 0.3s; font-weight: bold; margin-top: 4px; }
+    .blank-input:focus { outline: none; border-bottom: 2px solid #8b5cf6; background-color: #f5f3ff; border-radius: 4px 4px 0 0; }
+    .blank-input::placeholder { color: #cbd5e1; font-style: italic; font-weight: normal; font-size: 0.9em; }
+
+    .pb-safe { 
+      padding-bottom: 16px; 
+      padding-bottom: max(env(safe-area-inset-bottom), 16px); 
+    }
+  </style>
+</head>
+<body class="font-sans text-slate-800">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    const ELEVEN_API_KEY = "sk_4299808cce5c3a9dd32917410f631fc345cd7be54dff0070";
+    const VOICE_MALE = "UgBBYS2sOqTuMpoF3BR0";
+    const VOICE_FEMALE_1 = "kdmDKE6EkgrWrrykO9Qt";
+    const VOICE_FEMALE_2 = "DODLEQrClDo8wCz460ld";
+    const MODEL_ID = "eleven_turbo_v2_5";
+
+    const playTone = (type) => {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        const ctx = new AudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        if (type === 'success') {
+          osc.type = 'sine'; osc.frequency.setValueAtTime(523.25, ctx.currentTime); 
+          osc.frequency.exponentialRampToValueAtTime(1046.50, ctx.currentTime + 0.1); 
+          gain.gain.setValueAtTime(0.3, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+          osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.3);
+        } else if (type === 'deduct') {
+          osc.type = 'triangle'; osc.frequency.setValueAtTime(300, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.2);
+          gain.gain.setValueAtTime(0.3, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+          osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.2);
+        } else if (type === 'pop') {
+          osc.type = 'sine'; osc.frequency.setValueAtTime(800, ctx.currentTime);
+          gain.gain.setValueAtTime(0.15, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+          osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.1);
+        }
+      } catch (e) {}
+    };
+
+    const RealWaveform = ({ isPlaying, analyser }) => {
+      const canvasRef = useRef(null);
+
+      useEffect(() => {
+        if (!isPlaying || !analyser || !canvasRef.current) return;
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        let animationId;
+        
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        
+        const draw = () => {
+          animationId = requestAnimationFrame(draw);
+          analyser.getByteTimeDomainData(dataArray);
+          
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = '#0ea5e9'; 
+          ctx.beginPath();
+          
+          const sliceWidth = canvas.width * 1.0 / bufferLength;
+          let x = 0;
+          for(let i = 0; i < bufferLength; i++) {
+            const v = dataArray[i] / 128.0;
+            const y = v * (canvas.height / 2);
+            if(i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+            x += sliceWidth;
+          }
+          ctx.lineTo(canvas.width, canvas.height / 2);
+          ctx.stroke();
+        };
+        draw();
+        return () => cancelAnimationFrame(animationId);
+      }, [isPlaying, analyser]);
+
+      return (
+        <div className={`h-6 w-16 flex flex-shrink-0 items-center justify-center transition-opacity duration-300 mx-2 ${isPlaying ? 'opacity-100' : 'opacity-30'}`}>
+          {isPlaying ? (
+             <canvas ref={canvasRef} width={64} height={24} className="w-full h-full" />
+          ) : (
+             <div className="w-full h-[2px] bg-slate-300 rounded"></div>
+          )}
+        </div>
+      );
+    };
+
+    const TranslatableText = ({ id, enText, cnText, textClass, status, onReveal, onToggle }) => {
+      if (status === 0) {
+         return (
+           <div onClick={(e) => onReveal(id, e)} className="cursor-pointer group w-full mt-1">
+              <div className="hidden-text-bubble px-3 py-1.5 rounded-lg text-slate-400 font-bold transition-colors text-[13px] flex items-center justify-center">
+                 <i className="fa-solid fa-eye mr-2 text-sky-400"></i> Reveal
+              </div>
+           </div>
+         );
+      }
+      return (
+        <div className="flex flex-col items-start fade-in-text w-full mt-1">
+          <div className="flex items-start justify-between w-full">
+             <span className={`${textClass} pr-2 flex-1`}>{enText}</span>
+             {cnText && (
+               <button onClick={(e) => onToggle(id, e)} className={`flex-shrink-0 w-7 h-7 mt-0.5 rounded-full flex items-center justify-center transition-colors shadow-sm ${status === 2 ? 'bg-indigo-100 text-indigo-500' : 'bg-slate-100 text-slate-400'}`}>
+                 <i className="fa-solid fa-language text-xs"></i>
+               </button>
+             )}
+          </div>
+          {status === 2 && cnText && (
+             <div className="text-[13px] font-bold text-slate-500 mt-2 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 w-full shadow-sm">
+               {cnText}
+             </div>
+          )}
+        </div>
+      );
+    };
+
+    // ================== U14 数据区 ==================
+    const oralDialogues = [
+      {
+        id: 'od1', title: '对话 1 (关于图1的恐龙)', colorBox: 'border-red-100', colorTitle: 'text-red-600',
+        q1: "Look at the dinosaur in the first picture. What was it like?", q1Voice: 'male',
+        a1Start: "It was", a1Placeholder: "e.g., fierce",
+        q2: "What kind of food did it eat?", q2Voice: 'male',
+        a2Start: "It ate", a2Placeholder: "e.g., meat"
+      },
+      {
+        id: 'od2', title: '对话 2 (关于图2的长毛象)', colorBox: 'border-sky-100', colorTitle: 'text-sky-600',
+        q1: "Now, look at the mammoth in the second picture. What animal was it?", q1Voice: 'female1',
+        a1Start: "It was a", a1Placeholder: "e.g., woolly mammoth",
+        q2: "How big do you think it was?", q2Voice: 'female1',
+        a2Start: "It was", a2Placeholder: "e.g., very big"
+      },
+      {
+        id: 'od3', title: '对话 3 (关于图3的女孩)', colorBox: 'border-amber-100', colorTitle: 'text-amber-600',
+        q1: "Look at the girl in the third picture. Who does she miss?", q1Voice: 'male',
+        a1Start: "She misses", a1Placeholder: "e.g., Lucky",
+        q2: "What can't wait until she comes home?", q2Voice: 'male',
+        a2Start: "It can't wait to", a2Placeholder: "e.g., see her"
+      }
+    ];
+
+    const grammarWell = [
+      { id: 'gw1', text: "It was a big dinosaur.", display: <><span className="stress">It was</span> a big dinosaur.</>, cn: "它是一只大恐龙。", gender: 'male' },
+      { id: 'gw2', text: "She was happy yesterday.", display: <><span className="stress">She was</span> happy yesterday.</>, cn: "她昨天很开心。", gender: 'female1' },
+      { id: 'gw3', text: "They were in the park.", display: <><span className="stress">They were</span> in the park.</>, cn: "他们在公园里。", gender: 'male' },
+      { id: 'gw4', text: "We were at school.", display: <><span className="stress">We were</span> at school.</>, cn: "我们在学校。", gender: 'female2' },
+      { id: 'gw5', text: "The dinosaur was scary.", display: <><span className="stress">The dinosaur was</span> scary.</>, cn: "那只恐龙很可怕。", gender: 'male' },
+      { id: 'gw6', text: "The dinosaurs were very big.", display: <><span className="stress">The dinosaurs were</span> very big.</>, cn: "那些恐龙非常大。", gender: 'female1' }
+    ];
+
+    const wasWereQuick = {
+      singular: [
+        { id: 'ww1', word: 'I', text: 'I was', cn: '我(单)', gender: 'male', display: <>I <span className="stress">was</span></> },
+        { id: 'ww2', word: 'He', text: 'He was', cn: '他(单)', gender: 'male', display: <>He <span className="stress">was</span></> },
+        { id: 'ww3', word: 'She', text: 'She was', cn: '她(单)', gender: 'female1', display: <>She <span className="stress">was</span></> },
+        { id: 'ww4', word: 'It', text: 'It was', cn: '它(单)', gender: 'male', display: <>It <span className="stress">was</span></> },
+        { id: 'ww5', word: 'The cat', text: 'The cat was', cn: '猫(单)', gender: 'female2', display: <>The cat <span className="stress">was</span></> }
+      ],
+      plural: [
+        { id: 'ww6', word: 'We', text: 'We were', cn: '我们(复)', gender: 'male', display: <>We <span className="stress">were</span></> },
+        { id: 'ww7', word: 'You', text: 'You were', cn: '你们(复)', gender: 'female1', display: <>You <span className="stress">were</span></> },
+        { id: 'ww8', word: 'They', text: 'They were', cn: '他们(复)', gender: 'male', display: <>They <span className="stress">were</span></> },
+        { id: 'ww9', word: 'The cats', text: 'The cats were', cn: '猫们(复)', gender: 'female2', display: <>The cats <span className="stress">were</span></> },
+        { id: 'ww10', word: 'Dinosaurs', text: 'Dinosaurs were', cn: '恐龙们(复)', gender: 'female1', display: <>Dinosaurs <span className="stress">were</span></> }
+      ]
+    };
+    
+    // Combine for shuffling in grid
+    const allWasWere = [...wasWereQuick.singular, ...wasWereQuick.plural];
+
+    const withPhrases = [
+      { id: 'wp1', en: "It was a dinosaur with sharp teeth.", cn: "它是一只长着锋利牙齿的恐龙。", gender: 'male' },
+      { id: 'wp2', en: "The bird has feathers with bright colors.", cn: "这只鸟有着鲜艳颜色的羽毛。", gender: 'female1' },
+      { id: 'wp3', en: "She has a bag with a puppy inside.", cn: "她有一个里面装着小狗的包。", gender: 'female2' }
+    ];
+
+    const cantWaitSentences = [
+      { id: 'cw1', en: "I can't wait to see you!", cn: "我等不及要见你了！", gender: 'male' },
+      { id: 'cw2', en: "She can't wait to eat cake.", cn: "她等不及要吃蛋糕了。", gender: 'female1' },
+      { id: 'cw3', en: "We can't wait to go to the park.", cn: "我们等不及去公园了。", gender: 'male' }
+    ];
+
+    const u14VocabFull = [
+      { id: 'v1', text: "Allosaurus", cn: "异特龙", gender: 'female1' },
+      { id: 'v2', text: "fierce", cn: "凶猛的", gender: 'male' },
+      { id: 'v3', text: "meat", cn: "肉", gender: 'female2' },
+      { id: 'v4', text: "sharp", cn: "锋利的", gender: 'male' },
+      { id: 'v5', text: "teeth", cn: "牙齿(复数)", gender: 'female1' },
+      { id: 'v6', text: "Apatosaurus", cn: "迷惑龙", gender: 'male' },
+      { id: 'v7', text: "plant", cn: "植物", gender: 'female2' },
+      { id: 'v8', text: "mammoth", cn: "猛犸象", gender: 'male' },
+      { id: 'v9', text: "picture", cn: "照片", gender: 'female1' },
+      { id: 'v10', text: "chase", cn: "追逐", gender: 'male' },
+      { id: 'v11', text: "hotel", cn: "酒店", gender: 'female2' },
+      { id: 'v12', text: "worry", cn: "担心", gender: 'male' },
+      { id: 'v13', text: "miss", cn: "想念", gender: 'female1' },
+      { id: 'v14', text: "wait", cn: "等待", gender: 'male' }
+    ];
+
+    const distractorPool = ["苹果", "游泳", "学校", "书本", "护士", "蓝色", "经常", "昨天", "电脑", "桌子", "跑", "跳", "美丽", "红色", "高兴", "香蕉", "城市", "博物馆", "假期", "电梯"];
+
+    const longDialogues = [
+      { id: 'ld1', teacherContext: "Look at this picture! It's an Allosaurus at the museum. The dinosaur was very scary. What kind of dinosaur was it?", tVoice: 'male', hint: "告诉老师它是一只凶猛的食肉恐龙。", answerText: "It was a fierce meat eater.", aVoice: 'female1' },
+      { id: 'ld2', teacherContext: "This is an Apatosaurus. Unlike the meat eater, it was very gentle. What did it eat?", tVoice: 'female1', hint: "用 They were 回答它们只吃植物。", answerText: "They were plant eaters. They only ate plants.", aVoice: 'male' },
+      { id: 'ld3', teacherContext: "Sam is talking to his grandma on the phone. He misses his dog Lucky very much. What does Lucky miss?", tVoice: 'female2', hint: "告诉老师Lucky想念Sam。", answerText: "Lucky misses Sam a lot.", aVoice: 'male' },
+      { id: 'ld4', teacherContext: "Sam was pretending to be chased by a woolly mammoth. It was so funny! How was Sam feeling?", tVoice: 'male', hint: "用 It was 回答很有趣。", answerText: "It was fun! Sam was being chased by a woolly mammoth.", aVoice: 'female2' }
+    ];
+
+    const shuffleArray = (array) => [...array].sort(() => Math.random() - 0.5);
+
+    // ================== App 组件 ==================
+    function App() {
+      const [activeTab, setActiveTab] = useState('grammar');
+      const [shuffledWasWere, setShuffledWasWere] = useState(allWasWere);
+      const [textStatus, setTextStatus] = useState({});
+      
+      const handleRevealText = (id, event) => {
+        if(event) event.stopPropagation();
+        setTextStatus(prev => ({...prev, [id]: 1}));
+        playTone('pop');
+      };
+      const handleToggleTranslation = (id, event) => {
+        if(event) event.stopPropagation();
+        setTextStatus(prev => ({...prev, [id]: prev[id] === 1 ? 2 : 1}));
+        playTone('pop');
+      };
+
+      // --- 音频引擎 ---
+      const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
+      const speedRef = useRef(1.0); 
+      const [playingId, setPlayingId] = useState(null);
+      const [loadingId, setLoadingId] = useState(null);
+      
+      const audioPlayerRef = useRef(null); 
+      const audioCacheRef = useRef({}); 
+      const currentResolveRef = useRef(null);
+
+      const audioCtxRef = useRef(null);
+      const analyserRef = useRef(null);
+      const sourceNodeRef = useRef(null);
+
+      const setupAudioRouting = (audioElement) => {
+        if (!audioCtxRef.current) {
+            audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+            analyserRef.current = audioCtxRef.current.createAnalyser();
+            analyserRef.current.fftSize = 64; 
+            analyserRef.current.connect(audioCtxRef.current.destination);
+        }
+        if (audioCtxRef.current.state === 'suspended') {
+            audioCtxRef.current.resume();
+        }
+        if (sourceNodeRef.current) {
+            sourceNodeRef.current.disconnect();
+        }
+        const source = audioCtxRef.current.createMediaElementSource(audioElement);
+        source.connect(analyserRef.current);
+        sourceNodeRef.current = source;
+      };
+
+      // --- 盲听测试 ---
+      const [quizQuestions, setQuizQuestions] = useState([]);
+      const [currentQIndex, setCurrentQIndex] = useState(0);
+      const [qRevealed, setQRevealed] = useState(false);
+      const [qFeedback, setQFeedback] = useState(null);
+      
+      const [auditionMode, setAuditionMode] = useState('practice');
+      const [quizFinished, setQuizFinished] = useState(false);
+      const [quizCorrectCount, setQuizCorrectCount] = useState(0);
+      const [quizWrongList, setQuizWrongList] = useState([]);
+
+      useEffect(() => { initBlindAudition(); }, []);
+
+      const initBlindAudition = () => {
+        const shuffledVocab = shuffleArray(u14VocabFull);
+        const allCns = u14VocabFull.map(v => v.cn).concat(distractorPool);
+        const preparedQuestions = shuffledVocab.map(v => {
+          let options = new Set();
+          options.add(v.cn);
+          while(options.size < 4) { options.add(allCns[Math.floor(Math.random() * allCns.length)]); }
+          return { ...v, options: shuffleArray(Array.from(options)) };
+        });
+        setQuizQuestions(preparedQuestions);
+        setCurrentQIndex(0); 
+        setQRevealed(false); 
+        setQFeedback(null); 
+        setQuizFinished(false);
+        stopCurrentAudio();
+      };
+
+      const startQuizMode = () => {
+        playTone('pop');
+        setAuditionMode('quiz');
+        setQuizCorrectCount(0);
+        setQuizWrongList([]);
+        initBlindAudition();
+      };
+
+      const returnToPractice = () => {
+        playTone('pop');
+        setAuditionMode('practice');
+        initBlindAudition();
+      };
+
+      const exportToImage = () => {
+        playTone('pop');
+        const target = document.getElementById('quiz-report');
+        const btn1 = document.getElementById('export-btn');
+        const btn2 = document.getElementById('return-btn');
+        if (btn1) btn1.style.display = 'none';
+        if (btn2) btn2.style.display = 'none';
+
+        window.html2canvas(target, { 
+           scale: 2, 
+           backgroundColor: '#f8fafc',
+           useCORS: true 
+        }).then(canvas => {
+            if (btn1) btn1.style.display = 'flex';
+            if (btn2) btn2.style.display = 'block';
+            
+            const link = document.createElement('a');
+            link.download = `F2_U14_Quiz_Report_${new Date().getTime()}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }).catch(err => {
+            console.error('Image Export failed', err);
+            if (btn1) btn1.style.display = 'flex';
+            if (btn2) btn2.style.display = 'block';
+        });
+      };
+
+      useEffect(() => {
+        speedRef.current = playbackSpeed;
+        if (audioPlayerRef.current) audioPlayerRef.current.playbackRate = playbackSpeed;
+      }, [playbackSpeed]);
+
+      useEffect(() => { stopCurrentAudio(); }, [activeTab]);
+
+      const stopCurrentAudio = () => {
+        if (audioPlayerRef.current) {
+          audioPlayerRef.current.pause();
+          audioPlayerRef.current.currentTime = 0;
+        }
+        if (currentResolveRef.current) {
+           currentResolveRef.current(); 
+           currentResolveRef.current = null;
+        }
+        setPlayingId(null);
+        setLoadingId(null);
+      };
+
+      const playTTS = (text, gender, id) => {
+        return new Promise(async (resolve) => {
+          if (playingId === id) {
+            stopCurrentAudio();
+            playTone('pop');
+            resolve();
+            return;
+          }
+          stopCurrentAudio();
+          currentResolveRef.current = resolve;
+          
+          let voiceId = VOICE_MALE;
+          if (gender === 'female1') voiceId = VOICE_FEMALE_1;
+          if (gender === 'female2') voiceId = VOICE_FEMALE_2;
+          
+          const cacheKey = `${text}_${voiceId}`;
+          setLoadingId(id);
+
+          try {
+            if (!audioCacheRef.current[cacheKey]) audioCacheRef.current[cacheKey] = [];
+            let variantList = audioCacheRef.current[cacheKey];
+            let audioUrl;
+
+            if (variantList.length < 3) {
+              const randStability = (Math.random() * 0.35 + 0.35).toFixed(2); 
+              const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+                method: 'POST',
+                headers: { 'xi-api-key': ELEVEN_API_KEY, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  text: text, model_id: MODEL_ID,
+                  voice_settings: { stability: parseFloat(randStability), similarity_boost: 0.75, style: 0.0, use_speaker_boost: true }
+                })
+              });
+              if (!response.ok) throw new Error(`API Error: ${response.status}`);
+              const blob = await response.blob();
+              audioUrl = URL.createObjectURL(blob);
+              variantList.push(audioUrl);
+            } else {
+              audioUrl = variantList[Math.floor(Math.random() * variantList.length)];
+            }
+
+            if (loadingId !== null && loadingId !== id) { resolve(); return; } 
+
+            const audio = new Audio(audioUrl);
+            audio.crossOrigin = "anonymous"; 
+            audio.playbackRate = speedRef.current;
+            audioPlayerRef.current = audio;
+            
+            setupAudioRouting(audio);
+
+            audio.onplay = () => { setLoadingId(null); setPlayingId(id); };
+            audio.onended = () => { setPlayingId(null); currentResolveRef.current = null; resolve(); };
+            audio.onerror = () => { setPlayingId(null); currentResolveRef.current = null; resolve(); };
+
+            await audio.play();
+          } catch (error) {
+            console.error("ElevenLabs TTS Error:", error);
+            setLoadingId(null); setPlayingId(null);
+            fallbackTTS(text, gender, id, resolve);
+          }
+        });
+      };
+
+      const fallbackTTS = (text, gender, id, resolve) => {
+        if (!window.speechSynthesis) { resolve(); return; }
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'en-US'; utterance.rate = speedRef.current;
+        const voices = window.speechSynthesis.getVoices();
+        let targetVoice = null;
+        if (gender === 'male') targetVoice = voices.find(v => v.name.includes('Male') || v.name.includes('David'));
+        else targetVoice = voices.find(v => v.name.includes('Female') || v.name.includes('Zira'));
+        if (targetVoice) utterance.voice = targetVoice;
+
+        utterance.onstart = () => { setLoadingId(null); setPlayingId(id); };
+        utterance.onend = () => { setPlayingId(null); currentResolveRef.current = null; resolve(); };
+        utterance.onerror = () => { setPlayingId(null); currentResolveRef.current = null; resolve(); };
+        window.speechSynthesis.speak(utterance);
+      };
+
+      const handleBlindAuditionCheck = (selectedOption, answer) => {
+        if (qRevealed) return; // 防连点
+        setQRevealed(true);
+        const isCorrect = selectedOption === answer;
+
+        if (auditionMode === 'quiz') {
+            if (isCorrect) {
+               playTone('success'); 
+               setQFeedback('correct');
+               setQuizCorrectCount(c => c + 1);
+            } else {
+               playTone('deduct'); 
+               setQFeedback('incorrect');
+               setQuizWrongList(prev => [...prev, quizQuestions[currentQIndex]]);
+            }
+            setTimeout(() => {
+               if (currentQIndex < quizQuestions.length - 1) {
+                  setCurrentQIndex(prev => prev + 1);
+                  setQRevealed(false); setQFeedback(null);
+               } else {
+                  setAuditionMode('result'); 
+               }
+            }, 1000);
+        } else {
+            if (isCorrect) {
+              playTone('success'); setQFeedback('correct');
+              setTimeout(() => {
+                 if (currentQIndex < quizQuestions.length - 1) {
+                    setCurrentQIndex(prev => prev + 1);
+                    setQRevealed(false); setQFeedback(null);
+                 } else { setQuizFinished(true); }
+              }, 1200);
+            } else {
+              playTone('deduct'); setQFeedback('incorrect');
+              setTimeout(() => {
+                 setQRevealed(false);
+                 setQFeedback(null);
+              }, 800);
+            }
+        }
+      };
+
+      // --- 页面内容区 ---
+      const renderMainContent = () => {
+        switch (activeTab) {
+          case 'grammar':
+            return (
+              <div className="space-y-6 pb-6 animate-fadeIn">
+                {/* Block 1: was/were 句型 */}
+                <div className="bg-white rounded-2xl p-5 shadow-sm border border-red-100">
+                  <h3 className="text-xl font-black text-red-600 mb-3 flex items-center">
+                    <div className="bg-red-100 text-red-500 w-8 h-8 rounded-lg flex justify-center items-center mr-2"><i className="fa-solid fa-music"></i></div>
+                    was / were 句型练习
+                  </h3>
+                  <div className="bg-red-50 text-red-600 font-bold px-3 py-2 rounded-xl text-xs mb-4 border border-red-100 flex items-start">
+                      <i className="fa-solid fa-lightbulb mr-2 mt-0.5"></i> 
+                      蓝线是重音，was 用于单数，were 用于复数主语！
+                  </div>
+                  <div className="space-y-3">
+                    {grammarWell.map((item, index) => (
+                      <div key={item.id} className={`flex flex-col p-3 rounded-xl border transition-colors ${playingId === item.id ? 'bg-red-50 border-red-300' : 'bg-slate-50 border-slate-100'}`}>
+                        <div className="flex items-center w-full">
+                           <button 
+                             onClick={() => playTTS(item.text, item.gender, item.id)}
+                             className={`w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center text-white text-sm btn-3d shadow-sm ${
+                               playingId === item.id ? 'bg-red-500' : loadingId === item.id ? 'bg-amber-400' : 'bg-red-400'
+                             }`}
+                           >
+                             {loadingId === item.id ? <i className="fa-solid fa-spinner fa-spin"></i> : playingId === item.id ? <i className="fa-solid fa-pause"></i> : <i className="fa-solid fa-play ml-0.5"></i>}
+                           </button>
+                           <RealWaveform isPlaying={playingId === item.id} analyser={analyserRef.current} />
+                           <div className="ml-auto text-xs font-bold text-slate-300">{(index+1).toString().padStart(2, '0')}</div>
+                        </div>
+                        <TranslatableText id={item.id} enText={item.display} cnText={item.cn} textClass="text-base text-slate-700 leading-snug font-medium" status={textStatus[item.id] || 0} onReveal={handleRevealText} onToggle={handleToggleTranslation} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Block 2: was/were 极速反应 */}
+                <div className="bg-white rounded-2xl p-5 shadow-sm border border-teal-100">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xl font-black text-teal-600 flex items-center">
+                      <div className="bg-teal-100 text-teal-500 w-8 h-8 rounded-lg flex justify-center items-center mr-2"><i className="fa-solid fa-bolt"></i></div>
+                      was / were 极速反应
+                    </h3>
+                    <button onClick={() => { setShuffledWasWere(shuffleArray([...allWasWere])); playTone('pop'); }} className="bg-teal-50 text-teal-600 px-3 py-1.5 rounded-lg font-bold text-xs shadow-sm flex items-center border border-teal-200">
+                      <i className="fa-solid fa-shuffle mr-1"></i> Shuffle
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                     {shuffledWasWere.map(occ => (
+                        <div key={occ.id} className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all ${playingId === occ.id ? 'bg-teal-50 border-teal-300' : 'bg-slate-50 border-slate-100'}`}>
+                          <button onClick={() => playTTS(occ.text, occ.gender, occ.id)} className={`w-10 h-10 rounded-full mb-2 text-white flex items-center justify-center btn-3d shadow-sm ${playingId === occ.id ? 'bg-teal-500' : loadingId === occ.id ? 'bg-amber-400' : 'bg-teal-400'}`}>
+                             {loadingId === occ.id ? <i className="fa-solid fa-spinner fa-spin"></i> : playingId === occ.id ? <i className="fa-solid fa-volume-high"></i> : <i className="fa-solid fa-play ml-0.5"></i>}
+                          </button>
+                          <div className="w-full flex flex-col items-center justify-center min-h-[44px]">
+                             {textStatus[occ.id] ? (
+                                <div className="fade-in-text flex flex-col items-center text-center w-full">
+                                   <div className={`text-[15px] text-slate-700 font-bold leading-tight`}>{occ.display}</div>
+                                   <div className="text-[11px] font-bold text-slate-400 mt-1 mb-1.5">{occ.cn}</div>
+                                   <button 
+                                      onClick={(e) => { e.stopPropagation(); setTextStatus(prev => ({...prev, [occ.id]: 0})); playTone('pop'); }}
+                                      className="text-[10px] font-bold text-slate-400 bg-slate-200/50 px-2 py-0.5 rounded-md"
+                                   >
+                                      Hide
+                                   </button>
+                                </div>
+                             ) : (
+                                <div onClick={(e) => { e.stopPropagation(); handleRevealText(occ.id, e); }} className="cursor-pointer text-slate-300 p-2 text-center flex flex-col items-center">
+                                   <span className="font-bold text-slate-600 mb-1">{occ.word}</span>
+                                   <i className="fa-solid fa-eye text-slate-300 text-xs"></i>
+                                </div>
+                             )}
+                          </div>
+                        </div>
+                     ))}
+                  </div>
+                </div>
+
+                {/* Block 3: withPhrases */}
+                <div className="bg-white rounded-2xl p-5 shadow-sm border border-purple-100">
+                  <h3 className="text-xl font-black text-purple-600 mb-3 flex items-center">
+                    <div className="bg-purple-100 text-purple-500 w-8 h-8 rounded-lg flex justify-center items-center mr-2"><i className="fa-solid fa-link"></i></div>
+                    with 短语练习
+                  </h3>
+                  <div className="space-y-3">
+                    {withPhrases.map((item) => (
+                      <div key={item.id} className={`flex flex-col p-3 rounded-xl border transition-colors ${playingId === item.id ? 'bg-purple-50 border-purple-300' : 'bg-slate-50 border-slate-100'}`}>
+                        <div className="flex items-center w-full">
+                           <button 
+                             onClick={() => playTTS(item.en, item.gender, item.id)}
+                             className={`w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center text-white text-sm btn-3d shadow-sm ${
+                               playingId === item.id ? 'bg-purple-500' : loadingId === item.id ? 'bg-amber-400' : 'bg-purple-400'
+                             }`}
+                           >
+                             {loadingId === item.id ? <i className="fa-solid fa-spinner fa-spin"></i> : playingId === item.id ? <i className="fa-solid fa-pause"></i> : <i className="fa-solid fa-play ml-0.5"></i>}
+                           </button>
+                           <RealWaveform isPlaying={playingId === item.id} analyser={analyserRef.current} />
+                        </div>
+                        <TranslatableText id={item.id} enText={item.en} cnText={item.cn} textClass="text-[15px] font-bold text-slate-700 leading-snug" status={textStatus[item.id] || 0} onReveal={handleRevealText} onToggle={handleToggleTranslation} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Block 4: can't wait to do */}
+                <div className="bg-white rounded-2xl p-5 shadow-sm border border-rose-100">
+                  <h3 className="text-xl font-black text-rose-600 mb-3 flex items-center">
+                    <div className="bg-rose-100 text-rose-500 w-8 h-8 rounded-lg flex justify-center items-center mr-2"><i className="fa-solid fa-rocket"></i></div>
+                    can't wait to do
+                  </h3>
+                  <div className="space-y-3">
+                    {cantWaitSentences.map((item) => (
+                      <div key={item.id} className={`flex flex-col p-3 rounded-xl border transition-colors ${playingId === item.id ? 'bg-rose-50 border-rose-300' : 'bg-slate-50 border-slate-100'}`}>
+                        <div className="flex items-center w-full">
+                           <button 
+                             onClick={() => playTTS(item.en, item.gender, item.id)}
+                             className={`w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center text-white text-sm btn-3d shadow-sm ${
+                               playingId === item.id ? 'bg-rose-500' : loadingId === item.id ? 'bg-amber-400' : 'bg-rose-400'
+                             }`}
+                           >
+                             {loadingId === item.id ? <i className="fa-solid fa-spinner fa-spin"></i> : playingId === item.id ? <i className="fa-solid fa-pause"></i> : <i className="fa-solid fa-play ml-0.5"></i>}
+                           </button>
+                           <RealWaveform isPlaying={playingId === item.id} analyser={analyserRef.current} />
+                        </div>
+                        <TranslatableText id={item.id} enText={item.en} cnText={item.cn} textClass="text-[15px] font-bold text-slate-700 leading-snug" status={textStatus[item.id] || 0} onReveal={handleRevealText} onToggle={handleToggleTranslation} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
+            );
+
+          case 'listening':
+            return (
+              <div className="space-y-4 pb-6 animate-fadeIn">
+                 <div className="bg-indigo-50 text-indigo-600 font-bold px-4 py-3 rounded-xl text-sm mb-2 flex items-start border border-indigo-100">
+                    <i className="fa-solid fa-circle-info mr-2 mt-0.5"></i> 
+                    老师在提问前会先描述一段情境。仔细听，关于恐龙和博物馆的话题，用正确的 was/were 回答！
+                 </div>
+
+                 {longDialogues.map((ld, index) => (
+                    <div key={ld.id} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+                       <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-50 relative flex flex-col">
+                          <div className="flex items-center justify-between mb-3 border-b border-indigo-100/50 pb-2">
+                             <span className="text-xs font-black text-indigo-400 uppercase tracking-widest">Teacher Context</span>
+                             <span className="w-6 h-6 bg-indigo-100 text-indigo-500 rounded-md font-black text-xs flex items-center justify-center">{index + 1}</span>
+                          </div>
+                          <div className="flex items-start">
+                             <button onClick={() => playTTS(ld.teacherContext, ld.tVoice, ld.id+'t')} className={`w-10 h-10 rounded-full text-white flex-shrink-0 flex items-center justify-center shadow-sm btn-3d mr-3 ${playingId === ld.id+'t' ? 'bg-indigo-600 animate-pulse' : loadingId === ld.id+'t' ? 'bg-amber-400' : 'bg-indigo-500'}`}>
+                               {loadingId === ld.id+'t' ? <i className="fa-solid fa-spinner fa-spin"></i> : playingId === ld.id+'t' ? <i className="fa-solid fa-pause"></i> : <i className="fa-solid fa-play ml-0.5"></i>}
+                             </button>
+                             <TranslatableText id={ld.id+'t'} enText={ld.teacherContext} textClass="font-bold text-indigo-900 text-[15px]" status={textStatus[ld.id+'t'] || 0} onReveal={handleRevealText} onToggle={handleToggleTranslation} />
+                          </div>
+                       </div>
+
+                       <div className="flex justify-center my-1"><i className="fa-solid fa-chevron-down text-slate-200"></i></div>
+
+                       <div className="bg-teal-50/30 p-4 rounded-xl border border-teal-50 relative flex flex-col">
+                          <div className="text-xs font-black text-teal-400 mb-2 uppercase tracking-widest border-b border-teal-100/50 pb-2">Your Turn</div>
+                          <div className="bg-amber-50 text-amber-600 font-bold px-3 py-1.5 rounded-lg text-xs mb-3 border border-amber-100 self-start">
+                             💡 提示：{ld.hint}
+                          </div>
+                          <div className="flex items-start">
+                             <button onClick={() => playTTS(ld.answerText, ld.aVoice, ld.id+'a')} className={`w-10 h-10 rounded-full text-white flex-shrink-0 font-black text-sm shadow-sm btn-3d flex items-center justify-center mr-3 ${playingId === ld.id+'a' ? 'bg-teal-500 animate-pulse' : loadingId === ld.id+'a' ? 'bg-amber-400' : 'bg-teal-400'}`}>
+                                {loadingId === ld.id+'a' ? <i className="fa-solid fa-spinner fa-spin"></i> : playingId === ld.id+'a' ? <i className="fa-solid fa-volume-high"></i> : <i className="fa-solid fa-check"></i>}
+                             </button>
+                             <TranslatableText id={ld.id+'a'} enText={ld.answerText} textClass="font-black text-teal-700 text-[15px]" status={textStatus[ld.id+'a'] || 0} onReveal={handleRevealText} onToggle={handleToggleTranslation} />
+                          </div>
+                       </div>
+                    </div>
+                 ))}
+              </div>
+            );
+
+          case 'audition':
+            if (quizQuestions.length === 0) return null;
+            
+            if (auditionMode === 'result') {
+               const acc = Math.round((quizCorrectCount / quizQuestions.length) * 100);
+               return (
+                  <div className="pb-6 animate-fadeIn flex flex-col items-center">
+                     <div id="quiz-report" className="w-full bg-white rounded-2xl p-6 shadow-sm border border-teal-100 flex flex-col items-center text-center">
+                        <div className="text-[50px] mb-2">{acc >= 80 ? '🏆' : acc >= 60 ? '👍' : '💪'}</div>
+                        <h2 className="text-xl font-black text-slate-700 mb-1">Talent F2 - Unit 14 听力报告</h2>
+                        <div className="text-xs font-bold text-slate-400 mb-6 border-b border-slate-100 pb-4 w-full">Date: {new Date().toLocaleDateString()}</div>
+                        
+                        <div className="flex w-full justify-around mb-6">
+                           <div className="flex flex-col items-center">
+                              <span className="text-sm font-bold text-slate-400 mb-1">准确率</span>
+                              <span className={`text-4xl font-black ${acc >= 80 ? 'text-teal-500' : acc >= 60 ? 'text-amber-500' : 'text-rose-500'}`}>{acc}%</span>
+                           </div>
+                           <div className="flex flex-col items-center">
+                              <span className="text-sm font-bold text-slate-400 mb-1">答对题数</span>
+                              <span className="text-4xl font-black text-sky-500">{quizCorrectCount} <span className="text-xl text-slate-300">/ {quizQuestions.length}</span></span>
+                           </div>
+                        </div>
+
+                        {quizWrongList.length > 0 ? (
+                           <div className="w-full text-left bg-slate-50 p-4 rounded-xl border border-slate-100">
+                              <h4 className="font-bold text-rose-500 mb-3 text-sm flex items-center"><i className="fa-solid fa-book mr-2"></i>需要复习的错题：</h4>
+                              <div className="space-y-3 w-full">
+                                 {quizWrongList.map((w, i) => (
+                                    <div key={i} className="flex justify-between items-center bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                                       <div className="flex flex-col">
+                                          <span className="font-black text-slate-700">{w.text}</span>
+                                          <span className="text-xs font-bold text-slate-500 mt-0.5">{w.cn}</span>
+                                       </div>
+                                       <button onClick={() => playTTS(w.text, w.gender, 'rev_'+w.id)} className="w-8 h-8 rounded-full bg-sky-100 text-sky-500 flex justify-center items-center active:scale-95 transition-transform" data-html2canvas-ignore="true">
+                                          <i className="fa-solid fa-volume-high text-xs"></i>
+                                       </button>
+                                    </div>
+                                 ))}
+                              </div>
+                           </div>
+                        ) : (
+                           <div className="mt-4 bg-teal-50 text-teal-600 font-bold px-4 py-3 rounded-xl w-full border border-teal-100">
+                              🎉 太棒了！全部正确，没有错题！
+                           </div>
+                        )}
+                        <div className="mt-8 text-[10px] text-slate-300 font-bold tracking-widest uppercase" data-html2canvas-ignore="true">Xiaoyao Studio • Auto Generated</div>
+                     </div>
+
+                     <button id="export-btn" onClick={exportToImage} className="w-full mt-6 bg-teal-500 text-white py-3.5 rounded-xl font-black shadow-md btn-3d flex justify-center items-center text-base tracking-wide">
+                        <i className="fa-solid fa-download mr-2"></i> 保存报告为图片
+                     </button>
+                     <button id="return-btn" onClick={returnToPractice} className="w-full mt-3 bg-slate-200 text-slate-600 py-3.5 rounded-xl font-black shadow-sm btn-3d text-base">
+                        返回练习
+                     </button>
+                  </div>
+               );
+            }
+
+            const q = quizQuestions[currentQIndex];
+            
+            return (
+              <div className="pb-6 animate-fadeIn flex flex-col items-center">
+                <div className="w-full bg-white rounded-2xl p-6 shadow-sm border border-teal-100 flex flex-col items-center text-center mt-2">
+                  
+                  <div className="flex justify-between items-center w-full mb-6">
+                     {auditionMode === 'practice' ? (
+                        <>
+                           <span className="bg-teal-50 text-teal-600 font-black px-3 py-1 rounded-md text-xs border border-teal-100">自由练习</span>
+                           <button onClick={startQuizMode} className="bg-rose-50 text-rose-600 font-black px-3 py-1 rounded-md text-xs border border-rose-200 shadow-sm flex items-center active:scale-95 transition-transform">
+                              <i className="fa-solid fa-fire mr-1"></i> 开始考核
+                           </button>
+                        </>
+                     ) : (
+                        <>
+                           <span className="bg-rose-500 text-white font-black px-3 py-1 rounded-md text-xs shadow-sm animate-pulse">考核中</span>
+                           <span className="text-xs font-bold text-slate-400">进度: {currentQIndex + 1}/{quizQuestions.length}</span>
+                        </>
+                     )}
+                  </div>
+
+                  {!quizFinished ? (
+                    <div className="w-full flex flex-col items-center">
+                      <p className="text-sm font-bold text-slate-400 mb-6"><i className="fa-solid fa-headphones mr-1"></i> 请听发音并选出正确意思</p>
+                      
+                      <button 
+                        onClick={() => playTTS(q.text, q.gender, 'quiz_'+q.id)}
+                        className={`w-24 h-24 rounded-full flex items-center justify-center text-white text-3xl mb-8 shadow-lg transition-all btn-3d ${
+                          playingId === 'quiz_'+q.id ? 'bg-teal-500 animate-pulse' : 
+                          loadingId === 'quiz_'+q.id ? 'bg-amber-400' : 'bg-teal-400'
+                        }`}
+                      >
+                        {loadingId === 'quiz_'+q.id ? <i className="fa-solid fa-spinner fa-spin"></i> : 
+                         playingId === 'quiz_'+q.id ? <i className="fa-solid fa-pause"></i> : 
+                         <i className="fa-solid fa-play ml-1"></i>}
+                      </button>
+                      
+                      <div className="w-full grid grid-cols-2 gap-3">
+                        {q.options.map((opt, idx) => {
+                          let btnStyle = "bg-slate-50 border-slate-100 text-slate-600";
+                          if (qRevealed) {
+                            if (opt === q.cn) btnStyle = "bg-teal-400 border-teal-500 text-white shadow-inner";
+                            else if (auditionMode === 'quiz') btnStyle = "opacity-50 bg-slate-100 border-transparent text-slate-400"; 
+                            else btnStyle = "bg-rose-50 border-rose-200 text-rose-400"; 
+                          }
+                          return (
+                            <button 
+                              key={idx}
+                              disabled={qRevealed}
+                              onClick={() => handleBlindAuditionCheck(opt, q.cn)}
+                              className={`px-2 py-4 rounded-xl border text-[15px] font-black transition-all ${btnStyle}`}
+                            >
+                              {opt}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="h-10 mt-4">
+                         {qRevealed && (
+                           <div className={`text-2xl font-black animate-bounce-soft ${qFeedback === 'correct' ? 'text-teal-500' : 'text-rose-500'}`}>
+                             {qFeedback === 'correct' ? <><i className="fa-solid fa-check-circle mr-2"></i>{q.text}</> : <i className="fa-solid fa-xmark-circle"></i>}
+                           </div>
+                         )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center py-8">
+                       <i className="fa-solid fa-trophy text-[60px] text-yellow-400 mb-4 animate-bounce-soft"></i>
+                       <h3 className="text-2xl font-black text-teal-500 mb-2">Practice Clear!</h3>
+                       <button 
+                         onClick={() => { playTone('pop'); initBlindAudition(); }}
+                         className="mt-6 bg-sky-500 text-white px-6 py-3 rounded-xl font-black shadow-md btn-3d"
+                       >
+                         <i className="fa-solid fa-rotate-right mr-2"></i> 重新练习
+                       </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+
+          case 'pictureTalk':
+            return (
+              <div className="space-y-6 pb-6 animate-fadeIn">
+                  <div className="bg-white rounded-2xl p-5 shadow-sm border border-purple-100">
+                      <div className="flex items-center mb-4">
+                          <span className="bg-purple-100 text-purple-700 font-black px-3 py-1 rounded-md mr-2 text-xs">Part 1</span>
+                          <h2 className="text-lg font-black text-slate-700">看图说话</h2>
+                      </div>
+                      <div className="flex flex-col gap-4">
+                          <div className="bg-red-50 rounded-xl p-4 flex flex-row items-center border border-red-100">
+                              <div className="text-4xl mr-4">🦖🦕</div>
+                              <p className="font-bold text-red-700 text-sm">Picture 1 - Dinosaurs</p>
+                          </div>
+                          <div className="bg-sky-50 rounded-xl p-4 flex flex-row items-center border border-sky-100">
+                              <div className="text-4xl mr-4">🦣</div>
+                              <p className="font-bold text-sky-700 text-sm">Picture 2 - Mammoth</p>
+                          </div>
+                          <div className="bg-amber-50 rounded-xl p-4 flex flex-row items-center border border-amber-100">
+                              <div className="text-4xl mr-4">👧🐕</div>
+                              <p className="font-bold text-amber-700 text-sm">Picture 3 - Sam & Lucky</p>
+                          </div>
+                      </div>
+                  </div>
+
+                  <div className="bg-white rounded-2xl p-5 shadow-sm border border-purple-100">
+                      <div className="flex items-center mb-3">
+                          <span className="bg-purple-100 text-purple-700 font-black px-3 py-1 rounded-md mr-2 text-xs">Part 2</span>
+                          <h2 className="text-lg font-black text-slate-700">情景对话练习</h2>
+                      </div>
+                      
+                      <div className="bg-yellow-50 text-yellow-800 text-xs font-bold p-3 rounded-xl mb-5 flex items-start border border-yellow-100">
+                          <i className="fa-solid fa-bell text-yellow-500 mr-2 mt-0.5"></i>
+                          根据图片提问，在横线上填入合适的单词或短语补全句子。注意动词时态！
+                      </div>
+
+                      <div className="space-y-5">
+                          {oralDialogues.map(od => (
+                              <div key={od.id} className={`rounded-xl p-4 border transition-colors ${od.colorBox} bg-slate-50/30`}>
+                                  <h3 className={`font-black text-[15px] mb-4 flex items-center ${od.colorTitle}`}>
+                                      <i className="fa-regular fa-comments mr-2"></i> {od.title}
+                                  </h3>
+                                  
+                                  <div className="space-y-5 text-sm">
+                                      {/* Q1 / A1 */}
+                                      <div>
+                                          <div className="flex items-start mb-2">
+                                              <button onClick={() => playTTS(od.q1, od.q1Voice, od.id+'q1')} className={`w-7 h-7 mt-0.5 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs shadow-sm mr-2 ${playingId === od.id+'q1' ? 'bg-sky-500 animate-pulse' : loadingId === od.id+'q1' ? 'bg-amber-400' : 'bg-slate-300'}`}>
+                                                  {loadingId === od.id+'q1' ? <i className="fa-solid fa-spinner fa-spin"></i> : playingId === od.id+'q1' ? <i className="fa-solid fa-pause"></i> : <i className="fa-solid fa-play ml-0.5"></i>}
+                                              </button>
+                                              <div>
+                                                  <span className="font-black text-blue-500 mr-1">A:</span>
+                                                  <span className="font-bold text-slate-700">{od.q1}</span>
+                                              </div>
+                                          </div>
+                                          <div className="flex flex-col bg-white p-3 rounded-lg border border-slate-200 ml-9">
+                                              <div className="font-black text-emerald-500 mb-1">B:</div>
+                                              <div className="text-slate-600 font-bold">{od.a1Start}</div>
+                                              <input type="text" className="blank-input mt-2" placeholder={od.a1Placeholder} />
+                                          </div>
+                                      </div>
+
+                                      {/* Q2 / A2 */}
+                                      <div>
+                                          <div className="flex items-start mb-2">
+                                              <button onClick={() => playTTS(od.q2, od.q2Voice, od.id+'q2')} className={`w-7 h-7 mt-0.5 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs shadow-sm mr-2 ${playingId === od.id+'q2' ? 'bg-sky-500 animate-pulse' : loadingId === od.id+'q2' ? 'bg-amber-400' : 'bg-slate-300'}`}>
+                                                  {loadingId === od.id+'q2' ? <i className="fa-solid fa-spinner fa-spin"></i> : playingId === od.id+'q2' ? <i className="fa-solid fa-pause"></i> : <i className="fa-solid fa-play ml-0.5"></i>}
+                                              </button>
+                                              <div>
+                                                  <span className="font-black text-blue-500 mr-1">A:</span>
+                                                  <span className="font-bold text-slate-700">{od.q2}</span>
+                                              </div>
+                                          </div>
+                                          <div className="flex flex-col bg-white p-3 rounded-lg border border-slate-200 ml-9">
+                                              <div className="font-black text-emerald-500 mb-1">B:</div>
+                                              <div className="text-slate-600 font-bold">{od.a2Start}</div>
+                                              <input type="text" className="blank-input mt-2" placeholder={od.a2Placeholder} />
+                                          </div>
+                                      </div>
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                  </div>
+              </div>
+            );
+            
+          default: return null;
+        }
+      };
+
+      return (
+        <React.Fragment>
+          {/* Header：不参与弹性的固定头部 */}
+          <header className="flex-none bg-white/90 backdrop-blur-md px-4 py-3 flex justify-between items-center shadow-sm relative z-40 border-b border-slate-100">
+             <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-red-400 to-orange-500 rounded-xl flex items-center justify-center text-white shadow-sm"><i className="fa-solid fa-graduation-cap text-lg"></i></div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black text-red-500 tracking-widest uppercase leading-none mb-1">Xiaoyao Studio</span>
+                  <h1 className="font-black text-slate-700 text-base leading-none tracking-wide">F2 UNIT 14 REVIEW</h1>
+                </div>
+             </div>
+             <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => { setPlaybackSpeed(s => s === 1.0 ? 0.8 : 1.0); playTone('pop'); }}
+                  className="px-2 py-1 bg-slate-100 rounded text-xs font-black text-slate-500 flex items-center"
+                >
+                  <i className="fa-solid fa-gauge-high mr-1"></i> {playbackSpeed}x
+                </button>
+                {(playingId || loadingId) && (
+                  <button onClick={stopCurrentAudio} className="w-8 h-8 bg-rose-100 text-rose-500 rounded-full flex items-center justify-center shadow-sm">
+                    <i className="fa-solid fa-stop text-xs"></i>
+                  </button>
+                )}
+             </div>
+          </header>
+
+          {/* 核心内容区 */}
+          <main className="flex-1 min-h-0 overflow-y-auto px-4 py-6 relative z-10 bg-transparent pattern-bg" style={{ WebkitOverflowScrolling: 'touch' }}>
+             <div className="bg-pattern"></div>
+             {renderMainContent()}
+          </main>
+
+          {/* Bottom Navigation：固定在最底部 */}
+          <nav className="flex-none bg-white border-t border-slate-200 flex justify-around items-center pt-2 pb-safe w-full z-40 shadow-[0_-10px_20px_rgba(0,0,0,0.06)] relative">
+            {[
+              { id: 'grammar', icon: 'fa-music', title: 'Prosody' },
+              { id: 'listening', icon: 'fa-ear-listen', title: 'Listening' },
+              { id: 'audition', icon: 'fa-headphones', title: 'Audition' },
+              { id: 'pictureTalk', icon: 'fa-images', title: 'Dialogues' }
+            ].map((tab) => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => { setActiveTab(tab.id); playTone('pop'); }}
+                  className={`flex flex-col items-center justify-center w-full py-1.5 transition-all ${isActive ? 'text-sky-500 scale-110' : 'text-slate-400 hover:text-slate-500'}`}
+                >
+                  <i className={`fa-solid ${tab.icon} text-xl mb-1 ${isActive ? 'drop-shadow-md' : ''}`}></i>
+                  <span className={`text-[11px] font-bold ${isActive ? 'opacity-100' : 'opacity-80'}`}>{tab.title}</span>
+                </button>
+              )
+            })}
+          </nav>
+        </React.Fragment>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
+

@@ -1,0 +1,1394 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Unit 2 - Stay Hungry, Stay Foolish</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&family=Merriweather:ital,wght@0,300;0,700;1,300;1,700&display=swap');
+
+    /* --- 全屏适配与滚动 --- */
+    html, body {
+      margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; position: fixed; 
+      top: 0; left: 0; background-color: #f0f9ff;
+      font-family: 'Nunito', sans-serif; -webkit-tap-highlight-color: transparent;
+    }
+
+    #root { width: 100%; height: 100%; }
+
+    /* 安全区域适配 */
+    .pb-safe-bar { padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 16px)); }
+    .pb-safe-scroll { padding-bottom: calc(3rem + env(safe-area-inset-bottom, 16px)); }
+    
+    .font-serif-novel { font-family: 'Merriweather', serif; }
+
+    /* Hide scrollbar for a cleaner look but keep functionality */
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(14, 165, 233, 0.3); border-radius: 10px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(14, 165, 233, 0.6); }
+
+    /* Animations */
+    .fade-in { animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+    .slide-in-right { animation: slideInRight 0.3s ease-out forwards; }
+    @keyframes slideInRight { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+    .bounce-in { animation: bounceIn 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards; }
+    @keyframes bounceIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+    .pulse-glow { animation: pulseGlow 2s infinite alternate; }
+    @keyframes pulseGlow { from { box-shadow: 0 0 0 rgba(249, 115, 22, 0); } to { box-shadow: 0 0 15px rgba(249, 115, 22, 0.6); } }
+    .active-scale:active { transform: scale(0.96); transition: transform 0.1s; }
+
+    /* A2U2 Typography & Specific Styles */
+    .drop-cap::first-letter {
+      float: left; font-size: 3.8rem; line-height: 0.8; padding-top: 0.2rem; padding-right: 0.5rem; padding-left: 0.1rem;
+      color: #0284c7; font-weight: 900; font-family: 'Merriweather', serif;
+    }
+
+    /* 游戏流星雨动画 */
+    @keyframes fallDown {
+        0% { top: -40px; opacity: 0; }
+        5% { opacity: 1; }
+        100% { top: calc(100% - 20px); opacity: 1; }
+    }
+    .fall-anim { animation-name: fallDown; animation-timing-function: linear; animation-fill-mode: forwards; }
+
+    /* Tooltip entry animation */
+    .tooltip-enter { animation: tooltipFadeIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+    @keyframes tooltipFadeIn {
+      from { opacity: 0; transform: scale(0.95) var(--translate-base); }
+      to { opacity: 1; transform: scale(1) var(--translate-base); }
+    }
+
+    /* Custom Range Slider */
+    input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+    input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #f59e0b; cursor: pointer; margin-top: -6px; box-shadow: 0 0 10px rgba(245, 158, 11, 0.5); }
+    input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: rgba(255, 255, 255, 0.2); border-radius: 2px; }
+  </style>
+</head>
+<body class="w-full flex flex-col bg-sky-50">
+  <div id="root" class="h-full w-full flex flex-col"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useLayoutEffect } = React;
+
+    // --- AUDIO & ELEVENLABS ENGINE ---
+    const ELEVENLABS_API_KEY = "sk_4299808cce5c3a9dd32917410f631fc345cd7be54dff0070";
+    const VOICES = { voiceA: 'UgBBYS2sOqTuMpoF3BR0', voiceB: 'kdmDKE6EkgrWrrykO9Qt' };
+
+    const playTone = (type) => {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        const ctx = new AudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        
+        if (type === 'pop') {
+          osc.type = 'sine'; osc.frequency.setValueAtTime(600, ctx.currentTime);
+          gain.gain.setValueAtTime(0.1, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+          osc.start(); osc.stop(ctx.currentTime + 0.1);
+        } else if (type === 'success') {
+          osc.type = 'triangle'; osc.frequency.setValueAtTime(440, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.1);
+          gain.gain.setValueAtTime(0.2, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+          osc.start(); osc.stop(ctx.currentTime + 0.2);
+        } else if (type === 'correct') {
+          osc.type = 'sine'; osc.frequency.setValueAtTime(523.25, ctx.currentTime); osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1);
+          gain.gain.setValueAtTime(0, ctx.currentTime); gain.gain.linearRampToValueAtTime(0.2, ctx.currentTime + 0.05); gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.3);
+          osc.start(); osc.stop(ctx.currentTime + 0.3);
+        } else if (type === 'wrong' || type === 'deduct') {
+          osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, ctx.currentTime); osc.frequency.exponentialRampToValueAtTime(50, ctx.currentTime + 0.3);
+          gain.gain.setValueAtTime(0, ctx.currentTime); gain.gain.linearRampToValueAtTime(0.2, ctx.currentTime + 0.05); gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.3);
+          osc.start(); osc.stop(ctx.currentTime + 0.3);
+        }
+      } catch (e) {}
+    };
+
+    const playElevenLabsAudio = async (text, voiceId, audioRef, setPlayingState) => {
+      try {
+        setPlayingState(true);
+        if (audioRef.current) { 
+           audioRef.current.pause(); 
+           audioRef.current.currentTime = 0;
+        }
+        const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+          method: 'POST',
+          headers: { 'xi-api-key': ELEVENLABS_API_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: text, model_id: 'eleven_turbo_v2_5', voice_settings: { stability: 0.45, similarity_boost: 0.8 } })
+        });
+        if (!response.ok) throw new Error("Audio fetch failed");
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audio.onended = () => setPlayingState(false);
+        audio.onerror = () => setPlayingState(false);
+        audioRef.current = audio;
+        
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+           playPromise.catch(error => {
+              console.warn("Audio playback interrupted:", error);
+              setPlayingState(false);
+           });
+        }
+      } catch (error) {
+        console.error(error);
+        setPlayingState(false);
+      }
+    };
+
+    const formatTime = (seconds) => {
+      if (!seconds || isNaN(seconds)) return "00:00";
+      const m = Math.floor(seconds / 60);
+      const s = Math.floor(seconds % 60);
+      return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+    };
+
+    const formatDateTime = (value) => {
+      if (!value) return "--";
+      const d = new Date(value);
+      const dateStr = d.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' });
+      const timeStr = d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+      return `${dateStr} ${timeStr}`;
+    };
+
+    const getQuizPraise = (accuracy) => {
+      if (accuracy === 100) return "Outstanding work! 你这一轮几乎像开了透视挂。";
+      if (accuracy >= 90) return "Great job! 你的词义判断已经非常稳。";
+      if (accuracy >= 75) return "Good job! 再多练几轮，正确率还能继续往上冲。";
+      if (accuracy >= 60) return "Nice try! 基础不错，把错题再吃透就会明显提升。";
+      return "Keep going! 先把错题攻克掉，下一轮会好看很多。";
+    };
+
+    const getDictationReview = (item, spellingCorrect, meaningCorrect) => {
+      if (spellingCorrect && meaningCorrect) {
+        return `拼写和词义都正确。${item.word} 表示“${item.meaning}”，继续保持。`;
+      }
+      if (!spellingCorrect && !meaningCorrect) {
+        return `这题拼写和词义都需要再校准。正确拼写是 ${item.word}，意思是“${item.meaning}”，音标是 ${item.phonetic}。`;
+      }
+      if (!spellingCorrect) {
+        return `词义已经选对了，但拼写还差一点。正确拼写是 ${item.word}，音标是 ${item.phonetic}。`;
+      }
+      return `拼写是对的，但词义判断偏了。${item.word} 的意思是“${item.meaning}”，词性是 ${item.pos}。`;
+    };
+
+    // --- DATA ---
+    const VOCAB_LIST = [
+      { id: 1, word: "heaven", phonetic: "/'hevən/", pos: "n.", meaning: "天堂" },
+      { id: 2, word: "destination", phonetic: "/ˌdestɪ'neɪʃn/", pos: "n.", meaning: "终点；归宿" },
+      { id: 3, word: "single", phonetic: "/'sɪŋɡl/", pos: "adj.", meaning: "单一的；唯一的" },
+      { id: 4, word: "escaped", phonetic: "/ɪ'skeɪpt/", pos: "v.", meaning: "逃脱（过去式）" },
+      { id: 5, word: "invention", phonetic: "/ɪn'venʃn/", pos: "n.", meaning: "发明" },
+      { id: 6, word: "change agent", phonetic: "/tʃeɪndʒ 'eɪdʒənt/", pos: "n. phr.", meaning: "变革推动者" },
+      { id: 7, word: "clear out", phonetic: "/klɪə aʊt/", pos: "v. phr.", meaning: "清除；淘汰" },
+      { id: 8, word: "gradually", phonetic: "/'ɡrædʒuəli/", pos: "adv.", meaning: "逐渐地" },
+      { id: 9, word: "dramatic", phonetic: "/drə'mætɪk/", pos: "adj.", meaning: "戏剧性的；夸张的" },
+      { id: 10, word: "limited", phonetic: "/'lɪmɪtɪd/", pos: "adj.", meaning: "有限的" },
+      { id: 11, word: "waste", phonetic: "/weɪst/", pos: "v.", meaning: "浪费" },
+      { id: 12, word: "trapped", phonetic: "/træpt/", pos: "adj.", meaning: "被困住的" },
+      { id: 13, word: "dogma", phonetic: "/'dɒɡmə/", pos: "n.", meaning: "教条；成见" },
+      { id: 14, word: "results", phonetic: "/rɪ'zʌlts/", pos: "n.", meaning: "结果" },
+      { id: 15, word: "opinions", phonetic: "/ə'pɪnjənz/", pos: "n.", meaning: "观点；意见" },
+      { id: 16, word: "drown out", phonetic: "/draʊn aʊt/", pos: "v. phr.", meaning: "淹没；盖过" },
+      { id: 17, word: "inner voice", phonetic: "/'ɪnə vɔɪs/", pos: "n. phr.", meaning: "内心的声音" },
+      { id: 18, word: "courage", phonetic: "/'kʌrɪdʒ/", pos: "n.", meaning: "勇气" },
+      { id: 19, word: "intuition", phonetic: "/ˌɪntju'ɪʃn/", pos: "n.", meaning: "直觉" },
+      { id: 20, word: "truly", phonetic: "/'tru:li/", pos: "adv.", meaning: "真正地" },
+      { id: 21, word: "secondary", phonetic: "/'sekəndri/", pos: "adj.", meaning: "次要的" },
+      { id: 22, word: "publication", phonetic: "/ˌpʌblɪ'keɪʃn/", pos: "n.", meaning: "出版物" },
+      { id: 23, word: "final", phonetic: "/'faɪnl/", pos: "adj.", meaning: "最终的" },
+      { id: 24, word: "issue", phonetic: "/'ɪʃu:/", pos: "n.", meaning: "(杂志)一期；期号" },
+      { id: 25, word: "photograph", phonetic: "/'fəʊtəɡrɑ:f/", pos: "n.", meaning: "照片" },
+      { id: 26, word: "beneath", phonetic: "/bɪ'ni:θ/", pos: "prep.", meaning: "在……下面" },
+      { id: 27, word: "farewell", phonetic: "/ˌfeə'wel/", pos: "n.", meaning: "告别" },
+      { id: 28, word: "sign off", phonetic: "/saɪn ɒf/", pos: "v. phr.", meaning: "(节目)结束" },
+      { id: 29, word: "graduate", phonetic: "/'ɡrædʒueɪt/", pos: "v.", meaning: "毕业" },
+      { id: 30, word: "anew", phonetic: "/ə'nju:/", pos: "adv.", meaning: "重新；再次" }
+    ];
+
+    // 精确校准的时间轴与带译文的数据
+    const intensiveText = [
+      {
+        sentences: [
+          { id: 'p1s1', text: "No one wants to die.", start: 0, end: 1.966 },
+          { id: 'p1s2', text: "Even people who want to go to heaven don't want to die to get there.", start: 2.8, end: 6.2 },
+          { id: 'p1s3', text: "And yet death is the [[destination]] we all share.", start: 6.733, end: 10.1 },
+          { id: 'p1s4', text: "No one has ever [[escaped]] it.", start: 10.8, end: 12.1 },
+          { id: 'p1s5', text: "And that is as it should be, because Death is very likely the [[single best invention]] of Life.", start: 12.9, end: 19.133 },
+          { id: 'p1s6', text: "It is Life's [[change agent]].", start: 19.7, end: 21.166 },
+          { id: 'p1s7', text: "It [[clears out]] the old to make way for the new.", start: 21.166, end: 23.433 },
+          { id: 'p1s8', text: "Right now the new is you, but someday not too long from now, you will [[gradually]] become the old and be cleared away.", start: 24.333, end: 32.466 },
+          { id: 'p1s9', text: "Sorry to be so [[dramatic]], but it is quite true.", start: 32.933, end: 36.133 }
+        ],
+        translation: "没人想死。即使是想上天堂的人，也不想为了去那里而死。然而，死亡是我们共同的归宿。没有人能逃脱它。事情本该如此，因为死亡很可能是生命中最伟大的发明。它是生命的变革推动者。它清除旧事物，为新事物让路。现在，新事物就是你们，但用不了多久，你们就会渐渐变老并被清除。抱歉说得这么戏剧化，但这是事实。",
+        analyses: {
+          "destination": { type: "vocab", title: "Noun (名词)", explanation: "终点；归宿。", craft: "把死亡比喻为一场旅途必然到达的终点站，自然且深沉。" },
+          "escaped": { type: "vocab", title: "Verb (动词)", explanation: "逃脱。", craft: "表达了死亡是每个人都无法避免的自然法则。" },
+          "single best invention": { type: "hook", title: "Oxymoron (矛盾修辞)", explanation: "单一的最伟大的发明。", craft: "把大家都害怕的“死亡(Death)”，说成是“生命(Life)”最伟大的发明。极其震撼人心！" },
+          "change agent": { type: "vocab", title: "Noun Phrase (名词短语)", explanation: "变革推动者。", craft: "借用商业词汇，说明死亡推动了世界不断更新换代。" },
+          "clears out": { type: "grammar", title: "Phrasal Verb (动词短语)", explanation: "清除；淘汰。", craft: "生动得就像打扫房间一样，旧的不去，新的不来。" },
+          "gradually": { type: "vocab", title: "Adverb (副词)", explanation: "逐渐地。", craft: "强调人慢慢变老是一个自然的过程。" },
+          "dramatic": { type: "craft", title: "Tone Adjustment (语气调节)", explanation: "戏剧性的；夸张的。", craft: "讲完沉重的话题后，用一句幽默调侃瞬间拉近和台下大学生的距离。" }
+        }
+      },
+      {
+        sentences: [
+          { id: 'p2s1', text: "Your time is [[limited]], so don't [[waste it living someone else's life]].", start: 37.066, end: 41.8 },
+          { id: 'p2s2', text: "Don't be [[trapped by dogma]] — [[which is living with the results of other people's thinking]].", start: 42.433, end: 47.133 },
+          { id: 'p2s3', text: "Don't let the noise of others' [[opinions]] [[drown out]] your own [[inner voice]].", start: 47.7, end: 51.766 },
+          { id: 'p2s4', text: "And most important, have the [[courage]] to [[follow your heart and intuition]].", start: 51.766, end: 56.066 },
+          { id: 'p2s5', text: "They somehow already know what you [[truly]] want to become.", start: 56.066, end: 60.0 },
+          { id: 'p2s6', text: "Everything else is [[secondary]].", start: 60.233, end: 62.833 }
+        ],
+        translation: "你们的时间有限，所以不要把时间浪费在过别人的生活上。不要被教条所困——教条就是活在别人思考的结果中。不要让别人意见的噪音淹没你内心的声音。最重要的是，要有勇气听从你的内心和直觉。它们已经在某种程度上知道你真正想成为什么样的人。其他一切都是次要的。",
+        analyses: {
+          "limited": { type: "vocab", title: "Adjective (形容词)", explanation: "有限的。", craft: "用这个词提醒大家时间是最宝贵的。" },
+          "waste it living someone else's life": { type: "grammar", title: "Imperative (祈使句)", explanation: "waste time doing sth. 浪费时间做某事。", craft: "极具力量感！直接命令年轻人不要为了讨好别人而活。" },
+          "trapped by dogma": { type: "craft", title: "Metaphor (暗喻)", explanation: "被教条困住。", craft: "把死板的规矩比作一个巨大陷阱(trap)，非常有画面感。" },
+          "which is living with the results of other people's thinking": { type: "grammar", title: "Relative Clause (定语从句)", explanation: "which 指代前面的 dogma。", craft: "给晦涩的“教条”下了一个完美的定义。" },
+          "opinions": { type: "vocab", title: "Noun (名词)", explanation: "观点；意见。", craft: "特指外界那些干扰你做决定的“杂音”。" },
+          "drown out": { type: "craft", title: "Auditory Metaphor (听觉隐喻)", explanation: "淹没；盖过。", craft: "绝佳的比喻！把别人的意见比作巨大“噪音”，淹没了内心的声音。" },
+          "inner voice": { type: "vocab", title: "Noun Phrase (名词短语)", explanation: "内心的声音。", craft: "和前面的“外界噪音(noise)”形成了完美的对比。" },
+          "courage": { type: "vocab", title: "Noun (名词)", explanation: "勇气。", craft: "做真实的自己，是最需要勇气的事情。" },
+          "follow your heart and intuition": { type: "grammar", title: "Key Theme (核心祈使句)", explanation: "听从内心的声音与直觉。", craft: "这是乔布斯给年轻人最有力量的号召。" },
+          "truly": { type: "vocab", title: "Adverb (副词)", explanation: "真正地。", craft: "强调内心深处最真实的渴望。" },
+          "secondary": { type: "vocab", title: "Adjective (形容词)", explanation: "次要的。", craft: "除了做自己，其它一切都不重要。" }
+        }
+      },
+      {
+        sentences: [
+          { id: 'p3s1', text: "When I was young, there was an amazing [[publication]] called The Whole Earth Catalog.", start: 63.4, end: 69.166 },
+          { id: 'p3s2', text: "On the back cover of their [[final issue]] was a photograph of an early morning country road.", start: 69.166, end: 74.833 },
+          { id: 'p3s3', text: "[[Beneath it were the words]]: \"Stay Hungry. Stay Foolish.\"", start: 74.833, end: 79.4 },
+          { id: 'p3s4', text: "It was their [[farewell]] message as they [[signed off]].", start: 79.766, end: 82.833 },
+          { id: 'p3s5', text: "Stay Hungry. Stay Foolish.", start: 83.0, end: 85.966 },
+          { id: 'p3s6', text: "And I have always wished that for myself.", start: 86.133, end: 89.3 },
+          { id: 'p3s7', text: "And now, as you [[graduate]] to begin [[anew]], I wish that for you.", start: 89.566, end: 94.566 }
+        ],
+        translation: "我年轻的时候，有一本很棒的出版物叫《全球概览》。在他们最后一期的封底上，有一张清晨乡村公路的照片。照片下面写着：“求知若饥，虚心若愚。”这是他们停刊时的告别语。求知若饥，虚心若愚。我一直这样期望自己。现在，在你们毕业开启新篇章之际，我也这样期望你们。",
+        analyses: {
+          "publication": { type: "vocab", title: "Noun (名词)", explanation: "出版物。", craft: "引出了乔布斯年轻时的一个重要灵感故事。" },
+          "final issue": { type: "vocab", title: "Noun Phrase (名词短语)", explanation: "最终的期号；停刊号。", craft: "带有一点离别和珍贵的色彩。" },
+          "Beneath it were the words": { type: "grammar", title: "Inversion (倒装句)", explanation: "正常语序是 The words were beneath it.", craft: "把最重要的“文字”放在最后面揭晓，充满文学美感。" },
+          "farewell": { type: "vocab", title: "Noun (名词)", explanation: "告别。", craft: "杂志的告别，正好契合给毕业生的告别寄语。" },
+          "signed off": { type: "grammar", title: "Phrasal Verb (动词短语)", explanation: "(节目或出版物) 结束；停刊。", craft: "象征着一个时代的完美谢幕。" },
+          "graduate": { type: "vocab", title: "Verb (动词)", explanation: "毕业。", craft: "点出了此刻神圣的场合。" },
+          "anew": { type: "vocab", title: "Adverb (副词)", explanation: "重新；再次。", craft: "毕业不是结束，而是以全新的姿态，开启人生冒险！" }
+        }
+      },
+      {
+        sentences: [
+          { id: 'p4s1', text: "[[Stay Hungry. Stay Foolish.]]", start: 94.9, end: 97.333 },
+          { id: 'p4s2', text: "Thank you all very much.", start: 97.833, end: 99.266 }
+        ],
+        translation: "求知若饥，虚心若愚。非常感谢大家。",
+        analyses: {
+          "Stay Hungry. Stay Foolish.": { type: "craft", title: "Rule of 3 (三连击修辞)", explanation: "保持饥饿，保持愚钝（求知若饥，虚心若愚）。", craft: "连续重复了三次，成为整场演讲灵魂口号。重复，是演讲中最有力量的武器！" }
+        }
+      }
+    ];
+
+    const themeStyles = {
+        hook: { underlineClass: "decoration-rose-400", cardBg: "bg-rose-50", cardBorder: "border-rose-400", iconText: "text-rose-500", iconBorder: "border-rose-200", badgeBgColor: "bg-rose-500", titleText: "text-rose-900", icon: "fa-wand-magic-sparkles", label: "The Hook (抓眼球)" },
+        grammar: { underlineClass: "decoration-sky-500", cardBg: "bg-sky-50", cardBorder: "border-sky-400", iconText: "text-sky-500", iconBorder: "border-sky-200", badgeBgColor: "bg-sky-500", titleText: "text-sky-900", icon: "fa-gears", label: "Grammar & Logic" },
+        vocab: { underlineClass: "decoration-emerald-500", cardBg: "bg-emerald-50", cardBorder: "border-emerald-400", iconText: "text-emerald-500", iconBorder: "border-emerald-200", badgeBgColor: "bg-emerald-500", titleText: "text-emerald-900", icon: "fa-book-open", label: "Advanced Vocab" },
+        craft: { underlineClass: "decoration-amber-400", cardBg: "bg-amber-50", cardBorder: "border-amber-400", iconText: "text-amber-500", iconBorder: "border-amber-200", badgeBgColor: "bg-amber-500", titleText: "text-amber-900", icon: "fa-bullhorn", label: "Writer's Craft" }
+    };
+
+    // --- COMPONENTS ---
+
+    const StudioLogo = ({ className = "" }) => (
+      <div className={`flex items-center space-x-2 ${className}`}>
+        <div className="relative flex items-center justify-center w-9 h-9 bg-gradient-to-br from-amber-400 to-rose-500 rounded-lg shadow-lg border border-amber-300">
+          <span className="text-white font-black text-xl font-serif-novel leading-none">X</span>
+        </div>
+        <div className="flex flex-col text-left">
+          <span className="text-amber-400 font-sans font-black text-[11px] tracking-widest leading-none">XIAOYAO</span>
+          <span className="text-[7px] text-sky-200 tracking-[0.4em] leading-none mt-1 font-bold">STUDIO</span>
+        </div>
+      </div>
+    );
+
+    const Header = ({ tabs, activeTab, setActiveTab }) => {
+      const [menuOpen, setMenuOpen] = useState(false);
+      const toggleMenu = () => { playTone('pop'); setMenuOpen(!menuOpen); };
+      const selectTab = (id) => { playTone('pop'); setActiveTab(id); setMenuOpen(false); };
+
+      return (
+        <header className="bg-sky-800 pt-10 pb-4 px-6 md:px-10 shadow-xl z-50 flex-shrink-0 relative border-b-4 border-amber-400">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-sky-400 rounded-full mix-blend-screen filter blur-[40px] opacity-20 pointer-events-none"></div>
+          <div className="relative z-10 flex justify-between items-center max-w-5xl mx-auto w-full">
+            <div className="flex items-center space-x-3 md:space-x-5">
+              <StudioLogo />
+              <div className="pl-3 md:pl-5 border-l border-sky-600">
+                <h1 className="text-lg md:text-2xl font-black font-serif-novel tracking-wider text-sky-50 leading-tight">Talent A2</h1>
+                <p className="text-sky-300 text-[10px] md:text-xs mt-0.5 uppercase tracking-widest font-bold">Unit 2 Toolbox</p>
+              </div>
+            </div>
+            <div className="hidden md:flex items-center space-x-2">
+              {tabs.map(tab => (
+                <button key={tab.id} onClick={() => selectTab(tab.id)} className={`px-4 py-2 rounded-xl font-black text-sm transition-all ${activeTab === tab.id ? 'bg-amber-400 text-sky-900 shadow-md' : 'text-sky-100 hover:bg-sky-700 hover:text-white'}`}>
+                  <i className={`fa-solid ${tab.icon} mr-2`}></i>{tab.label}
+                </button>
+              ))}
+            </div>
+            <button onClick={toggleMenu} className="md:hidden w-10 h-10 bg-sky-700/50 rounded-xl flex items-center justify-center text-xl active:bg-sky-600 transition-colors border border-sky-500/50">
+              <i className={`fa-solid ${menuOpen ? 'fa-xmark text-amber-400' : 'fa-bars-staggered text-white'}`}></i>
+            </button>
+          </div>
+          {menuOpen && (
+            <div className="absolute top-full left-0 w-full bg-sky-800 shadow-2xl border-t border-sky-700 overflow-hidden fade-in z-50 origin-top md:hidden">
+              {tabs.map(tab => (
+                <button key={tab.id} onClick={() => selectTab(tab.id)} className={`w-full text-left px-6 py-5 flex items-center space-x-4 border-b border-sky-700/60 last:border-0 transition-all ${activeTab === tab.id ? 'bg-sky-900 text-amber-400 font-black' : 'text-white font-bold hover:bg-sky-700/80'}`}>
+                  <div className={`w-8 text-center text-lg ${activeTab === tab.id ? 'scale-110' : ''}`}><i className={`fa-solid ${tab.icon}`}></i></div>
+                  <span className="tracking-wider text-lg">{tab.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </header>
+      );
+    };
+
+    // --- 1. Reading Tab (课文精读含智能音频) ---
+    const ReadingTab = () => {
+      const [activeAnalysis, setActiveAnalysis] = useState(null);
+      const [flippedParas, setFlippedParas] = useState({}); // 记录哪些段落被翻译翻转了
+      const scrollRef = useRef(null);
+      
+      const [isPlaying, setIsPlaying] = useState(false);
+      const [currentTime, setCurrentTime] = useState(0);
+      const [duration, setDuration] = useState(0);
+      const [activeSentenceId, setActiveSentenceId] = useState(null);
+      const [stopAt, setStopAt] = useState(null);
+      
+      const audioPlayerRef = useRef(null);
+      const AUDIO_SRC = "https://dlink.host/1drv/aHR0cHM6Ly8xZHJ2Lm1zL3UvYy9mZTE5MTBhZWYzZGExMTM1L0lRQmRpRmxwZXI4QlJwcjRncUZpM19la0FWeHlBZ1A0akQ3clB5dmxyLUdJNi1VP2U9ckZkc3V4.mp3";
+
+      const handleAnalysisClick = (e, matchedText, analysisData) => {
+        e.stopPropagation(); 
+        playTone('pop');
+        const rect = e.currentTarget.getBoundingClientRect();
+        let placement = 'bottom'; let top = rect.bottom + 12; let styleVar = 'translate(-50%, 0)';
+        if (window.innerHeight - rect.bottom < 260 && rect.top > 300) { placement = 'top'; top = rect.top - 12; styleVar = 'translate(-50%, -100%)'; }
+        let left = rect.left + (rect.width / 2);
+        const padding = 20; const popoverWidth = Math.min(360, window.innerWidth - padding * 2);
+        if (left < popoverWidth / 2 + padding) left = popoverWidth / 2 + padding;
+        else if (left > window.innerWidth - popoverWidth / 2 - padding) left = window.innerWidth - popoverWidth / 2 - padding;
+        setActiveAnalysis({ key: matchedText, data: analysisData, position: { top, left, width: popoverWidth }, styleVar });
+      };
+
+      const closePopover = () => setActiveAnalysis(null);
+
+      const handleTimeUpdate = (e) => {
+        const time = e.target.currentTime;
+        setCurrentTime(time);
+        if (stopAt !== null && time >= stopAt) { e.target.pause(); setIsPlaying(false); setStopAt(null); }
+        let foundId = null;
+        for (const para of intensiveText) {
+            for (const sent of para.sentences) {
+                if (time >= sent.start && time < sent.end) { foundId = sent.id; break; }
+            }
+            if (foundId) break;
+        }
+        setActiveSentenceId(foundId);
+      };
+
+      const handleLoadedMetadata = (e) => setDuration(e.target.duration);
+
+      const togglePlayGlobal = () => {
+        playTone('pop');
+        if (audioPlayerRef.current) {
+            if (isPlaying) {
+                audioPlayerRef.current.pause(); setStopAt(null); setIsPlaying(false);
+            } else {
+                setIsPlaying(true); setStopAt(null); 
+                const playPromise = audioPlayerRef.current.play();
+                if (playPromise !== undefined) { playPromise.catch(e => { console.warn("Audio play interrupted:", e); setIsPlaying(false); }); }
+            }
+        }
+      };
+
+      const handleSeek = (e) => {
+        const time = parseFloat(e.target.value); setCurrentTime(time);
+        if (audioPlayerRef.current) { audioPlayerRef.current.currentTime = time; setStopAt(null); }
+      };
+
+      const playSentence = (start, end, sentenceId) => {
+        if (audioPlayerRef.current) {
+            audioPlayerRef.current.currentTime = start; setIsPlaying(true); setStopAt(end); setActiveSentenceId(sentenceId);
+            const playPromise = audioPlayerRef.current.play();
+            if (playPromise !== undefined) { playPromise.catch(e => { console.warn("Audio play interrupted:", e); setIsPlaying(false); }); }
+        }
+      };
+
+      const toggleTranslation = (pIndex) => {
+          playTone('pop');
+          setFlippedParas(prev => ({ ...prev, [pIndex]: !prev[pIndex] }));
+      };
+
+      const renderIntensiveParagraph = (paragraphObj, pIndex) => {
+        const isFlipped = flippedParas[pIndex];
+
+        return (
+          <article key={pIndex} className="relative overflow-hidden rounded-[1.5rem] border border-white/80 bg-white p-6 md:p-8 shadow-sm mb-6 max-w-4xl mx-auto transition-all">
+            <div className="absolute -right-2 top-0 text-slate-100 text-[80px] pointer-events-none"><i className="fa-solid fa-quote-right"></i></div>
+            
+            <div className="mb-6 flex items-center justify-between relative z-10">
+              <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-sky-100 text-sky-600 font-black text-xl shadow-inner">{pIndex + 1}</div>
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Paragraph</p>
+                    <p className="text-sm font-bold text-slate-500">{isFlipped ? '课文精准中文翻译' : '点击普通文字听单句，点击下划线看批注'}</p>
+                  </div>
+              </div>
+              <button onClick={() => toggleTranslation(pIndex)} className={`flex items-center justify-center px-4 py-2 rounded-xl font-bold text-sm transition-all active-scale shadow-sm border ${isFlipped ? 'bg-sky-600 text-white border-sky-600' : 'bg-slate-50 text-sky-600 border-slate-200 hover:bg-sky-100'}`}>
+                  <i className={`fa-solid fa-language mr-2`}></i> {isFlipped ? '显示原文' : '查看译文'}
+              </button>
+            </div>
+
+            {isFlipped ? (
+              <div className="relative z-10 text-[17px] md:text-[20px] leading-[2.1] text-slate-700 font-bold fade-in bg-slate-50 p-6 rounded-2xl border border-slate-100 shadow-inner">
+                {paragraphObj.translation}
+              </div>
+            ) : (
+              <p className="relative z-10 text-[18px] md:text-[22px] leading-[2.1] text-slate-800 font-medium font-serif fade-in">
+                {paragraphObj.sentences.map((sent, sIndex) => {
+                   let text = sent.text;
+                   const elements = [];
+                   let lastIndex = 0;
+                   const regex = /\[\[(.*?)\]\]/g;
+                   let match;
+
+                   while ((match = regex.exec(text)) !== null) {
+                     const matchedText = match[1];
+                     const startIndex = match.index;
+                     
+                     if (startIndex > lastIndex) {
+                       let sub = text.substring(lastIndex, startIndex);
+                       if (pIndex === 0 && sIndex === 0 && elements.length === 0) {
+                          elements.push(<span key={`text-${lastIndex}`}><span className="drop-cap">{sub.charAt(0)}</span>{sub.substring(1)}</span>);
+                       } else {
+                          elements.push(<span key={`text-${lastIndex}`}>{sub}</span>);
+                       }
+                     }
+
+                     const analysisData = paragraphObj.analyses[matchedText];
+                     if (analysisData) {
+                       const theme = themeStyles[analysisData.type];
+                       elements.push(
+                         <button type="button" key={`badge-${startIndex}`} onClick={(e) => handleAnalysisClick(e, matchedText, analysisData)}
+                           className={`inline cursor-pointer border-0 bg-transparent p-0 font-black text-slate-900 underline decoration-[3px] underline-offset-[0.24em] active:opacity-70 ${theme.underlineClass}`}
+                         >{matchedText}</button>
+                       );
+                     } else { elements.push(<span key={`badge-${startIndex}`}>{matchedText}</span>); }
+                     lastIndex = regex.lastIndex;
+                   }
+
+                   if (lastIndex < text.length) { 
+                       if (pIndex === 0 && sIndex === 0 && elements.length === 0) {
+                          elements.push(<span key={`text-${lastIndex}`}><span className="drop-cap">{text.charAt(0)}</span>{text.substring(1)}</span>);
+                       } else {
+                          elements.push(<span key={`text-${lastIndex}`}>{text.substring(lastIndex)}</span>);
+                       }
+                   }
+
+                   return (
+                     <span key={sent.id} onClick={() => playSentence(sent.start, sent.end, sent.id)}
+                       className={`cursor-pointer transition-colors duration-300 rounded px-1 -mx-1 ${activeSentenceId === sent.id ? 'bg-amber-200 shadow-sm text-slate-900' : 'hover:bg-sky-50'} inline`}
+                     >{elements}{" "}</span>
+                   );
+                })}
+              </p>
+            )}
+          </article>
+        );
+      };
+
+      return (
+        <div ref={scrollRef} className="p-4 md:p-8 pb-safe-scroll overflow-y-auto h-full custom-scrollbar relative" onScroll={closePopover}>
+          <div className="mb-8 text-center pt-2 md:pt-4">
+            <p className="text-sky-600 font-black uppercase tracking-widest mb-3 flex items-center justify-center text-sm"><i className="fa-solid fa-microphone mr-2"></i>Famous Life Lessons</p>
+            <h2 className="text-[2.5rem] md:text-[4rem] font-serif font-black italic tracking-tighter leading-none mb-4 text-slate-900 drop-shadow-sm">
+              Stay Hungry,<br className="md:hidden"/>Stay Foolish.
+            </h2>
+            <p className="text-slate-500 font-bold text-sm bg-white/80 px-6 py-2 rounded-full border border-sky-100 shadow-sm inline-block">Steve Jobs' Stanford Address</p>
+          </div>
+          
+          <div className="mb-10 max-w-4xl mx-auto w-full">
+             <div className="bg-slate-900 rounded-[2rem] p-6 md:p-8 shadow-2xl border-[4px] border-slate-700 relative overflow-hidden flex flex-col items-center">
+                 <div className="absolute top-0 right-0 opacity-10 text-[120px] -mt-6 -mr-4 pointer-events-none text-sky-500"><i className="fa-solid fa-headphones-simple"></i></div>
+                 <div className="flex items-center justify-between w-full mb-6 relative z-10">
+                     <span className="bg-amber-500 text-slate-900 px-3 py-1.5 rounded-lg text-xs font-black tracking-widest uppercase flex items-center shadow-sm">
+                         <div className={`w-2 h-2 rounded-full mr-2 ${isPlaying ? 'bg-white animate-pulse' : 'bg-amber-200'}`}></div>
+                         Smart Audio Player
+                     </span>
+                     <div className="text-sky-200 font-mono text-sm bg-slate-800 px-3 py-1 rounded-md border border-slate-600">
+                         {formatTime(currentTime)} / {formatTime(duration)}
+                     </div>
+                 </div>
+
+                 <audio ref={audioPlayerRef} src={AUDIO_SRC} onTimeUpdate={handleTimeUpdate} onLoadedMetadata={handleLoadedMetadata} onEnded={() => {setIsPlaying(false); setActiveSentenceId(null); setStopAt(null);}} className="hidden" />
+
+                 <div className="w-full flex items-center gap-4 md:gap-6 relative z-10 mb-2">
+                     <button onClick={togglePlayGlobal} className="w-16 h-16 shrink-0 bg-gradient-to-br from-sky-400 to-sky-600 rounded-full flex items-center justify-center text-white text-2xl shadow-[0_0_20px_rgba(14,165,233,0.4)] active-scale border-2 border-sky-300">
+                         <i className={`fa-solid ${isPlaying && !stopAt ? "fa-pause" : "fa-play pl-1"}`}></i>
+                     </button>
+                     <div className="flex-1 flex flex-col">
+                        <input type="range" min="0" max={duration || 100} value={currentTime} onChange={handleSeek} className="w-full" />
+                        <div className="flex items-end h-8 gap-1 mt-2 opacity-50 px-1 overflow-hidden">
+                           {Array.from({length: 30}).map((_, i) => (
+                               <div key={i} className="flex-1 bg-sky-400 rounded-t-sm" style={{height: isPlaying ? `${10 + Math.random() * 90}%` : '10%', transition: 'height 0.2s ease'}}></div>
+                           ))}
+                        </div>
+                     </div>
+                 </div>
+                 <div className="w-full text-center mt-4 border-t border-slate-700/50 pt-4 relative z-10">
+                     <p className="text-slate-300 text-sm font-bold flex justify-center items-center">
+                        <i className="fa-solid fa-hand-pointer text-amber-400 mr-2 text-lg animate-bounce"></i> 点击下方课文中的任意句子，即可单独跟读该句
+                     </p>
+                 </div>
+             </div>
+          </div>
+
+          <div className="mb-12 bg-gradient-to-b from-slate-900 to-sky-900 p-8 md:p-10 rounded-[2.5rem] shadow-xl relative overflow-hidden max-w-4xl mx-auto">
+             <div className="absolute top-0 right-0 text-sky-500/10 text-[200px] transform rotate-12 pointer-events-none -mt-8 -mr-8"><i className="fa-solid fa-microphone-lines"></i></div>
+             <h4 className="text-2xl md:text-3xl font-black text-amber-400 mb-8 relative z-10 flex items-center justify-center text-center leading-tight tracking-wide">
+               <i className="fa-solid fa-burger text-3xl mr-4"></i> 演说家的“汉堡”秘籍
+             </h4>
+             <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-5">
+               <div className="bg-white/10 backdrop-blur-md border border-white/20 p-6 rounded-3xl flex flex-col items-start gap-4 shadow-sm hover:bg-white/20 transition-colors">
+                 <div className="flex items-center gap-4 w-full">
+                    <div className="w-12 h-12 bg-rose-400 rounded-xl flex items-center justify-center text-2xl shrink-0 shadow-inner">🪝</div>
+                    <div>
+                      <h5 className="text-base md:text-lg font-black text-white">Top Bun: The Hook</h5>
+                      <span className="text-[10px] bg-rose-500 text-white px-2.5 py-0.5 rounded-full font-black uppercase">抓眼球</span>
+                    </div>
+                 </div>
+                 <p className="text-sky-50 text-sm font-medium leading-relaxed">直接抛出震撼真相：<span className="text-rose-300 font-bold italic">"No one wants to die."</span> 瞬间抓住耳朵！</p>
+               </div>
+               <div className="bg-white/10 backdrop-blur-md border border-white/20 p-6 rounded-3xl flex flex-col items-start gap-4 shadow-sm hover:bg-white/20 transition-colors relative">
+                 <div className="flex items-center gap-4 w-full">
+                    <div className="w-12 h-12 bg-emerald-400 rounded-xl flex items-center justify-center text-2xl shrink-0 shadow-inner">🥩</div>
+                    <div>
+                      <h5 className="text-base md:text-lg font-black text-white">The Meat: Power</h5>
+                      <span className="text-[10px] bg-emerald-500 text-white px-2.5 py-0.5 rounded-full font-black uppercase">多汁干货</span>
+                    </div>
+                 </div>
+                 <p className="text-sky-50 text-sm font-medium leading-relaxed">用 <strong>Metaphor (暗喻)</strong> 把规矩比作 <span className="text-emerald-300 italic font-bold">trap (陷阱)</span>。大量祈使句发出号召！</p>
+               </div>
+               <div className="bg-white/10 backdrop-blur-md border border-white/20 p-6 rounded-3xl flex flex-col items-start gap-4 shadow-sm hover:bg-white/20 transition-colors">
+                 <div className="flex items-center gap-4 w-full">
+                    <div className="w-12 h-12 bg-amber-500 rounded-xl flex items-center justify-center text-2xl shrink-0 shadow-inner">🍔</div>
+                    <div>
+                      <h5 className="text-base md:text-lg font-black text-white">Bottom Bun: Echo</h5>
+                      <span className="text-[10px] bg-amber-500 text-slate-900 px-2.5 py-0.5 rounded-full font-black uppercase">震撼结尾</span>
+                    </div>
+                 </div>
+                 <p className="text-sky-50 text-sm font-medium leading-relaxed"><strong>The Magic of 3</strong>！将核心口号 <span className="text-amber-300 font-bold italic">"Stay Hungry. Stay Foolish."</span> 连续重复三次。</p>
+               </div>
+             </div>
+          </div>
+
+          <div className="relative z-10 max-w-4xl mx-auto">
+            <h3 className="text-2xl font-serif font-black tracking-tight text-slate-800 mb-6 flex items-center"><i className="fa-solid fa-book-open text-sky-500 mr-3"></i> 原文精读与修辞批注</h3>
+            <div className="space-y-6">
+              {intensiveText.map((para, idx) => renderIntensiveParagraph(para, idx))}
+            </div>
+          </div>
+
+          {activeAnalysis && (
+            <div className="fixed inset-0 z-[60]" onClick={closePopover}>
+               <div className={`absolute rounded-[2rem] border shadow-[0_20px_50px_rgba(0,0,0,0.2)] overflow-hidden tooltip-enter z-[70] ${themeStyles[activeAnalysis.data.type].cardBg} ${themeStyles[activeAnalysis.data.type].cardBorder}`}
+                  style={{ top: `${activeAnalysis.position.top}px`, left: `${activeAnalysis.position.left}px`, width: `${activeAnalysis.position.width}px`, '--translate-base': activeAnalysis.styleVar }}
+                  onClick={e => e.stopPropagation()}
+               >
+                  <div className="p-6">
+                    <div className="flex items-start gap-4 mb-4">
+                      <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border bg-white text-2xl shadow-sm ${themeStyles[activeAnalysis.data.type].iconBorder} ${themeStyles[activeAnalysis.data.type].iconText}`}>
+                        <i className={`fa-solid ${themeStyles[activeAnalysis.data.type].icon}`}></i>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className={`rounded-full px-3 py-0.5 text-[10px] font-black uppercase tracking-widest text-white shadow-sm ${themeStyles[activeAnalysis.data.type].badgeBgColor}`}>
+                            {themeStyles[activeAnalysis.data.type].label}
+                          </span>
+                          <button onClick={closePopover} className="text-slate-400 hover:text-slate-700 w-8 h-8 flex items-center justify-center bg-white/80 backdrop-blur rounded-full border shadow-sm transition-colors"><i className="fa-solid fa-xmark text-sm"></i></button>
+                        </div>
+                        <h4 className={`text-xl font-black truncate ${themeStyles[activeAnalysis.data.type].titleText}`}>{activeAnalysis.key}</h4>
+                        <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 truncate">{activeAnalysis.data.title}</p>
+                      </div>
+                    </div>
+                    <p className="text-base font-bold leading-relaxed text-slate-800 mb-4">{activeAnalysis.data.explanation}</p>
+                    {activeAnalysis.data.craft && (
+                      <div className="rounded-xl border border-white/80 bg-white/80 p-4 shadow-sm">
+                        <p className={`mb-1.5 flex items-center text-[11px] font-black uppercase tracking-widest ${themeStyles[activeAnalysis.data.type].iconText}`}>
+                          <i className="fa-solid fa-lightbulb mr-1.5"></i> 核心赏析
+                        </p>
+                        <p className="text-sm font-bold leading-relaxed text-slate-700">{activeAnalysis.data.craft}</p>
+                      </div>
+                    )}
+                  </div>
+               </div>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    // --- 2. Vocab Tab (词汇闯关，全面增强听写与极速测试) ---
+    const VocabTab = () => {
+      const [mode, setMode] = useState('review'); 
+      const [quizItems, setQuizItems] = useState([]);
+      const [currentQ, setCurrentQ] = useState(0);
+      const [answers, setAnswers] = useState({});
+      const [quizCompletedAt, setQuizCompletedAt] = useState(null);
+      
+      const audioRef = useRef(null);
+      const [playingId, setPlayingId] = useState(null);
+      const [list, setList] = useState(VOCAB_LIST);
+      const [hideChinese, setHideChinese] = useState(false);
+      const [dictationMode, setDictationMode] = useState(false);
+
+      const [dictItems, setDictItems] = useState([]);
+      const [dictIdx, setDictIdx] = useState(0);
+      const [dictAnswers, setDictAnswers] = useState({}); 
+      const [dictHasSubmittedCurrent, setDictHasSubmittedCurrent] = useState(false);
+      const [dictWrongWords, setDictWrongWords] = useState([]); // 记录当前错题
+      const [previewCountdown, setPreviewCountdown] = useState(30);
+      const [dictGroupInfo, setDictGroupInfo] = useState({ id: null, label: '' });
+      const [dictRoundInfo, setDictRoundInfo] = useState({ id: null, label: '' });
+      const [dictRound, setDictRound] = useState(1);
+      const [dictSessionWords, setDictSessionWords] = useState([]);
+      const [dictMastery, setDictMastery] = useState({});
+      const [dictStartedAt, setDictStartedAt] = useState(null);
+      const [dictCompletedAt, setDictCompletedAt] = useState(null);
+
+      const alphabet = ['A', 'B', 'C', 'D'];
+
+      const playWordAudio = (word, id) => {
+        if (playingId === id) return; 
+        playElevenLabsAudio(word, VOICES.voiceA, audioRef, (isPlaying) => { // 使用声音A
+          setPlayingId(isPlaying ? id : null);
+        });
+      };
+
+      useEffect(() => {
+          let timer;
+          if (mode === 'dictationPreview' && previewCountdown > 0) {
+              timer = setTimeout(() => setPreviewCountdown(prev => prev - 1), 1000);
+          } else if (mode === 'dictationPreview' && previewCountdown === 0) {
+              setMode('dictation');
+          }
+          return () => clearTimeout(timer);
+      }, [mode, previewCountdown]);
+
+      useEffect(() => {
+          if (mode === 'dictation' && dictItems.length > 0 && !dictHasSubmittedCurrent) {
+              const timer = setTimeout(() => playWordAudio(dictItems[dictIdx].word, `dict_${dictIdx}`), 400);
+              return () => clearTimeout(timer);
+          }
+      }, [dictIdx, mode, dictItems, dictHasSubmittedCurrent]);
+
+      const startQuiz = () => {
+        playTone('pop');
+        const shuffledVocab = [...VOCAB_LIST].sort(() => 0.5 - Math.random());
+        const generatedQuiz = shuffledVocab.map(wordObj => {
+           const otherWords = VOCAB_LIST.filter(v => v.id !== wordObj.id).sort(() => 0.5 - Math.random()).slice(0, 3);
+           const optionsRaw = [{ text: wordObj.meaning, isCorrect: true }, ...otherWords.map(o => ({ text: o.meaning, isCorrect: false }))].sort(() => 0.5 - Math.random());
+           return {
+             wordObj: wordObj,
+             q: wordObj.word,
+             phonetic: wordObj.phonetic,
+             options: optionsRaw.map(o => o.text),
+             ans: optionsRaw.findIndex(o => o.isCorrect),
+             explain: `${wordObj.word} 表示“${wordObj.meaning}”，词性是 ${wordObj.pos}。`
+           };
+        });
+        setQuizItems(generatedQuiz); setAnswers({}); setCurrentQ(0); setQuizCompletedAt(null); setMode('quiz');
+      };
+
+      const handleAnswer = (optIdx) => {
+        if (answers[currentQ] !== undefined) return;
+        if (optIdx === quizItems[currentQ].ans) playTone('correct'); else playTone('wrong');
+        setAnswers(prev => ({ ...prev, [currentQ]: optIdx }));
+        if (currentQ < 29) setTimeout(() => setCurrentQ(prev => prev + 1), 1200);
+      };
+
+      const submitQuiz = () => {
+        if (Object.keys(answers).length < 30) return alert("请完成所有题目！");
+        playTone('success'); setQuizCompletedAt(Date.now()); setMode('result');
+      };
+
+      const startDictationSession = (wordsToTest, groupInfo, resetProgress = true) => {
+          playTone('pop');
+          const items = wordsToTest.map(w => {
+              const wrongMeanings = VOCAB_LIST.filter(v => v.id !== w.id).sort(() => 0.5 - Math.random()).slice(0, 3);
+              return { ...w, options: [w, ...wrongMeanings].sort(() => 0.5 - Math.random()) };
+          });
+          setDictItems(items); setDictIdx(0); setDictAnswers({}); setDictHasSubmittedCurrent(false);
+          setDictWrongWords([]);
+          setPreviewCountdown(30);
+          setDictRoundInfo(groupInfo);
+          setMode('dictationPreview');
+
+          if (resetProgress) {
+              setDictGroupInfo(groupInfo);
+              setDictSessionWords(wordsToTest);
+              setDictMastery(Object.fromEntries(wordsToTest.map(w => [w.id, false])));
+              setDictRound(1);
+              setDictStartedAt(Date.now());
+              setDictCompletedAt(null);
+          }
+      };
+
+      const resetVocabModes = () => {
+        setMode('review');
+        setAnswers({});
+        setCurrentQ(0);
+        setQuizCompletedAt(null);
+        setDictAnswers({});
+        setDictItems([]);
+        setDictIdx(0);
+        setDictWrongWords([]);
+        setDictGroupInfo({ id: null, label: '' });
+        setDictRoundInfo({ id: null, label: '' });
+        setDictRound(1);
+        setDictSessionWords([]);
+        setDictMastery({});
+        setDictStartedAt(null);
+        setDictCompletedAt(null);
+        setDictHasSubmittedCurrent(false);
+      };
+
+      if (mode === 'review') {
+        return (
+          <div className="p-4 md:p-8 pb-safe-scroll overflow-y-auto h-full fade-in flex flex-col relative z-0 custom-scrollbar max-w-6xl mx-auto w-full">
+            <div className="relative z-40 shrink-0 mb-6">
+              <div className="absolute inset-0 bg-gradient-to-r from-sky-800 to-sky-600 rounded-3xl shadow-lg overflow-hidden pointer-events-none">
+                 <i className="fa-solid fa-spell-check absolute -left-4 -bottom-4 text-7xl md:text-9xl text-sky-900 opacity-20"></i>
+              </div>
+              <div className="relative z-10 p-6 md:p-8 flex justify-between items-center text-white">
+                 <div className="pointer-events-none">
+                    <h2 className="text-2xl md:text-3xl font-black font-serif-novel mb-2">Critic's Toolkit</h2>
+                    <p className="text-sky-200 text-sm font-bold">词库 ({list.length}) 词，全方位能力考核</p>
+                 </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center bg-white p-4 rounded-3xl shadow-sm border border-slate-100 bounce-in gap-3 mb-6 shrink-0 w-full justify-start md:justify-center">
+              <button onClick={() => setMode('dictationGroupSelect')} className="shrink-0 bg-sky-600 text-white px-4 py-2.5 rounded-xl font-black text-sm active-scale transition-colors shadow-sm flex items-center hover:bg-sky-500">
+                <i className="fa-solid fa-pen-clip mr-2 text-lg"></i> 每日听写
+              </button>
+              <button onClick={startQuiz} className="shrink-0 bg-amber-500 text-white px-4 py-2.5 rounded-xl font-black text-sm active-scale transition-colors shadow-sm flex items-center hover:bg-amber-400">
+                <i className="fa-solid fa-rocket mr-2 text-lg"></i> 极速测试
+              </button>
+              <div className="flex gap-2 pl-2 border-l-2 border-slate-100">
+                <button onClick={() => {setDictationMode(!dictationMode); playTone('pop');}} className={`shrink-0 px-3 py-2.5 rounded-xl font-bold text-sm active-scale shadow-sm border flex items-center transition-colors ${dictationMode ? 'bg-sky-600 text-white border-sky-600' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}>
+                  <i className="fa-solid fa-mask mr-2"></i> 盲猜
+                </button>
+                <button onClick={() => {setHideChinese(!hideChinese); playTone('pop');}} className={`shrink-0 px-3 py-2.5 rounded-xl font-bold text-sm active-scale shadow-sm border flex items-center transition-colors ${hideChinese ? 'bg-amber-400 text-white border-amber-400' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}>
+                  <i className="fa-solid fa-eye-slash mr-2"></i> 隐藏
+                </button>
+                <button onClick={() => {playTone('pop'); setList([...VOCAB_LIST].sort(() => 0.5 - Math.random()));}} className="shrink-0 bg-sky-50 text-sky-600 px-3 py-2.5 rounded-xl font-bold text-sm active-scale shadow-sm flex items-center hover:bg-sky-100 border border-sky-100">
+                  <i className="fa-solid fa-shuffle mr-2"></i> 打乱
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-8">
+              {list.map((v, i) => (
+                <div key={v.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between slide-in-right hover:shadow-md hover:border-sky-300 transition-all group">
+                  <div className="flex items-center flex-1 pr-3 overflow-hidden">
+                    <span className="w-8 text-slate-300 font-black text-sm shrink-0">{i + 1}.</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-baseline mb-1 flex-wrap">
+                        <h3 className={`text-lg md:text-xl font-black text-sky-900 font-serif-novel mr-2 transition-all duration-300 rounded truncate ${dictationMode ? 'text-transparent blur-[5px] bg-slate-200 select-none hover:blur-none hover:bg-transparent' : ''}`}>{v.word}</h3>
+                        <span className={`text-[11px] md:text-xs text-slate-400 font-mono ${dictationMode ? 'opacity-0' : 'opacity-100'}`}>{v.phonetic}</span>
+                      </div>
+                      <p className={`text-sm font-bold text-slate-700 transition-opacity truncate ${hideChinese ? 'opacity-0 hover:opacity-100' : 'opacity-100'}`}>
+                        <span className="text-amber-500 italic mr-1.5">{v.pos}</span> {v.meaning}
+                      </p>
+                    </div>
+                  </div>
+                  <button onClick={() => playWordAudio(v.word, v.id)} className={`w-12 h-12 shrink-0 rounded-full flex items-center justify-center transition-all border ${playingId === v.id ? 'bg-amber-500 text-white border-amber-400 shadow-md animate-pulse scale-110' : 'bg-sky-50 text-sky-600 border-sky-100 hover:bg-sky-100 hover:scale-105'}`}>
+                    <i className="fa-solid fa-volume-up text-lg"></i>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      }
+
+      if (mode === 'dictationGroupSelect') {
+        const groups = Array.from({ length: 6 }, (_, i) => ({ id: i + 1, label: `第 ${i + 1} 组`, range: `No. ${i*5 + 1} - ${i*5 + 5}`, words: VOCAB_LIST.slice(i*5, i*5 + 5) }));
+        return (
+             <div className="p-4 md:p-8 pb-safe-scroll h-full flex flex-col fade-in bg-slate-100 max-w-4xl mx-auto w-full">
+               <div className="flex justify-between items-center mb-8 mt-2 shrink-0">
+                 <button onClick={() => {playTone('pop'); setMode('review');}} className="w-12 h-12 bg-white shadow-sm rounded-full flex items-center justify-center text-slate-500 active-scale hover:bg-slate-50"><i className="fa-solid fa-arrow-left text-lg"></i></button>
+                 <div className="text-sm font-black text-sky-800 bg-sky-100 px-5 py-2 rounded-full border border-sky-200 shadow-sm">请选择今日听写分组</div>
+               </div>
+               <div className="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-4 pb-8 custom-scrollbar px-2">
+                 <button onClick={() => startDictationSession([...VOCAB_LIST].sort(() => 0.5 - Math.random()).slice(0, 5), { id: 'random', label: '随机 5 词' })} className="md:col-span-2 bg-gradient-to-r from-amber-400 to-orange-500 text-white p-6 rounded-[2rem] shadow-md active-scale flex justify-between items-center hover:shadow-lg transition-shadow">
+                    <div className="text-left"><h3 className="font-black text-2xl mb-1">随机 5 词</h3><p className="text-sm font-bold opacity-90 uppercase tracking-widest">Random Challenge</p></div><i className="fa-solid fa-dice text-5xl opacity-50"></i>
+                 </button>
+                 {groups.map(g => (
+                    <button key={g.id} onClick={() => startDictationSession(g.words, { id: g.id, label: g.label })} className="bg-white p-5 rounded-2xl shadow-sm border-2 border-slate-200 active-scale flex flex-col items-start hover:border-sky-400 transition-colors">
+                       <h3 className="font-black text-sky-800 text-lg mb-1">{g.label}</h3><p className="text-xs font-bold text-slate-400 tracking-wider">{g.range}</p>
+                    </button>
+                 ))}
+               </div>
+             </div>
+        );
+      }
+      
+      if (mode === 'dictationPreview' || mode === 'dictation' || mode === 'dictationSummary' || mode === 'dictationResult' || mode === 'quiz' || mode === 'result') {
+          const dictDurationSeconds = dictStartedAt ? Math.max(1, Math.round(((dictCompletedAt || Date.now()) - dictStartedAt) / 1000)) : 0;
+          const dictMasteredCount = dictSessionWords.filter(w => dictMastery[w.id]).length;
+          const dictAccuracy = dictSessionWords.length ? Math.round((dictMasteredCount / dictSessionWords.length) * 100) : 0;
+          const quizScore = quizItems.reduce((sum, item, idx) => sum + (answers[idx] === item.ans ? 1 : 0), 0);
+          const quizAccuracy = quizItems.length ? Math.round((quizScore / quizItems.length) * 100) : 0;
+          const wrongQuizItems = quizItems
+            .map((item, idx) => ({ ...item, userAnswerIdx: answers[idx], index: idx }))
+            .filter(item => item.userAnswerIdx !== undefined && item.userAnswerIdx !== item.ans);
+          const quizPraise = getQuizPraise(quizAccuracy);
+
+          return (
+             <div className="p-4 md:p-8 pb-safe-scroll h-full min-h-0 overflow-y-auto custom-scrollbar flex flex-col fade-in bg-slate-100 max-w-4xl mx-auto w-full">
+                <div className="flex justify-between items-center mb-6 mt-2 shrink-0">
+                  <button onClick={() => {playTone('pop'); resetVocabModes();}} className="w-12 h-12 bg-white shadow-sm rounded-full flex items-center justify-center text-slate-500 active-scale hover:bg-slate-50"><i className="fa-solid fa-arrow-left text-lg"></i></button>
+                  <div className="text-sm font-black text-sky-800 bg-sky-100 px-5 py-2 rounded-full border border-sky-200 shadow-sm">
+                    {mode.includes('dictation') ? 'Dictation Challenge' : 'Speed Quiz'}
+                  </div>
+                </div>
+                
+                {mode === 'dictationPreview' && (
+                  <div className="flex-1 flex flex-col items-center">
+                      <div className="text-base font-black text-amber-600 bg-amber-100 px-6 py-2.5 rounded-full inline-block mb-6 shadow-sm border border-amber-200">
+                        <i className="fa-regular fa-clock mr-2 animate-pulse"></i> 倒计时 {previewCountdown} s
+                      </div>
+                      <div className="w-full max-w-lg bg-white p-6 rounded-[2rem] shadow-md border border-slate-200 space-y-3">
+                          <h3 className="text-center font-black text-slate-800 border-b-2 border-slate-100 pb-3 mb-4 flex justify-between items-center">
+                             <span>预览听写词汇</span>
+                             <span className="text-xs font-bold text-sky-600 bg-sky-50 px-2 py-1 rounded">{dictRoundInfo.label || dictGroupInfo.label}</span>
+                          </h3>
+                          {dictItems.map((v, i) => (
+                             <div key={v.id} className="font-bold border-b border-slate-100 pb-3 text-slate-700 flex items-center justify-between group">
+                                <div className="flex items-center">
+                                   <span className="text-sky-700 font-serif-novel text-lg mr-2">{v.word}</span>
+                                   <span className="text-slate-400 font-mono text-sm hidden md:inline">{v.phonetic}</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                   <span className="text-slate-500 text-right">{v.meaning}</span>
+                                   <button onClick={() => playWordAudio(v.word, `preview_${v.id}`)} className="w-8 h-8 rounded-full bg-sky-50 text-sky-500 hover:bg-sky-100 flex items-center justify-center transition-colors">
+                                       <i className="fa-solid fa-volume-high text-xs"></i>
+                                   </button>
+                                </div>
+                             </div>
+                          ))}
+                      </div>
+                      <div className="mt-8 w-full max-w-lg grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <button onClick={() => setPreviewCountdown(prev => prev + 15)} className="bg-white text-sky-700 w-full py-4 rounded-2xl font-black text-base active-scale shadow-md border border-sky-100 hover:bg-sky-50 transition-colors">再看 15 秒</button>
+                        <button onClick={() => setMode('dictation')} className="bg-sky-600 text-white w-full py-4 rounded-2xl font-black text-lg active-scale shadow-lg hover:bg-sky-500 transition-colors">现在开始听写</button>
+                      </div>
+                  </div>
+                )}
+
+                {mode === 'dictation' && (
+                  <div className="flex-1 flex flex-col items-center justify-center max-w-md mx-auto w-full">
+                      <div className="w-full flex items-center justify-between mb-4 text-xs font-black text-slate-500">
+                         <span className="bg-white px-3 py-2 rounded-full border border-slate-200 shadow-sm">{dictRoundInfo.label || dictGroupInfo.label}</span>
+                         <span className="bg-white px-3 py-2 rounded-full border border-slate-200 shadow-sm">第 {dictRound} 轮</span>
+                      </div>
+                      <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden mb-8 shadow-inner shrink-0">
+                         <div className="bg-amber-400 h-full transition-all duration-300" style={{width: `${((dictIdx + 1) / dictItems.length) * 100}%`}}></div>
+                      </div>
+                      
+                      <div className="w-full bg-white p-8 rounded-[2rem] shadow-lg border border-slate-200 flex flex-col items-center text-center">
+                        <button onClick={() => playWordAudio(dictItems[dictIdx].word, `dict`)} className="w-20 h-20 bg-sky-50 text-sky-500 border border-sky-100 rounded-full text-3xl mb-8 shadow-sm active-scale hover:bg-sky-100 transition-all flex items-center justify-center"><i className="fa-solid fa-volume-high"></i></button>
+                        
+                        {/* 听写输入框 */}
+                        <input type="text" value={dictAnswers[dictIdx]?.spelling || ''} onChange={e => setDictAnswers(p => ({...p, [dictIdx]: {...p[dictIdx], spelling: e.target.value}}))} disabled={dictHasSubmittedCurrent} className={`w-full text-center text-2xl font-serif-novel font-black p-4 border-2 rounded-2xl mb-4 bg-slate-50 focus:border-sky-500 outline-none transition-colors ${dictHasSubmittedCurrent && dictAnswers[dictIdx]?.isCorrect === false ? 'border-rose-400 text-rose-500 bg-rose-50' : ''}`} placeholder="拼写单词..." />
+                        
+                        {dictHasSubmittedCurrent ? (
+                           <div className={`w-full rounded-2xl p-4 mb-6 text-left font-bold text-sm slide-in-right border ${dictAnswers[dictIdx]?.isCorrect ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-rose-700 bg-rose-50 border-rose-200'}`}>
+                               <div className="flex items-center justify-between gap-3 mb-2">
+                                  <span className="flex items-center"><i className={`fa-solid ${dictAnswers[dictIdx]?.isCorrect ? 'fa-circle-check' : 'fa-circle-exclamation'} mr-2`}></i>{dictAnswers[dictIdx]?.isCorrect ? '本题已掌握' : '立刻纠错'}</span>
+                                  <span className="font-serif-novel text-base">{dictItems[dictIdx].word}</span>
+                               </div>
+                               <p className="leading-relaxed">{dictAnswers[dictIdx]?.reviewText}</p>
+                               <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                                  <span className="bg-white/70 px-3 py-1 rounded-full border border-current/20">音标 {dictItems[dictIdx].phonetic}</span>
+                                  <span className="bg-white/70 px-3 py-1 rounded-full border border-current/20">词义 {dictItems[dictIdx].meaning}</span>
+                               </div>
+                           </div>
+                        ) : <div className="mb-6"></div>}
+
+                        <div className="w-full space-y-3">
+                            {dictItems[dictIdx].options.map((o, i) => {
+                                let btnClass = "border-slate-200 bg-white text-slate-600 hover:bg-slate-50";
+                                if (dictHasSubmittedCurrent) {
+                                    if (o.id === dictItems[dictIdx].id) {
+                                        btnClass = "border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm";
+                                    } else if (dictAnswers[dictIdx]?.meaningId === o.id) {
+                                        btnClass = "border-rose-500 bg-rose-50 text-rose-700 shadow-sm";
+                                    }
+                                } else if (dictAnswers[dictIdx]?.meaningId === o.id) {
+                                    btnClass = "border-amber-500 bg-amber-50 text-amber-700 shadow-sm";
+                                }
+                                return (
+                                  <button key={o.id} onClick={() => setDictAnswers(p => ({...p, [dictIdx]: {...p[dictIdx], meaningId: o.id}}))} disabled={dictHasSubmittedCurrent} className={`w-full p-4 border-2 rounded-xl text-base font-bold text-left flex items-center ${btnClass}`}>
+                                    <span className="mr-3 font-black text-slate-400 w-5 text-center">{alphabet[i]}.</span>
+                                    <span>{o.meaning}</span>
+                                  </button>
+                                );
+                            })}
+                        </div>
+
+                        {!dictHasSubmittedCurrent ? (
+                           <button onClick={() => {
+                               const ans = dictAnswers[dictIdx] || {};
+                               const normalizedSpelling = (ans.spelling || '').trim().toLowerCase().replace(/\s+/g, ' ');
+                               const targetSpelling = dictItems[dictIdx].word.toLowerCase().replace(/\s+/g, ' ');
+                               const spellingCorrect = normalizedSpelling === targetSpelling;
+                               const meaningCorrect = ans.meaningId === dictItems[dictIdx].id;
+                               const isCorrect = spellingCorrect && meaningCorrect;
+                               const reviewText = getDictationReview(dictItems[dictIdx], spellingCorrect, meaningCorrect);
+                               if (isCorrect) { 
+                                   playTone('success'); 
+                                   setDictMastery(prev => ({ ...prev, [dictItems[dictIdx].id]: true }));
+                                   setDictAnswers(p => ({...p, [dictIdx]: {...p[dictIdx], isCorrect: true, spellingCorrect, meaningCorrect, reviewText }}));
+                               } else { 
+                                   playTone('wrong'); 
+                                   setDictAnswers(p => ({...p, [dictIdx]: {...p[dictIdx], isCorrect: false, spellingCorrect, meaningCorrect, reviewText }}));
+                                   if (!dictWrongWords.find(w => w.id === dictItems[dictIdx].id)) {
+                                       setDictWrongWords(prev => [...prev, dictItems[dictIdx]]);
+                                   }
+                               }
+                               setDictHasSubmittedCurrent(true);
+                           }} className="mt-8 bg-sky-600 text-white w-full py-4 rounded-2xl font-black text-lg shadow-md active-scale">检查答案</button>
+                        ) : (
+                           <button onClick={() => { 
+                               if(dictIdx < dictItems.length-1){
+                                   setDictIdx(dictIdx+1); setDictHasSubmittedCurrent(false);
+                               } else { 
+                                   setMode('dictationSummary'); // 进入总结页
+                               } 
+                           }} className="mt-8 bg-amber-500 text-white w-full py-4 rounded-2xl font-black text-lg shadow-[0_8px_20px_rgba(249,115,22,0.4)] active-scale pulse-glow">{dictIdx < dictItems.length-1 ? <>Next <i className="fa-solid fa-arrow-right ml-2"></i></> : <>查看本轮结果 <i className="fa-solid fa-flag-checkered ml-2"></i></>}</button>
+                        )}
+                      </div>
+                  </div>
+                )}
+
+                {/* --- 听写总结页 (错题巩固) --- */}
+                {mode === 'dictationSummary' && (
+                  <div className="flex-1 flex items-center justify-center max-w-md mx-auto w-full fade-in">
+                    <div className="bg-white p-8 rounded-[2rem] shadow-xl border border-slate-200 text-center w-full">
+                        <div className="bg-sky-50 border border-sky-100 rounded-2xl px-4 py-3 mb-6 flex items-center justify-between text-sm font-black text-sky-800">
+                           <span>{dictRoundInfo.label || dictGroupInfo.label}</span>
+                           <span>已攻克 {dictMasteredCount} / {dictSessionWords.length}</span>
+                        </div>
+                        {dictWrongWords.length === 0 ? (
+                           <>
+                             <i className="fa-regular fa-face-laugh-squint text-[70px] text-emerald-400 mb-6"></i>
+                             <h2 className="text-2xl font-black mb-2 text-slate-800">这一轮全部过关</h2>
+                             <p className="text-slate-500 text-sm font-bold mb-8">错词已经全部攻克，现在可以放心提交试卷了。</p>
+                             <button onClick={() => { setDictCompletedAt(Date.now()); setMode('dictationResult'); }} className="bg-sky-600 text-white w-full py-4 rounded-2xl font-black text-lg active-scale shadow-md flex items-center justify-center">提交试卷 <i className="fa-solid fa-check-double ml-2"></i></button>
+                           </>
+                        ) : (
+                           <>
+                             <i className="fa-solid fa-triangle-exclamation text-[60px] text-amber-500 mb-6 drop-shadow-sm"></i>
+                             <h2 className="text-2xl font-black mb-2 text-slate-800">先别急着交卷</h2>
+                             <p className="text-rose-500 text-sm font-bold mb-2">这一轮还有 {dictWrongWords.length} 个错词</p>
+                             <p className="text-slate-500 text-sm font-bold mb-6">你可以直接提交，也可以继续攻克错词，把最终成绩再提上去。</p>
+                             
+                             <div className="bg-rose-50 rounded-xl p-4 mb-8 text-left max-h-[200px] overflow-y-auto custom-scrollbar border border-rose-100">
+                                {dictWrongWords.map(w => (
+                                   <div key={w.id} className="flex justify-between items-center border-b border-rose-100/50 last:border-0 py-2">
+                                      <span className="text-rose-700 font-serif-novel font-black">{w.word}</span>
+                                      <span className="text-rose-500 text-sm font-bold">{w.meaning}</span>
+                                   </div>
+                                ))}
+                             </div>
+
+                             <div className="space-y-4">
+                               <button onClick={() => {
+                                   const nextRound = dictRound + 1;
+                                   setDictRound(nextRound);
+                                   startDictationSession(dictWrongWords, { id: 'retry', label: `错词攻克 · 第 ${nextRound} 轮` }, false);
+                               }} className="bg-amber-500 hover:bg-amber-400 text-white w-full py-4 rounded-2xl font-black text-lg active-scale shadow-md flex items-center justify-center transition-colors">
+                                   继续攻克错词 <i className="fa-solid fa-rotate-right ml-2"></i>
+                               </button>
+                               <button onClick={() => { setDictCompletedAt(Date.now()); setMode('dictationResult'); }} className="bg-slate-100 hover:bg-slate-200 text-slate-500 w-full py-4 rounded-2xl font-black text-base active-scale flex items-center justify-center transition-colors">
+                                   提交试卷
+                               </button>
+                             </div>
+                           </>
+                        )}
+                    </div>
+                  </div>
+                )}
+
+                {/* 极速测试含音标和发音 */}
+                {mode === 'quiz' && (
+                  <div className="flex-1 flex flex-col max-w-lg mx-auto w-full relative">
+                      <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden mb-6 shadow-inner shrink-0">
+                         <div className="bg-amber-400 h-full transition-all duration-300" style={{width: `${((currentQ + 1) / 30) * 100}%`}}></div>
+                      </div>
+                      
+                      <div className="bg-white p-8 rounded-[2rem] shadow-lg border border-slate-200 text-center my-auto flex-1 flex flex-col justify-center">
+                          <h3 className="text-3xl md:text-4xl font-black mb-2 text-sky-900 font-serif-novel flex justify-center items-center gap-4">
+                              {quizItems[currentQ].q}
+                              <button onClick={() => playWordAudio(quizItems[currentQ].q, quizItems[currentQ].wordObj.id)} className="w-10 h-10 rounded-full bg-sky-50 text-sky-500 border border-sky-100 text-lg flex items-center justify-center hover:bg-sky-100 shadow-sm active-scale"><i className="fa-solid fa-volume-high text-sm"></i></button>
+                          </h3>
+                          <p className="text-slate-400 font-mono text-sm mb-8">{quizItems[currentQ].phonetic}</p>
+                          
+                          <div className="space-y-3 mt-auto mb-auto">
+                              {quizItems[currentQ].options.map((opt, i) => {
+                                  const isSelected = answers[currentQ] === i;
+                                  const isCorrect = i === quizItems[currentQ].ans;
+                                  let cls = "border-slate-200 bg-white text-slate-600 hover:bg-slate-50";
+                                  let icon = null;
+                                  let letterColor = "text-slate-400";
+                                  
+                                  if (answers[currentQ] !== undefined) {
+                                      if (isCorrect) { cls = "border-emerald-500 bg-emerald-50 text-emerald-800 shadow-md"; icon = <i className="fa-solid fa-check text-emerald-500 text-xl bounce-in"></i>; letterColor="text-emerald-500"; }
+                                      else if (isSelected) { cls = "border-rose-500 bg-rose-50 text-rose-800 shadow-md"; icon = <i className="fa-solid fa-xmark text-rose-500 text-xl bounce-in"></i>; letterColor="text-rose-500"; }
+                                  } else if (isSelected) {
+                                      cls = "border-amber-500 bg-amber-50 text-amber-800"; letterColor="text-amber-500";
+                                  }
+                                  
+                                  return (
+                                    <button key={i} onClick={() => handleAnswer(i)} disabled={answers[currentQ] !== undefined} className={`w-full p-4 border-2 rounded-2xl font-bold text-left transition-all flex items-center justify-between ${cls} ${answers[currentQ] === undefined ? 'active-scale' : ''}`}>
+                                        <div className="flex items-center">
+                                            <span className={`mr-4 font-black text-lg w-6 text-center ${letterColor}`}>{alphabet[i]}.</span>
+                                            <span className="text-base md:text-lg">{opt}</span>
+                                        </div>
+                                        {icon}
+                                    </button>
+                                  )
+                              })}
+                          </div>
+                      </div>
+                      
+                      <div className="mt-6 shrink-0 h-14 relative">
+                        {Object.keys(answers).length === 30 && currentQ === 29 ? (
+                            <button onClick={submitQuiz} className="absolute inset-0 w-full bg-sky-600 text-white rounded-2xl font-black text-lg shadow-lg active-scale pulse-glow bounce-in">Submit</button>
+                        ) : null}
+                      </div>
+                  </div>
+                )}
+
+                {/* --- 最终结果打卡页 --- */}
+                {mode === 'dictationResult' && (
+                  <div className="flex-1 flex items-center justify-center max-w-md mx-auto w-full">
+                    <div className="bg-white p-8 md:p-10 rounded-[2rem] shadow-xl border border-slate-200 text-center w-full relative overflow-hidden">
+                        <div className="absolute inset-0 pointer-events-none opacity-[0.03]" style={{backgroundImage: 'repeating-linear-gradient(transparent, transparent 39px, #000 39px, #000 40px)'}}></div>
+                        <i className="fa-solid fa-medal text-[70px] text-amber-400 mb-6 drop-shadow-md"></i>
+                        <h2 className="text-3xl font-black mb-1 text-slate-800">Dictation Completed</h2>
+                        <p className="text-slate-500 text-sm font-bold mb-8">{dictAccuracy === 100 ? 'Excellent job!' : 'Nice work, and your corrections counted.'}</p>
+                        
+                        <div className="grid grid-cols-2 gap-3 text-xs font-bold text-slate-600 mb-8 w-full relative z-10">
+                           <div className="bg-sky-50 py-4 px-4 rounded-2xl border border-sky-100 shadow-sm text-left">
+                             <p className="text-slate-500 mb-2">最终掌握</p>
+                             <p className="text-sky-800 text-xl font-black">{dictMasteredCount}<span className="text-sm text-slate-400"> / {dictSessionWords.length}</span></p>
+                           </div>
+                           <div className="bg-sky-50 py-4 px-4 rounded-2xl border border-sky-100 shadow-sm text-left">
+                             <p className="text-slate-500 mb-2">正确率</p>
+                             <p className="text-amber-500 text-xl font-black">{dictAccuracy}<span className="text-sm">%</span></p>
+                           </div>
+                        </div>
+
+                        <div className="flex flex-col items-center justify-center text-xs font-bold text-slate-600 mb-8 bg-sky-50 py-4 px-6 rounded-2xl border border-sky-100 gap-3 w-full relative z-10 shadow-sm">
+                           <div className="flex items-center w-full justify-between border-b border-sky-200/60 pb-3">
+                             <span className="text-slate-500">完成时间</span>
+                             <span className="text-slate-800 font-mono text-sm"><i className="fa-regular fa-clock mr-1.5 text-sky-500"></i> {formatDateTime(dictCompletedAt)}</span>
+                           </div>
+                           <div className="flex items-center w-full justify-between border-b border-sky-200/60 pb-3">
+                             <span className="text-slate-500">测试用时</span>
+                             <span className="text-slate-800 font-mono text-sm"><i className="fa-solid fa-stopwatch mr-1.5 text-amber-500"></i> {formatTime(dictDurationSeconds)}</span>
+                           </div>
+                           <div className="flex items-center w-full justify-between pt-1">
+                             <span className="text-slate-500">听写范围</span>
+                             <span className="text-sky-800 bg-sky-100 px-3 py-1 rounded text-sm"><i className="fa-solid fa-layer-group mr-1.5 text-amber-500"></i> {dictGroupInfo?.label || '全部完成'}</span>
+                           </div>
+                        </div>
+
+                        <button onClick={resetVocabModes} className="bg-slate-900 text-white w-full py-4 rounded-2xl font-black text-lg active-scale shadow-md flex items-center justify-center relative z-10 hover:bg-slate-800">
+                            <i className="fa-solid fa-book-open mr-2 text-slate-400"></i> Back to Notes
+                        </button>
+                    </div>
+                  </div>
+                )}
+
+                {mode === 'result' && (
+                  <div className="w-full max-w-2xl mx-auto fade-in">
+                    <div className="bg-white p-8 md:p-10 rounded-[2rem] shadow-xl border border-slate-200 text-center w-full relative overflow-hidden">
+                        <i className="fa-solid fa-trophy text-[70px] text-amber-400 mb-6 drop-shadow-md"></i>
+                        <h2 className="text-3xl font-black mb-1 text-slate-800">Speed Quiz Completed</h2>
+                        <p className="text-slate-500 text-sm font-bold mb-8">{quizPraise}</p>
+                        
+                        <div className="grid grid-cols-2 gap-3 mb-8 text-left">
+                           <div className="bg-slate-50 py-4 px-4 rounded-2xl border border-slate-200 shadow-sm">
+                              <p className="text-slate-500 text-xs font-black mb-2 uppercase tracking-widest">Score</p>
+                              <p className="text-2xl font-black text-slate-800">{quizScore}<span className="text-sm text-slate-400"> / {quizItems.length}</span></p>
+                           </div>
+                           <div className="bg-slate-50 py-4 px-4 rounded-2xl border border-slate-200 shadow-sm">
+                              <p className="text-slate-500 text-xs font-black mb-2 uppercase tracking-widest">Accuracy</p>
+                              <p className="text-2xl font-black text-amber-500">{quizAccuracy}<span className="text-sm">%</span></p>
+                           </div>
+                        </div>
+
+                        <div className="flex items-center justify-center text-sm font-bold text-slate-600 mb-8 bg-slate-50 py-3 px-5 rounded-xl border border-slate-200 relative z-10">
+                           <i className="fa-regular fa-clock mr-2 text-amber-500"></i> 完成时间: {formatDateTime(quizCompletedAt)}
+                        </div>
+
+                        <button onClick={resetVocabModes} className="bg-slate-900 text-white w-full py-4 rounded-2xl font-black text-lg active-scale shadow-md flex items-center justify-center relative z-10 hover:bg-slate-800">
+                            <i className="fa-solid fa-book-open mr-2 text-slate-400"></i> Back to Notes
+                        </button>
+                    </div>
+
+                    {wrongQuizItems.length > 0 && (
+                      <div className="mt-8 space-y-4">
+                        <h3 className="text-lg font-black text-slate-800 ml-2 border-l-4 border-amber-400 pl-3">错题解析 Review</h3>
+                        {wrongQuizItems.map((item) => (
+                          <div key={item.index} className="bg-white p-5 rounded-2xl shadow-sm border border-rose-200 text-left">
+                             <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
+                                <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Question {item.index + 1}</span>
+                                <span className="text-rose-500 font-black text-sm">Wrong</span>
+                             </div>
+                             <div className="flex items-center gap-3 mb-3">
+                                <p className="font-serif-novel font-black text-2xl text-sky-900">{item.q}</p>
+                                <span className="text-xs text-slate-400 font-mono">{item.phonetic}</span>
+                             </div>
+                             <div className="space-y-2 text-sm font-bold">
+                                <p className="text-rose-500"><i className="fa-solid fa-xmark mr-2"></i>你的答案：{item.options[item.userAnswerIdx]}</p>
+                                <p className="text-emerald-500"><i className="fa-solid fa-check mr-2"></i>正确答案：{item.options[item.ans]}</p>
+                                <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-600 leading-relaxed">
+                                  <i className="fa-solid fa-lightbulb text-amber-400 mr-2"></i>{item.explain}
+                                </div>
+                             </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+             </div>
+          )
+      }
+    };
+
+    // --- 3. Practice Tab (实战演练 - 直接展示答案版) ---
+    const PracticeTab = () => {
+      const readingData = [
+        { id: 'r1', q: "Jobs calls the 'single best invention of Life':", a: "B. Death", exp: "乔布斯认为死亡是生命中最伟大的发明，因为它清除了旧事物，为新事物让路。" },
+        { id: 'r2', q: "What does 'trapped by dogma' mean?", a: "B. Living with other people's thinking", exp: "dogma（教条）在这里特指盲从别人的思考结果，失去自我。" },
+        { id: 'r3', q: "Which is a powerful Auditory Metaphor (听觉隐喻)?", a: "B. Drown out your inner voice", exp: "把外界的意见比作噪音，淹没（drown out）了内心的声音，是非常生动的听觉隐喻。" },
+        { id: 'r4', q: "'Beneath it were the words' uses which structure?", a: "A. Inversion (倒装句)", exp: "正常语序为 The words were beneath it。把介词短语提前，起到强调和制造悬念的作用。" },
+        { id: 'r5', q: "Core message of 'Stay Hungry. Stay Foolish.'?", a: "B. Keep learning, keep taking risks.", exp: "求知若饥，虚心若愚。鼓励大家保持好奇心，勇于突破自己的界限。" }
+      ];
+
+      const speechData = [
+        { id: 's1', q: "【Hook】演讲刚开始，如何瞬间抓住注意力？", a: "B. No one wants to die. —— 直接抛出震撼观点", exp: "不要干巴巴地说 Hello，用带有冲击力的大胆陈述直接抓住听众的耳朵。" },
+        { id: 's2', q: "【Transition】如何引出核心大道理（由此及彼）？", a: "B. And yet death is the destination we all share.", exp: "使用 And yet 形成漂亮转折，从个人观点自然过渡到人类共同的宿命，进而引出深刻道理。" },
+        { id: 's3', q: "【Ending】什么样的结尾能留下最深刻烙印？", a: "A. 简短有力，祈使句连续重复：Stay Hungry. Stay Foolish.", exp: "The Magic of 3（三连击黄金法则）！极简的祈使句重复，能让核心思想深深印在听众脑海中回荡。" }
+      ];
+
+      return (
+        <div className="p-4 md:p-8 pb-safe-scroll overflow-y-auto h-full fade-in bg-slate-50 custom-scrollbar relative">
+           <div className="max-w-4xl mx-auto w-full relative z-10 pt-2">
+             <div className="mb-10">
+               <div className="flex items-center justify-between mb-4 border-b-2 border-sky-200 pb-2">
+                 <div>
+                   <h2 className="text-2xl md:text-3xl font-serif font-black tracking-tight text-sky-900 flex items-center"><i className="fa-solid fa-chess-knight mr-3 text-amber-500"></i> Reading Key Notes</h2>
+                   <p className="text-slate-500 text-sm font-bold mt-1">阅读核心逻辑梳理与答案解析</p>
+                 </div>
+               </div>
+               
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                 {readingData.map((q, i) => (
+                   <div key={q.id} className="bg-white p-6 rounded-3xl shadow-sm border-2 border-slate-100 hover:border-sky-300 transition-colors flex flex-col">
+                      <p className="font-black text-slate-800 text-lg mb-4 flex items-start"><span className="text-sky-500 mr-2 mt-0.5">{i+1}.</span> {q.q}</p>
+                      <div className="bg-emerald-50 rounded-2xl p-4 border border-emerald-100 mb-4 mt-auto">
+                         <p className="text-emerald-700 font-bold text-[15px] flex items-center"><i className="fa-solid fa-check-circle mr-2 text-emerald-500 text-lg"></i> {q.a}</p>
+                      </div>
+                      <div className="bg-slate-50 rounded-xl p-4">
+                         <p className="text-slate-600 text-sm font-bold leading-relaxed"><i className="fa-solid fa-lightbulb text-amber-400 mr-2"></i> {q.exp}</p>
+                      </div>
+                   </div>
+                 ))}
+               </div>
+             </div>
+
+             <div className="mb-10">
+               <div className="flex items-center justify-between mb-4 border-b-2 border-rose-200 pb-2 mt-12">
+                 <div>
+                   <h2 className="text-2xl md:text-3xl font-serif font-black tracking-tight text-sky-900 flex items-center"><i className="fa-solid fa-microphone-lines mr-3 text-rose-500"></i> Speech Master Key</h2>
+                   <p className="text-slate-500 text-sm font-bold mt-1">演说大师金句拆解</p>
+                 </div>
+               </div>
+
+               <div className="space-y-5">
+                 {speechData.map((q, i) => (
+                   <div key={q.id} className="bg-slate-800 p-6 md:p-8 rounded-3xl shadow-md border-l-8 border-rose-500 text-white relative overflow-hidden">
+                      <div className="absolute top-0 right-0 text-slate-700 opacity-20 text-[100px] pointer-events-none -mt-4"><i className="fa-solid fa-quote-right"></i></div>
+                      <p className="font-black text-sky-100 text-xl mb-5 leading-relaxed relative z-10"><span className="text-rose-400 mr-2">{i+1}.</span> {q.q}</p>
+                      <div className="bg-emerald-900/40 rounded-2xl p-4 border border-emerald-800/50 mb-4 relative z-10">
+                         <p className="text-emerald-400 font-black text-[16px] flex items-center"><i className="fa-solid fa-bullseye mr-3 text-emerald-500 text-xl"></i> {q.a}</p>
+                      </div>
+                      <div className="bg-slate-900/50 rounded-xl p-4 relative z-10">
+                         <p className="text-slate-300 text-sm font-bold leading-relaxed"><i className="fa-solid fa-wand-magic-sparkles text-amber-400 mr-2"></i> {q.exp}</p>
+                      </div>
+                   </div>
+                 ))}
+               </div>
+             </div>
+           </div>
+        </div>
+      );
+    };
+
+    // --- 4. Game Tab (词汇流星雨) ---
+    const GameTab = () => {
+      const [fallState, setFallState] = useState('menu');
+      const [fallDiff, setFallDiff] = useState(7);
+      const [fallScore, setFallScore] = useState(0);
+      const [wordPool, setWordPool] = useState([]);
+      const [activeWords, setActiveWords] = useState([]);
+      const [meaningOptions, setMeaningOptions] = useState([]);
+      const [tick, setTick] = useState(0);
+
+      const startFallGame = (diff) => {
+          setFallDiff(diff);
+          const selectedWords = [...VOCAB_LIST].sort(() => Math.random() - 0.5).slice(0, 10);
+          setWordPool(selectedWords); setMeaningOptions([...selectedWords].sort(() => Math.random() - 0.5));
+          setActiveWords([]); setFallScore(0); setTick(0); setFallState('playing'); playTone('pop');
+      };
+
+      useEffect(() => {
+          if (fallState !== 'playing') return;
+          const intervalRate = (fallDiff * 1000) * 0.45; 
+          const timer = setInterval(() => setTick(t => t + 1), intervalRate);
+          return () => clearInterval(timer);
+      }, [fallState, fallDiff]);
+
+      useEffect(() => {
+          if (fallState === 'playing' && wordPool.length > 0) {
+              const leftPos = 5 + Math.random() * 60; 
+              setActiveWords(prev => [...prev, { ...wordPool[0], id: Date.now(), leftPos }]);
+              setWordPool(prev => prev.slice(1));
+          } else if (fallState === 'playing' && wordPool.length === 0 && activeWords.length === 0) {
+              setFallState('victory'); playTone('success');
+          }
+      }, [tick]);
+
+      const handleFallMeaningClick = (meaning) => {
+          if (fallState !== 'playing' || activeWords.length === 0) return;
+          const target = activeWords[0];
+          const isLastVisibleWord = activeWords.length === 1;
+          if (target.meaning === meaning) {
+              playTone('pop'); setActiveWords(prev => prev.slice(1)); setFallScore(s => s + 10);
+              if (wordPool.length === 0 && isLastVisibleWord) { setFallState('victory'); playTone('success'); } 
+              else if (wordPool.length > 0 && isLastVisibleWord) setTick(t => t + 1);
+          } else {
+              playTone('deduct'); setFallScore(s => Math.max(0, s - 5));
+          }
+      };
+
+      return (
+        <div className="p-4 md:p-8 pb-safe-scroll overflow-y-auto h-full fade-in bg-slate-900 flex flex-col text-white">
+           <div className="max-w-4xl mx-auto w-full h-full flex flex-col">
+             <h2 className="text-2xl md:text-3xl font-serif font-black tracking-tight text-white mb-6 flex items-center justify-center pt-2"><i className="fa-solid fa-meteor mr-3 text-amber-400"></i> Word Meteor Rush</h2>
+             <div className="flex-1 bg-slate-800 rounded-[2rem] shadow-[0_inset_0_10px_30px_rgba(0,0,0,0.5)] border-4 border-slate-700 relative flex flex-col p-6 overflow-hidden">
+                {fallState === 'menu' && (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center fade-in">
+                     <i className="fa-solid fa-meteor text-[80px] text-amber-400 mb-8 animate-bounce drop-shadow-[0_0_15px_rgba(251,191,36,0.5)]"></i>
+                     <h3 className="text-3xl font-black mb-2 text-white tracking-widest">词汇流星雨</h3>
+                     <p className="text-slate-400 text-sm mb-10 font-bold">测试你的瞬间反应力！选择下落单词的正确意思。</p>
+                     <div className="flex flex-col md:flex-row gap-4 w-full max-w-md">
+                         <button onClick={() => startFallGame(10)} className="flex-1 bg-emerald-500 text-white font-black py-4 rounded-2xl text-base active-scale border-b-4 border-emerald-700 hover:bg-emerald-400">简单 (10s) 🐢</button>
+                         <button onClick={() => startFallGame(7)} className="flex-1 bg-amber-500 text-white font-black py-4 rounded-2xl text-base active-scale border-b-4 border-amber-700 hover:bg-amber-400">中等 (7s) 🚶</button>
+                         <button onClick={() => startFallGame(5)} className="flex-1 bg-rose-500 text-white font-black py-4 rounded-2xl text-base active-scale border-b-4 border-rose-700 hover:bg-rose-400">高级 (5s) 🏃</button>
+                     </div>
+                  </div>
+                )}
+                {fallState === 'playing' && (
+                  <div className="flex-1 flex flex-col fade-in relative z-10">
+                     <div className="flex justify-between text-sm md:text-base font-black text-slate-300 mb-4 px-2">
+                         <span className="text-amber-400 font-mono text-xl">Score: {fallScore}</span><span className="text-sky-300 font-mono text-lg">Remain: {wordPool.length + activeWords.length}/10</span>
+                     </div>
+                     <div className="flex-1 relative overflow-hidden bg-slate-900/60 rounded-[1.5rem] border-2 border-slate-700 mb-6 min-h-[300px]">
+                         <div className="absolute bottom-4 left-0 w-full border-t-2 border-dashed border-rose-500/50 z-0"></div>
+                         {activeWords.map(w => (
+                             <div key={w.id} className="absolute font-black text-white bg-sky-500 px-4 md:px-6 py-2 md:py-3 rounded-xl shadow-lg border-2 border-sky-300 text-lg md:text-xl z-10 whitespace-nowrap fall-anim"
+                                  style={{ left: `${w.leftPos}%`, animationDuration: `${fallDiff}s` }}
+                                  onAnimationEnd={() => { if (fallState === 'playing') { setFallState('gameover'); playTone('deduct'); } }}>
+                                 {w.word}
+                             </div>
+                         ))}
+                     </div>
+                     <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                         {meaningOptions.map(opt => (
+                             <button key={opt.word} onClick={() => handleFallMeaningClick(opt.meaning)} className="bg-slate-700 text-white border-2 border-slate-600 hover:bg-amber-500 hover:border-amber-400 hover:text-slate-900 font-black rounded-xl text-sm md:text-base transition-colors active-scale p-3 md:p-4 truncate shadow-md">
+                                 {opt.meaning}
+                             </button>
+                         ))}
+                     </div>
+                  </div>
+                )}
+                {(fallState === 'gameover' || fallState === 'victory') && (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center fade-in">
+                     <i className={`fa-solid ${fallState === 'victory' ? 'fa-crown text-amber-400' : 'fa-skull text-rose-500'} text-[100px] mb-6 drop-shadow-xl`}></i>
+                     <h3 className="text-4xl font-black text-white mb-2 uppercase tracking-widest">{fallState === 'victory' ? 'Victory!' : 'Game Over'}</h3>
+                     <p className="text-sky-200 text-xl mb-10 font-bold font-mono">Final Score: {fallScore}</p>
+                     <button onClick={() => setFallState('menu')} className="bg-sky-500 text-white font-black px-10 py-4 rounded-2xl text-lg active-scale hover:bg-sky-400 border-b-4 border-sky-700 transition-all">Try Again <i className="fa-solid fa-rotate-right ml-2"></i></button>
+                  </div>
+                )}
+             </div>
+           </div>
+        </div>
+      );
+    };
+
+    // --- MAIN APP ---
+    const App = () => {
+      const [activeTab, setActiveTab] = useState('reading');
+
+      const tabs = [
+        { id: 'reading', icon: 'fa-book-open', label: '课文精读' },
+        { id: 'vocab', icon: 'fa-spell-check', label: '词汇闯关' },
+        { id: 'practice', icon: 'fa-layer-group', label: '实战总结' },
+        { id: 'game', icon: 'fa-meteor', label: '流星雨' }
+      ];
+
+      return (
+        <div className="flex flex-col h-full w-full bg-sky-50 font-sans relative overflow-hidden">
+          <Header tabs={tabs} activeTab={activeTab} setActiveTab={setActiveTab} />
+          <main className="flex-1 overflow-hidden relative flex flex-col z-10 bg-sky-50/60 bg-[url('https://www.transparenttextures.com/patterns/diagmonds-light.png')]">
+            {activeTab === 'reading' && <ReadingTab />}
+            {activeTab === 'vocab' && <VocabTab />}
+            {activeTab === 'practice' && <PracticeTab />}
+            {activeTab === 'game' && <GameTab />}
+          </main>
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
+

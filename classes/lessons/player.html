@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Xiaoyao Studio Lesson</title>
+  <style>
+    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#f5f6fc;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',Arial,sans-serif}
+    iframe{display:block;width:100%;height:100vh;height:100dvh;border:0;background:#f5f6fc}
+    .state{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:24px;text-align:center;color:#2D2A4A}
+    .state.visible{display:flex}
+    .state>div{max-width:420px;border-radius:28px;background:#fff;padding:28px;box-shadow:0 20px 60px -30px rgba(92,45,255,.45)}
+    .state h1{margin:0 0 10px;font-size:22px;font-weight:900}
+    .state p{margin:0;color:#74777c;font-size:14px;line-height:1.7;font-weight:700;word-break:break-word}
+  </style>
+</head>
+<body>
+  <div class="state" id="state"></div>
+  <script>
+    (async function() {
+      const state = document.getElementById('state');
+      const params = new URLSearchParams(location.search);
+      const hwId = params.get('hwId') || '';
+      const storedTarget = hwId ? localStorage.getItem('xy_remote_lesson:' + hwId) : '';
+      const candidates = [];
+      function addCandidate(url) {
+        if (url && !candidates.includes(url)) candidates.push(url);
+      }
+      addCandidate(params.get('url'));
+      addCandidate(storedTarget);
+      if (hwId) addCandidate(new URL('./' + hwId + '.html', location.href).href);
+      function fail(message) {
+        state.classList.add('visible');
+        state.innerHTML = '<div><h1>课程打开失败</h1><p>' + String(message || '未知错误').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) + '</p></div>';
+      }
+      async function loadLesson() {
+        let lastError = '';
+        for (const target of candidates) {
+          try {
+            const response = await fetch(target, { cache:'no-store' });
+            if (!response.ok) {
+              lastError = target + '：' + response.status;
+              continue;
+            }
+            return { target, html:await response.text() };
+          } catch (err) {
+            lastError = err && err.message ? err.message : String(err);
+          }
+        }
+        throw new Error(lastError || '缺少课程文件地址。');
+      }
+      if (!candidates.length) return fail('缺少课程文件地址。');
+      try {
+        const loaded = await loadLesson();
+        const target = loaded.target;
+        let html = loaded.html;
+        html = html.replace(/lesson-standalone\.html(?:\?v=[^"'#<\s]*)?/g, 'lesson-standalone.html?v=20260508-records-3');
+        const standaloneSrc = new URL('../_yu1/lesson-standalone.html?v=20260508-records-3', location.href).href;
+        html = html.replace(/(["'])((?:\.\.\/|\.\/)?_yu1\/)?lesson-standalone\.html(?:\?v=[^"'#<\s]*)?/g, '$1' + standaloneSrc);
+        const baseHref = new URL('./', target).href;
+        const baseTag = '<base href="' + baseHref.replace(/"/g, '&quot;') + '">';
+        const bridgeSrc = new URL('../_yu1/xy-record-bridge.js?v=20260508-records-3', location.href).href;
+        const bridgeTag = '<script src="' + bridgeSrc.replace(/"/g, '&quot;') + '" defer><\/script>';
+        html = /<head[^>]*>/i.test(html) ? html.replace(/<head([^>]*)>/i, '<head$1>' + baseTag) : baseTag + html;
+        html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, bridgeTag + '</head>') : bridgeTag + html;
+        const iframe = document.createElement('iframe');
+        iframe.setAttribute('allow', 'autoplay; clipboard-read; clipboard-write; fullscreen; microphone; camera');
+        iframe.setAttribute('allowfullscreen', '');
+        iframe.srcdoc = html;
+        document.body.innerHTML = '';
+        document.body.appendChild(iframe);
+      } catch (err) {
+        fail(err && err.message ? err.message : err);
+      }
+    })();
+  </script>
+</body>
+</html>

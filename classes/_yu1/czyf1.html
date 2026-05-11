@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>初中语法滚动测试 - XIAOYAO STUDIO</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 学院派复古与激进红风格设定 */
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700;900&display=swap');
+        
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f1ea; /* 羊皮纸色调 */
+            color: #1a1a1a;
+            -webkit-font-smoothing: antialiased;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .font-academic {
+            font-family: 'Noto Serif SC', serif;
+        }
+        
+        .fade-enter { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 极简学术输入框 */
+        .inline-input {
+            appearance: none;
+            border: none;
+            border-bottom: 2px solid #7f1d1d; /* 深赤红 */
+            background: rgba(127, 29, 29, 0.03);
+            text-align: center;
+            font-family: monospace;
+            font-weight: bold;
+            font-size: 1.15rem;
+            color: #7f1d1d;
+            width: 110px;
+            margin: 0 4px;
+            padding: 2px 0;
+            outline: none;
+            border-radius: 0;
+            transition: all 0.3s ease;
+        }
+        .inline-input:focus { 
+            border-bottom-color: #b45309; /* 聚焦时变为暗金色 */
+            background: rgba(180, 83, 9, 0.05);
+            width: 140px; 
+            color: #b45309;
+        }
+        
+        .correction-input {
+             appearance: none;
+             border: 1px solid #d6d3d1;
+             border-radius: 2px;
+             background: #fff;
+             padding: 10px 14px;
+             font-family: monospace;
+             font-weight: bold;
+             font-size: 1.05rem;
+             width: 100%;
+             color: #7f1d1d;
+             outline: none;
+             transition: all 0.3s ease;
+        }
+        .correction-input:focus { 
+            border-color: #7f1d1d; 
+            box-shadow: inset 4px 0 0 #7f1d1d; 
+        }
+
+        /* 隐藏滚动条 */
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* 纸质边框效果 */
+        .paper-shadow {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        // --- 中考命题专家级题库 (每天严格15题，无语篇改错) ---
+        const daysData = [
+            {
+                id: 1,
+                title: "Day 1 基础时态与语态重构",
+                subtitle: "TENSES & VOICES FUNDAMENTALS",
+                questions: [
+                    { id: 'd1-1', type: 'fill', text: "1. Our geography teacher told us that the earth {blank} (go) around the sun.", answer: "goes", tag: "客观真理", explanation: "表客观真理，即使主句是过去时，从句也要用一般现在时。" },
+                    { id: 'd1-2', type: 'fill', text: "2. — Where is Mr. Smith?\n— He isn't here. He {blank} (go) to the library.", answer: "has gone", tag: "现在完成时", explanation: "去某地且未归，用 has gone to。" },
+                    { id: 'd1-3', type: 'fill', text: "3. Look at those dark clouds! It {blank} (rain) heavily soon.", answer: "is going to rain", tag: "一般将来时", explanation: "有明显的客观迹象（dark clouds），表客观预测，用 be going to。" },
+                    { id: 'd1-4', type: 'fill', text: "4. While my mother {blank} (cook) dinner in the kitchen, the telephone rang.", answer: "was cooking", tag: "过去进行时", explanation: "while 引导从句，表示过去某时刻正在进行的动作。" },
+                    { id: 'd1-5', type: 'fill', text: "5. Over the past five years, many new schools {blank} (build) in our city.", answer: "have been built", tag: "现在完成被动", explanation: "Over the past... 连用现在完成时；schools 与 build 是被动关系。" },
+                    { id: 'd1-6', type: 'fill', text: "6. Please be quiet! The baby {blank} (sleep) in the bedroom right now.", answer: "is sleeping", tag: "现在进行时", explanation: "right now 提示动作此刻正在发生。" },
+                    { id: 'd1-7', type: 'fill', text: "7. By the time I finally arrived, the train {blank} (leave).", answer: "had left", tag: "过去完成时", explanation: "by the time + 一般过去时，主句通常用过去完成时(过去的过去)。" },
+                    { id: 'd1-8', type: 'fill', text: "8. Ever since he moved to Shenzhen in 2018, he {blank} (work) here.", answer: "has worked", tag: "现在完成时", explanation: "Since + 过去时间点，主句用现在完成时。" },
+                    { id: 'd1-9', type: 'fill', text: "9. A sports meeting {blank} (hold) in our school next month.", answer: "will be held / is going to be held", tag: "一般将来时被动", explanation: "next month 提示将来时，sports meeting 被举办。" },
+                    { id: 'd1-10', type: 'correction', text: "10. The terrible traffic accident was happened late last night.", target: "was happened", answer: "happened", tag: "无被动语态", explanation: "happen 是不及物动词，无被动语态，直接用过去时。" },
+                    { id: 'd1-11', type: 'correction', text: "11. I am completely agree with your brilliant idea.", target: "am completely agree", answer: "completely agree", tag: "动词杂糅", explanation: "agree 是实义动词，这里直接用 completely agree，不能和 be 动词杂糅。" },
+                    { id: 'd1-12', type: 'correction', text: "12. The classroom has cleaned by the students already.", target: "has cleaned", answer: "has been cleaned", tag: "被动语态缺失", explanation: "教室是被打扫的，需要加 been 构成现在完成被动语态。" },
+                    { id: 'd1-13', type: 'correction', text: "13. Yes, he has returned the book two days ago.", target: "has returned", answer: "returned", tag: "时态误用", explanation: "有明确的过去时间 two days ago，必须用一般过去时。" },
+                    { id: 'd1-14', type: 'correction', text: "14. Because he tired yesterday, he didn't go to school.", target: "he tired", answer: "he was tired", tag: "缺谓语", explanation: "tired 是形容词，不能直接作谓语，需加 be 动词。" },
+                    { id: 'd1-15', type: 'correction', text: "15. Went to the supermarket to buy some milk just now.", target: "Went", answer: "I went / He went", tag: "缺主语", explanation: "英语除了祈使句，通常不能省略主语。" }
+                ]
+            },
+            {
+                id: 2,
+                title: "Day 2 三大从句突破区",
+                subtitle: "SUBORDINATE CLAUSES MASTERY",
+                questions: [
+                    { id: 'd2-1', type: 'fill', text: "1. I don't know {blank} (if/that) he will come to the party tomorrow.", answer: "if / whether", tag: "宾语从句引导词", explanation: "表示“是否”用 if 或 whether。that 无实义。" },
+                    { id: 'd2-2', type: 'fill', text: "2. She said that she {blank} (be) very tired after the trip.", answer: "was", tag: "宾语从句时态", explanation: "主句 said 是过去时，从句需相应降级为过去时态。" },
+                    { id: 'd2-3', type: 'fill', text: "3. This is the book {blank} (who/which) I borrowed from the library.", answer: "which / that", tag: "定语从句关系词", explanation: "先行词是物(the book)，用 which 或 that 引导。" },
+                    { id: 'd2-4', type: 'fill', text: "4. I will call you as soon as I {blank} (arrive) in Beijing.", answer: "arrive", tag: "状语从句时态", explanation: "as soon as 引导时间状语从句，遵循“主将从现”原则。" },
+                    { id: 'd2-5', type: 'fill', text: "5. I don't know where he {blank} (live).", answer: "lives", tag: "宾语从句语序", explanation: "宾语从句用陈述句语序，he是三单，用lives。" },
+                    { id: 'd2-6', type: 'fill', text: "6. The man {blank} (who/which) is talking to my father is Mr. Li.", answer: "who / that", tag: "定语从句关系词", explanation: "先行词是人(The man)，且在从句中作主语，用 who 或 that。" },
+                    { id: 'd2-7', type: 'fill', text: "7. He asked me what time it {blank} (be).", answer: "was", tag: "宾语从句时态", explanation: "主句 asked 过去时，从句用对应的过去时 was。" },
+                    { id: 'd2-8', type: 'fill', text: "8. This is the most interesting movie {blank} (that/which) I have ever seen.", answer: "that", tag: "定语从句特殊词", explanation: "先行词被最高级修饰时，关系代词只能用 that。" },
+                    { id: 'd2-9', type: 'fill', text: "9. If it {blank} (not rain) tomorrow, we will go for a picnic.", answer: "doesn't rain", tag: "状语从句时态", explanation: "if引导条件状语从句，遵循主将从现原则。" },
+                    { id: 'd2-10', type: 'fill', text: "10. Could you tell me how long I can {blank} (keep) this book?", answer: "keep", tag: "情态动词用法", explanation: "can后接动词原形，宾语从句内部考察基本用法。" },
+                    { id: 'd2-11', type: 'correction', text: "11. Because he was ill, so he didn't go to school.", target: "Because he was ill, so", answer: "Because he was ill, / He was ill, so", tag: "连词冗余", explanation: "Because和so在英语中不能同时出现在一个句子中。" },
+                    { id: 'd2-12', type: 'correction', text: "12. I want to know when will he arrive.", target: "when will he arrive", answer: "when he will arrive", tag: "宾语从句语序", explanation: "宾语从句必须使用陈述句语序（疑问词+主语+谓语）。" },
+                    { id: 'd2-13', type: 'correction', text: "13. Although it rained heavily, but they still went out.", target: "Although it rained heavily, but", answer: "Although it rained heavily, / It rained heavily, but", tag: "连词冗余", explanation: "Although和but不能同句使用。" },
+                    { id: 'd2-14', type: 'correction', text: "14. She is the girl which has long hair.", target: "which", answer: "who / that", tag: "关系词误用", explanation: "先行词指人（the girl），关系代词不能用which。" },
+                    { id: 'd2-15', type: 'correction', text: "15. I am not sure if he comes here tomorrow.", target: "comes", answer: "will come", tag: "宾语从句时态", explanation: "这里if表“是否”，引导宾语从句，有tomorrow故用将来时。" }
+                ]
+            },
+            {
+                id: 3,
+                title: "Day 3 非谓语与并列结构",
+                subtitle: "NON-FINITE VERBS & PARALLEL",
+                questions: [
+                    { id: 'd3-1', type: 'fill', text: "1. The boy {blank} (play) basketball over there is my brother.", answer: "playing", tag: "现在分词", explanation: "真正谓语是is。boy主动play，用现在分词playing作后置定语。" },
+                    { id: 'd3-2', type: 'fill', text: "2. The cars {blank} (produce) in Germany last year are very expensive.", answer: "produced", tag: "过去分词", explanation: "真正谓语是are。cars和produce是被动关系，用过去分词作后置定语。" },
+                    { id: 'd3-3', type: 'fill', text: "3. To {blank} (finish) the work on time, he stayed up late.", answer: "finish", tag: "动词不定式", explanation: "To do作目的状语，to后面接动词原形。" },
+                    { id: 'd3-4', type: 'fill', text: "4. He walked into the room, {blank} (turn) on the computer and started to work.", answer: "turned", tag: "并列谓语", explanation: "由and连接的三个连续动作，时态需保持一致，用一般过去时。" },
+                    { id: 'd3-5', type: 'fill', text: "5. The old man sat quietly on the sofa, {blank} (read) a newspaper.", answer: "reading", tag: "伴随状语", explanation: "主干完整，read作伴随状语，老人主动读书，用reading。" },
+                    { id: 'd3-6', type: 'fill', text: "6. The boy {blank} (call) Tom is my best friend.", answer: "called", tag: "过去分词", explanation: "被叫作Tom，被动关系，用过去分词作定语。" },
+                    { id: 'd3-7', type: 'fill', text: "7. {blank} (see) from the top of the hill, the city looks beautiful.", answer: "Seen", tag: "过去分词作状语", explanation: "城市是被看的，非谓语动词表被动，用过去分词Seen。" },
+                    { id: 'd3-8', type: 'fill', text: "8. He is busy {blank} (prepare) for the upcoming exam.", answer: "preparing", tag: "固定搭配", explanation: "be busy doing sth. 忙于做某事。" },
+                    { id: 'd3-9', type: 'fill', text: "9. It is necessary for us {blank} (learn) English well.", answer: "to learn", tag: "不定式作主语", explanation: "It is + adj + for sb to do sth. 句型。" },
+                    { id: 'd3-10', type: 'fill', text: "10. I heard someone {blank} (sing) in the next room when I walked past.", answer: "singing", tag: "感官动词", explanation: "hear sb doing sth 听见某人正在做某事。" },
+                    { id: 'd3-11', type: 'correction', text: "11. He enjoys to listen to music in his free time.", target: "to listen", answer: "listening", tag: "固定搭配", explanation: "enjoy 后面必须接动词的 ing 形式 (doing)。" },
+                    { id: 'd3-12', type: 'correction', text: "12. Give up smoking is good for your health.", target: "Give up", answer: "Giving up / To give up", tag: "动名词作主语", explanation: "动词原形不能直接作主语，需改为动名词或不定式。" },
+                    { id: 'd3-13', type: 'correction', text: "13. I am looking forward to see you again.", target: "to see", answer: "to seeing", tag: "介词to后接doing", explanation: "look forward to 中的 to 是介词，后面接动名词 doing。" },
+                    { id: 'd3-14', type: 'correction', text: "14. We had better to go now, or we'll be late.", target: "to go", answer: "go", tag: "had better用法", explanation: "had better (最好) 后面直接接动词原形，不能带 to。" },
+                    { id: 'd3-15', type: 'correction', text: "15. The bridge was building last year.", target: "was building", answer: "was built / was being built", tag: "被动语态", explanation: "桥是被建的，需要用被动语态。" }
+                ]
+            },
+            {
+                id: 4,
+                title: "Day 4 时态从句综合挑战",
+                subtitle: "COMPREHENSIVE CHALLENGE I",
+                questions: [
+                    { id: 'd4-1', type: 'fill', text: "1. The teacher told us that light {blank} (travel) faster than sound.", answer: "travels", tag: "客观真理", explanation: "光速大于声速是真理，从句保留一般现在时。" },
+                    { id: 'd4-2', type: 'fill', text: "2. How long {blank} the old man {blank} (die)? — For 3 years.", answer: "has ... been dead", tag: "延续性动词", explanation: "how long提问需配合延续性状态，die的延续是be dead。" },
+                    { id: 'd4-3', type: 'fill', text: "3. This is the factory {blank} (where/which) we visited last week.", answer: "which / that", tag: "定语从句", explanation: "先行词在从句中作visit的宾语，不用where，用which/that。" },
+                    { id: 'd4-4', type: 'fill', text: "4. As soon as the bell rings, the students {blank} (run) out of the classroom.", answer: "run / will run", tag: "主将从现", explanation: "主句用一般将来时或客观现象一般现在时均可。" },
+                    { id: 'd4-5', type: 'fill', text: "5. A new hospital {blank} (build) in our city recently.", answer: "has been built", tag: "现在完成被动", explanation: "recently常与现在完成时连用，医院是被建的。" },
+                    { id: 'd4-6', type: 'fill', text: "6. I didn't know what time he {blank} (arrive) yesterday.", answer: "arrived", tag: "宾语从句时态", explanation: "主句过去时，yesterday也是过去的时间，用一般过去时。" },
+                    { id: 'd4-7', type: 'fill', text: "7. Do you know the boy {blank} (stand) under the tree?", answer: "standing", tag: "非谓语", explanation: "boy主动stand，用现在分词作定语。" },
+                    { id: 'd4-8', type: 'fill', text: "8. The book {blank} (write) by Lu Xun is popular.", answer: "written", tag: "非谓语", explanation: "书是被写的，用过去分词作后置定语。" },
+                    { id: 'd4-9', type: 'fill', text: "9. Please remember {blank} (turn) off the lights when you leave.", answer: "to turn", tag: "非谓语", explanation: "remember to do 记得去做某事（还未做）。" },
+                    { id: 'd4-10', type: 'fill', text: "10. He told me that he {blank} (read) the book twice.", answer: "had read", tag: "过去完成时", explanation: "在told之前发生的动作，过去的过去。" },
+                    { id: 'd4-11', type: 'correction', text: "11. The price of the computer is very expensive.", target: "expensive", answer: "high", tag: "词汇搭配", explanation: "形容价格(price)用高(high)或低(low)，形容物品才用expensive。" },
+                    { id: 'd4-12', type: 'correction', text: "12. There are many students play football on the playground.", target: "play", answer: "playing", tag: "非谓语", explanation: "There be句型已有谓语are，后续动词作定语需用doing。" },
+                    { id: 'd4-13', type: 'correction', text: "13. I haven't seen him since three days.", target: "since", answer: "for", tag: "介词误用", explanation: "three days 是一段时间，前必须用 for，since 后接时间点。" },
+                    { id: 'd4-14', type: 'correction', text: "14. Please tell me how to do.", target: "how to do", answer: "what to do / how to do it", tag: "及物动词缺宾语", explanation: "do 是及物动词，如果用 how 则后面缺宾语 it，或者改用 what 作 do 的宾语。" },
+                    { id: 'd4-15', type: 'correction', text: "15. The news make him very happy.", target: "make", answer: "makes", tag: "主谓一致", explanation: "news (新闻) 是不可数名词，谓语动词必须用第三人称单数形式。" }
+                ]
+            },
+            {
+                id: 5,
+                title: "Day 5 中考真题模拟压轴",
+                subtitle: "FINAL MOCK EXAM",
+                questions: [
+                    { id: 'd5-1', type: 'fill', text: "1. Great changes {blank} (take) place in my hometown since 2010.", answer: "have taken", tag: "现在完成时", explanation: "since + 过去时间，主句用现在完成时。take place无被动语态。" },
+                    { id: 'd5-2', type: 'fill', text: "2. The work must {blank} (finish) before 5 o'clock today.", answer: "be finished", tag: "情态动词被动", explanation: "工作是被完成的，must be done。" },
+                    { id: 'd5-3', type: 'fill', text: "3. Could you tell me {blank} (where) can I buy a dictionary?", answer: "where I can buy", tag: "宾语从句语序", explanation: "宾语从句必须改为陈述句语序。" },
+                    { id: 'd5-4', type: 'fill', text: "4. The man {blank} (whose/who) car was stolen called the police.", answer: "whose", tag: "定语从句关系词", explanation: "先行词the man和car是所属关系(他的车)，用whose。" },
+                    { id: 'd5-5', type: 'fill', text: "5. When we arrived, the movie {blank} (begin) for ten minutes.", answer: "had been on", tag: "过去完成延续", explanation: "到达前已经开始，且for ten minutes需要状态延续动词(be on)。" },
+                    { id: 'd5-6', type: 'fill', text: "6. I don't know if he {blank} (come) tomorrow. If he comes, I will tell you.", answer: "will come", tag: "if从句辨析", explanation: "第一个if是“是否”，跟tomorrow用将来时；第二个if是“如果”，主将从现。" },
+                    { id: 'd5-7', type: 'fill', text: "7. He made the baby {blank} (stop) crying.", answer: "stop", tag: "使役动词", explanation: "make sb do sth 迫使某人做某事，不带to的不定式。" },
+                    { id: 'd5-8', type: 'fill', text: "8. The baby was made {blank} (stop) crying.", answer: "to stop", tag: "使役动词被动", explanation: "be made to do sth 被动语态中，省略的to必须还原。" },
+                    { id: 'd5-9', type: 'fill', text: "9. Would you mind my {blank} (open) the window?", answer: "opening", tag: "介词后doing", explanation: "mind doing sth 介意做某事。" },
+                    { id: 'd5-10', type: 'fill', text: "10. He has two sons, neither of {blank} (who/whom) is a doctor.", answer: "whom", tag: "非限制性定语从句", explanation: "介词of后指人用whom作宾语。" },
+                    { id: 'd5-11', type: 'correction', text: "11. The harder you study, the well you will learn.", target: "well", answer: "better", tag: "比较级句型", explanation: "the + 比较级, the + 比较级。well的比较级是better。" },
+                    { id: 'd5-12', type: 'correction', text: "12. Not only his parents but also he like watching TV.", target: "like", answer: "likes", tag: "就近原则", explanation: "Not only... but also... 遵循就近原则，谓语跟 he 保持一致用 likes。" },
+                    { id: 'd5-13', type: 'correction', text: "13. He used to getting up early when he was young.", target: "getting", answer: "get", tag: "used to用法", explanation: "used to do sth 过去常常做某事；be used to doing 才表示习惯于。" },
+                    { id: 'd5-14', type: 'correction', text: "14. Neither of the answers are correct.", target: "are", answer: "is", tag: "主谓一致", explanation: "Neither of + 复数名词，谓语动词通常视为单数(is)。" },
+                    { id: 'd5-15', type: 'correction', text: "15. I prefer reading to play computer games.", target: "play", answer: "playing", tag: "平行结构", explanation: "prefer doing A to doing B，前后结构必须对称一致。" }
+                ]
+            }
+        ];
+
+        // --- UI 图标 (极简几何线条风) ---
+        const IconCheck = () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="square" strokeLinejoin="miter"><polyline points="20 6 9 17 4 12"></polyline></svg>;
+        const IconX = () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="square" strokeLinejoin="miter"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
+        const IconClock = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square" strokeLinejoin="miter"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>;
+        const IconChevronLeft = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square" strokeLinejoin="miter"><polyline points="15 18 9 12 15 6"></polyline></svg>;
+        const IconAcademic = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square" strokeLinejoin="miter"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>;
+
+        function App() {
+            // --- 状态管理 ---
+            const [currentView, setCurrentView] = useState('home'); // 'home', 'quiz', 'report'
+            const [activeDay, setActiveDay] = useState(null);
+            const [completedDays, setCompletedDays] = useState({}); // { dayId: reportData }
+            
+            const [answers, setAnswers] = useState({}); // { qId: string }
+            const [startTime, setStartTime] = useState(null);
+            
+            // 错题巩固模式
+            const [isConsolidateMode, setIsConsolidateMode] = useState(false);
+            const [wrongIdsToFix, setWrongIdsToFix] = useState([]); 
+            
+            const [currentReport, setCurrentReport] = useState(null);
+
+            // --- 辅助方法 ---
+            const formatTime = (seconds) => {
+                const m = Math.floor(seconds / 60);
+                const s = seconds % 60;
+                return `${m}分${s < 10 ? '0'+s : s}秒`;
+            };
+
+            const getPrecisionTimestamp = () => {
+                const d = new Date();
+                return `${d.getFullYear()}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}:${d.getSeconds().toString().padStart(2,'0')}`;
+            };
+
+            const normalizeAnswer = (str) => (str || '').trim().toLowerCase().replace(/\s+/g, ' ').replace(/[.!?。！？]+$/, '');
+
+            const checkSingleAnswer = (userAns, correctAnsStr) => {
+                const uAns = normalizeAnswer(userAns);
+                if (!uAns) return false;
+                const validAnsArr = correctAnsStr.split('/').map(a => normalizeAnswer(a));
+                return validAnsArr.includes(uAns) || uAns.includes(validAnsArr[0]); // 适当放宽改错题容忍度
+            };
+
+            // --- 交互逻辑 ---
+            const handleStartDay = (day) => {
+                setActiveDay(day);
+                setAnswers({});
+                setStartTime(Date.now());
+                setIsConsolidateMode(false);
+                setWrongIdsToFix([]);
+                setCurrentView('quiz');
+                window.scrollTo(0,0);
+            };
+
+            const handleInput = (qId, val) => {
+                setAnswers(prev => ({ ...prev, [qId]: val }));
+            };
+
+            const handleSubmit = () => {
+                const dayData = activeDay;
+                const endTime = Date.now();
+                const timeSpentSec = Math.floor((endTime - startTime) / 1000);
+                
+                let totalQs = 0;
+                let correctCount = 0;
+                let wrongList = [];
+                let tagStats = {};
+
+                const allQs = dayData.questions;
+                const qsToCheck = isConsolidateMode ? allQs.filter(q => wrongIdsToFix.includes(q.id)) : allQs;
+
+                qsToCheck.forEach(q => {
+                    totalQs++;
+                    const isCorrect = checkSingleAnswer(answers[q.id], q.answer);
+                    
+                    if (isCorrect) {
+                        correctCount++;
+                    } else {
+                        wrongList.push({ ...q, userAns: answers[q.id] || '(空白)' });
+                    }
+
+                    if (!isConsolidateMode) {
+                        if (!tagStats[q.tag]) tagStats[q.tag] = { total: 0, correct: 0 };
+                        tagStats[q.tag].total++;
+                        if (isCorrect) tagStats[q.tag].correct++;
+                    }
+                });
+
+                let finalCorrect = correctCount;
+                let finalTotal = totalQs;
+                let finalWrongList = wrongList;
+                let finalTagStats = tagStats;
+
+                if (isConsolidateMode) {
+                    finalTotal = currentReport.total;
+                    finalCorrect = currentReport.correct + correctCount; 
+                    finalWrongList = wrongList;
+                    finalTagStats = currentReport.tagStats;
+                }
+
+                const accuracy = Math.round((finalCorrect / finalTotal) * 100);
+
+                const report = {
+                    dayId: dayData.id,
+                    total: finalTotal,
+                    correct: finalCorrect,
+                    accuracy,
+                    timeSpent: isConsolidateMode ? currentReport.timeSpent + timeSpentSec : timeSpentSec,
+                    wrongList: finalWrongList,
+                    tagStats: finalTagStats,
+                    timestamp: getPrecisionTimestamp() // 添加防作弊时间戳
+                };
+
+                setCurrentReport(report);
+                
+                if (accuracy === 100 || !isConsolidateMode) {
+                    setCompletedDays(prev => ({ ...prev, [dayData.id]: report }));
+                }
+
+                setCurrentView('report');
+                window.scrollTo(0,0);
+            };
+
+            const handleConsolidate = () => {
+                const newWrongIds = currentReport.wrongList.map(w => w.id);
+                setWrongIdsToFix(newWrongIds);
+                setIsConsolidateMode(true);
+                
+                const newAnswers = { ...answers };
+                newWrongIds.forEach(id => newAnswers[id] = '');
+                setAnswers(newAnswers);
+                
+                setStartTime(Date.now());
+                setCurrentView('quiz');
+                window.scrollTo(0,0);
+            };
+
+            const handleBackToHome = () => {
+                setCurrentView('home');
+                window.scrollTo(0,0);
+            };
+
+            // --- 渲染：首页 (学术激进风) ---
+            if (currentView === 'home') {
+                return (
+                    <div className="min-h-screen pb-10">
+                        {/* 极简学术红头部 */}
+                        <div className="bg-[#7f1d1d] text-[#f4f1ea] px-6 py-10 shadow-lg">
+                            <div className="flex items-center space-x-2 mb-2 opacity-80">
+                                <IconAcademic />
+                                <span className="font-mono text-xs tracking-[0.2em] uppercase font-bold">XIAOYAO STUDIO</span>
+                            </div>
+                            <h1 className="font-academic text-4xl font-black mb-3 tracking-wide">初中语法滚动测试</h1>
+                            <div className="flex justify-between items-end border-b border-[#991b1b] pb-4">
+                                <p className="text-[#fca5a5] text-sm font-medium tracking-wide">YEAR OF THE HORSE / ACADEMIC EDITION</p>
+                                <span className="font-mono text-xs opacity-60">Vol. 1</span>
+                            </div>
+                        </div>
+
+                        {/* 题目卷宗列表 */}
+                        <div className="px-5 mt-6 space-y-5">
+                            {daysData.map(day => {
+                                const isCompleted = !!completedDays[day.id];
+                                const acc = isCompleted ? completedDays[day.id].accuracy : 0;
+
+                                return (
+                                    <div key={day.id} className="bg-white paper-shadow border border-[#e5e5e5] p-5 fade-enter relative overflow-hidden">
+                                        {/* 左侧装饰线 */}
+                                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#991b1b]"></div>
+                                        
+                                        <div className="flex justify-between items-start mb-2 pl-2">
+                                            <div>
+                                                <div className="text-xs font-mono font-bold text-[#b45309] mb-1">{day.subtitle}</div>
+                                                <h2 className="font-academic text-2xl font-bold text-[#1a1a1a]">{day.title}</h2>
+                                            </div>
+                                            {isCompleted && (
+                                                <span className={`px-2 py-0.5 border text-xs font-mono font-bold ${acc >= 90 ? 'border-[#059669] text-[#059669]' : acc >= 60 ? 'border-[#d97706] text-[#d97706]' : 'border-[#dc2626] text-[#dc2626]'}`}>
+                                                    SCORE: {acc}
+                                                </span>
+                                            )}
+                                        </div>
+                                        
+                                        <div className="pl-2 mt-5">
+                                            <button 
+                                                onClick={() => handleStartDay(day)}
+                                                className={`w-full py-3 font-bold text-sm tracking-widest uppercase transition-all border-2 ${isCompleted ? 'border-[#e5e5e5] bg-transparent text-[#737373] hover:border-[#1a1a1a] hover:text-[#1a1a1a]' : 'border-[#7f1d1d] bg-[#7f1d1d] text-[#f4f1ea] active:bg-[#991b1b]'}`}
+                                            >
+                                                {isCompleted ? '重新演练 / RESTART' : '进入作答 / ENTER'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        
+                        <div className="text-center mt-12 mb-6">
+                            <span className="font-academic text-sm text-[#a3a3a3] font-bold">严肃刷题 · 拒绝浮躁</span>
+                        </div>
+                    </div>
+                );
+            }
+
+            // --- 渲染：答题页 (专注试卷风) ---
+            if (currentView === 'quiz' && activeDay) {
+                const questionsToRender = isConsolidateMode ? activeDay.questions.filter(q => wrongIdsToFix.includes(q.id)) : activeDay.questions;
+
+                return (
+                    <div className="min-h-screen bg-[#f4f1ea] pb-24">
+                        {/* 顶部学术导航 */}
+                        <div className="sticky top-0 z-40 bg-[#f4f1ea]/95 backdrop-blur border-b-2 border-[#1a1a1a] px-4 py-3 flex items-center justify-between">
+                            <button onClick={() => setCurrentView('home')} className="p-1 text-[#1a1a1a]"><IconChevronLeft /></button>
+                            <h2 className="font-academic text-lg font-bold text-[#1a1a1a] tracking-widest">
+                                {isConsolidateMode ? '错题定点清除' : activeDay.title}
+                            </h2>
+                            <div className="w-6"></div>
+                        </div>
+
+                        {isConsolidateMode && (
+                            <div className="bg-[#fef3c7] text-[#92400e] p-2 text-sm font-mono font-bold text-center border-b border-[#f59e0b]">
+                                TARGETS REMAINING: {wrongIdsToFix.length}
+                            </div>
+                        )}
+
+                        <div className="px-5 pt-8 space-y-10">
+                            {questionsToRender.map(q => {
+                                if (q.type === 'fill') {
+                                    const parts = q.text.split('{blank}');
+                                    return (
+                                        <div key={q.id} className="text-[1.1rem] leading-relaxed text-[#1a1a1a] font-medium fade-enter">
+                                            {parts[0]}
+                                            <input 
+                                                type="text" 
+                                                className="inline-input"
+                                                value={answers[q.id] || ''}
+                                                onChange={(e) => handleInput(q.id, e.target.value)}
+                                                autoComplete="off" spellCheck="false"
+                                            />
+                                            {parts[1]}
+                                        </div>
+                                    );
+                                }
+
+                                if (q.type === 'correction') {
+                                    return (
+                                        <div key={q.id} className="fade-enter bg-white paper-shadow border border-[#e5e5e5] p-5 relative">
+                                            <div className="absolute left-0 top-0 w-1 h-full bg-[#1a1a1a]"></div>
+                                            <div className="text-[1.1rem] leading-relaxed text-[#1a1a1a] font-medium mb-4" 
+                                                 dangerouslySetInnerHTML={{__html: q.text.replace(q.target, `<span class="font-bold border-b-2 border-[#dc2626] text-[#7f1d1d] pb-0.5">${q.target}</span>`)}} />
+                                            <div className="flex flex-col space-y-2">
+                                                <span className="text-xs font-mono font-bold text-[#737373] tracking-widest">CORRECTION:</span>
+                                                <input 
+                                                    type="text" 
+                                                    className="correction-input"
+                                                    placeholder="输入划线处的正确形式"
+                                                    value={answers[q.id] || ''}
+                                                    onChange={(e) => handleInput(q.id, e.target.value)}
+                                                    autoComplete="off" spellCheck="false"
+                                                />
+                                            </div>
+                                        </div>
+                                    );
+                                }
+                                return null;
+                            })}
+                        </div>
+
+                        <div className="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#f4f1ea] via-[#f4f1ea] to-transparent z-50">
+                            <button 
+                                onClick={handleSubmit}
+                                className="w-full bg-[#7f1d1d] text-[#f4f1ea] py-4 font-academic text-xl font-bold tracking-widest paper-shadow active:scale-[0.98] transition-transform border-2 border-[#7f1d1d]"
+                            >
+                                提 交 答 卷
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            // --- 渲染：报告页 (权威数据统计) ---
+            if (currentView === 'report' && currentReport) {
+                const isPerfect = currentReport.accuracy === 100;
+
+                return (
+                    <div className="min-h-screen bg-[#f4f1ea] pb-24">
+                        {/* 顶部学术战报卡片 */}
+                        <div className={`p-8 text-center text-[#f4f1ea] ${isPerfect ? 'bg-[#064e3b]' : 'bg-[#7f1d1d]'} border-b-4 border-[#1a1a1a]`}>
+                            <h2 className="font-academic text-xl font-bold mb-6 tracking-[0.2em] opacity-80">学情诊断报告</h2>
+                            <div className="font-academic text-7xl font-black mb-6">{currentReport.accuracy}<span className="text-4xl ml-1">%</span></div>
+                            
+                            <div className="flex justify-center items-center space-x-6 text-sm font-mono font-bold bg-[#1a1a1a]/20 inline-flex px-5 py-2.5">
+                                <span className="flex items-center">HITS: {currentReport.correct}/{currentReport.total}</span>
+                                <span className="flex items-center">TIME: {formatTime(currentReport.timeSpent)}</span>
+                            </div>
+                            
+                            {/* 防作弊时间戳 */}
+                            <div className="mt-6 text-xs font-mono font-bold opacity-60 tracking-widest border-t border-white/20 pt-4 inline-block">
+                                TIMESTAMP: {currentReport.timestamp}
+                            </div>
+                        </div>
+
+                        <div className="px-5 mt-8 space-y-6">
+                            {!isPerfect && (
+                                <div className="fade-enter">
+                                    <h3 className="font-academic text-xl font-bold text-[#1a1a1a] mb-5 border-l-4 border-[#7f1d1d] pl-3">
+                                        错题解析档案 ({currentReport.wrongList.length})
+                                    </h3>
+                                    <div className="space-y-6">
+                                        {currentReport.wrongList.map((err, idx) => (
+                                            <div key={idx} className="bg-white border-2 border-[#1a1a1a] p-5 shadow-[4px_4px_0px_#1a1a1a]">
+                                                <div className="text-xs font-mono font-bold text-[#b45309] border border-[#b45309] inline-block px-2 py-0.5 mb-3">TAG: {err.tag}</div>
+                                                
+                                                <div className="text-[#1a1a1a] font-medium mb-4 text-[1.05rem] leading-relaxed">
+                                                    {err.text}
+                                                </div>
+                                                
+                                                <div className="grid grid-cols-2 gap-3 mb-4 text-sm font-mono">
+                                                    <div className="bg-[#fef2f2] text-[#991b1b] p-3 border border-[#fca5a5]">
+                                                        <div className="text-[10px] font-bold mb-1 opacity-70">YOUR ANSWER</div>
+                                                        <div className="font-bold line-through break-all">{err.userAns}</div>
+                                                    </div>
+                                                    <div className="bg-[#ecfdf5] text-[#065f46] p-3 border border-[#6ee7b7]">
+                                                        <div className="text-[10px] font-bold mb-1 opacity-70">CORRECT ANSWER</div>
+                                                        <div className="font-bold break-all">{err.answer}</div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className="bg-[#f4f1ea] text-[#404040] text-sm p-3 border-l-2 border-[#1a1a1a]">
+                                                    <span className="font-bold text-[#1a1a1a]">解析：</span>{err.explanation}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {isPerfect && (
+                                <div className="bg-white border-2 border-[#064e3b] p-8 text-center shadow-[6px_6px_0px_#064e3b] fade-enter mt-10">
+                                    <div className="text-5xl mb-4 font-academic font-bold text-[#064e3b]">EXCELLENT</div>
+                                    <h3 className="text-xl font-bold text-[#1a1a1a] mb-2">满分通关</h3>
+                                    <p className="text-[#737373] text-sm font-medium">所有的知识盲区已被清除。</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* 底部战术选择区 */}
+                        <div className="fixed bottom-0 left-0 right-0 p-5 bg-white border-t-2 border-[#1a1a1a] flex space-x-4 z-50">
+                            <button 
+                                onClick={handleBackToHome}
+                                className={`flex-1 py-3.5 font-bold tracking-widest text-sm border-2 ${isPerfect ? 'bg-[#1a1a1a] text-white border-[#1a1a1a]' : 'bg-transparent text-[#1a1a1a] border-[#1a1a1a]'}`}
+                            >
+                                返 回
+                            </button>
+                            {!isPerfect && (
+                                <button 
+                                    onClick={handleConsolidate}
+                                    className="flex-[2] bg-[#7f1d1d] text-white py-3.5 font-bold tracking-widest text-sm border-2 border-[#7f1d1d] active:bg-[#991b1b] shadow-[4px_4px_0px_#1a1a1a] active:translate-y-1 active:shadow-none transition-all"
+                                >
+                                    少侠请留步，请继续精进错题
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                );
+            }
+
+            return null;
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
