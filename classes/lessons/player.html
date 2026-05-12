@@ -16,8 +16,11 @@
 </head>
 <body>
   <div class="state" id="state"></div>
+  <script src="./lesson-auth-guard.js?v=20260512-auth-guard"></script>
   <script>
     (async function() {
+      const auth = await (window.xyLessonAuthReady || Promise.resolve({ allowed:true }));
+      if (!auth.allowed) return;
       const state = document.getElementById('state');
       const params = new URLSearchParams(location.search);
       const hwId = params.get('hwId') || '';

@@ -435,4 +435,8 @@ const A2PlusUnit64Review = () => {
   );
 };
 
-ReactDOM.createRoot(document.getElementById('root')).render(<A2PlusUnit64Review />);
+(async () => {
+  const auth = await (window.xyLessonAuthReady || Promise.resolve({ allowed:true }));
+  if (!auth.allowed) return;
+  ReactDOM.createRoot(document.getElementById('root')).render(<A2PlusUnit64Review />);
+})();
