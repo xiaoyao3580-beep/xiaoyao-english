@@ -1,13 +1,13 @@
 const SUPABASE_URL = 'https://avffxvpwzpvlohoyqshb.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_Bk22JrUqpC4nd5ucHr9I8A_mvPk3uXc';
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const sb = window.supabase?.createClient ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 const LESSON_UPLOAD_BUCKET = 'lesson-files';
 const BANNER_UPLOAD_BUCKET = 'banner-images';
 const TEACHER = { id: 'xiaoyao', password: '929292', name: '肖瑶老师' };
 const CLASS_ALIAS = { 'junior-ability': 'ms', economist: 'econ', others: 'adult' };
 const REVERSE_ALIAS = { ms: 'junior-ability', econ: 'economist', adult: 'others' };
 const HOME_LEVEL_ORDER = window.XY_HOME_LEVEL_ORDER || ['f2','a1','a1-plus','a2','a2-plus','junior-ability','swsy','others','economist'];
-const state = { page: 'home', level: null, homeTab: 'courses', slide: 0, teacherTab: 'students', students: [], homework: [], banners: [], bannerError: '', logs: [], attendance: null, report: null, vote: null, loading: true };
+const state = { page: 'home', level: null, homeTab: 'courses', slide: 0, teacherTab: 'students', students: [], homework: [], banners: [], bannerError: '', logs: [], attendance: null, report: null, vote: null, pet: null, loading: true };
 const app = document.getElementById('app');
 const modalRoot = document.getElementById('modal-root');
 const clickAudio = new Audio('click.mp3');
@@ -57,14 +57,151 @@ const ATTENDANCE_STATUS = [
   ['exempt','豁免','fa-shield-heart','bg-sky-50 text-sky-700 border-sky-100'],
   ['absent','未打卡','fa-circle-xmark','bg-rose-50 text-rose-700 border-rose-100']
 ];
+const PET_TYPES = [
+  { id:'fox', label:'Fox', zh:'小狐狸', icon:'pets', tone:'from-[#fef3c7] via-white to-[#ffe4e6]', accent:'#f97316' },
+  { id:'owl', label:'Owl', zh:'小夜鹰', icon:'flutter_dash', tone:'from-[#e0f2fe] via-white to-[#ede9fe]', accent:'#4f46e5' }
+];
+const PET_ENVIRONMENTS = [
+  { id:'warm-sun', label:'暖阳', icon:'wb_sunny' },
+  { id:'forest', label:'森林', icon:'forest' },
+  { id:'starry', label:'星夜', icon:'nightlight' },
+  { id:'ocean', label:'海边', icon:'waves' }
+];
+const DEFAULT_PET_ITEMS = [
+  { item_key:'scarf', label:'围巾', price:40, sort_order:1, active:true },
+  { item_key:'bow', label:'蝴蝶结', price:60, sort_order:2, active:true },
+  { item_key:'hat', label:'帽子', price:100, sort_order:3, active:true },
+  { item_key:'crown', label:'皇冠', price:180, sort_order:4, active:true }
+];
+const DEFAULT_PET_LEVELS = [
+  { level:1, required_xp:0, stage:1 },
+  { level:2, required_xp:100, stage:2 },
+  { level:3, required_xp:250, stage:3 },
+  { level:4, required_xp:450, stage:4 }
+];
+const DEFAULT_PET_REWARDS = [
+  { tier_key:'high', label:'优秀', min_score:90, xp_reward:30, point_reward:20, sort_order:1, active:true },
+  { tier_key:'medium', label:'达标', min_score:70, xp_reward:18, point_reward:12, sort_order:2, active:true },
+  { tier_key:'low', label:'完成', min_score:0, xp_reward:8, point_reward:5, sort_order:3, active:true }
+];
 let carouselStartX = 0;
 let carouselStartY = 0;
 let suppressCarouselClick = false;
 let carouselSuppressTimer = null;
-let draggedBannerId = '';
 let attendanceRequestSeq = 0;
+let petSearchTimer = null;
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const currentUser = () => { try { return JSON.parse(localStorage.getItem('xy_user') || 'null'); } catch { return null; } };
+function petCfg() {
+  if (!state.pet) state.pet = { loading:false, loaded:false, missing:false, error:'', pets:[], inventory:[], itemRules:DEFAULT_PET_ITEMS.slice(), levelRules:DEFAULT_PET_LEVELS.slice(), rewardRules:DEFAULT_PET_REWARDS.slice(), events:[], activeStudentId:'', search:'' };
+  return state.pet;
+}
+function petTypeMeta(type) { return PET_TYPES.find(p => p.id === type) || PET_TYPES[0]; }
+function petEnvMeta(id) { return PET_ENVIRONMENTS.find(e => e.id === id) || PET_ENVIRONMENTS[0]; }
+function petItems() { return (petCfg().itemRules.length ? petCfg().itemRules : DEFAULT_PET_ITEMS).slice().sort((a,b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0)); }
+function petLevels() { return (petCfg().levelRules.length ? petCfg().levelRules : DEFAULT_PET_LEVELS).slice().sort((a,b) => Number(a.required_xp || 0) - Number(b.required_xp || 0)); }
+function petRewards() { return (petCfg().rewardRules.length ? petCfg().rewardRules : DEFAULT_PET_REWARDS).slice().sort((a,b) => (Number(b.min_score) || 0) - (Number(a.min_score) || 0)); }
+function petLevelInfo(pet) {
+  const levels = petLevels();
+  const xp = Math.max(0, Number(pet?.experience_points || 0));
+  const auto = levels.reduce((best, row) => Number(row.required_xp || 0) <= xp ? row : best, levels[0] || DEFAULT_PET_LEVELS[0]);
+  const manual = levels.find(row => Number(row.level) === Number(pet?.manual_level));
+  const row = pet?.level_mode === 'manual' && manual ? manual : auto;
+  const idx = levels.findIndex(level => Number(level.level) === Number(row.level));
+  const next = levels[idx + 1] || null;
+  const base = Number(row.required_xp || 0);
+  const need = next ? Number(next.required_xp || base) : base;
+  const progress = next && need > base ? Math.max(0, Math.min(100, Math.round((xp - base) / (need - base) * 100))) : 100;
+  return { level:Number(row.level || 1), stage:Number(row.stage || row.level || 1), xp, nextXp:next ? need : null, progress };
+}
+function petAssetUrl(pet, info) {
+  if (!pet) return '';
+  const item = pet.equipped_item ? '_' + String(pet.equipped_item).replace(/[^a-z0-9_-]/gi, '') : '';
+  const type = String(pet.pet_type || 'fox').replace(/[^a-z0-9_-]/gi, '');
+  return SUPABASE_URL + '/storage/v1/object/public/pets/' + type + '/' + type + Number(info?.stage || 1) + item + '.png';
+}
+function petParticleNodes(mode = '') {
+  const cls = mode === 'mini' ? ' pet-particle-mini' : '';
+  return [1,2,3,4,5,6,7].map(i => '<span class="pet-particle pet-particle-' + i + cls + '"></span>').join('');
+}
+const petImagePreloadCache = new Map();
+function preloadImage(src, timeout = 1800) {
+  if (!src) return Promise.resolve(false);
+  if (petImagePreloadCache.has(src)) return petImagePreloadCache.get(src);
+  const promise = new Promise(resolve => {
+    const img = new Image();
+    let done = false;
+    const finish = ok => {
+      if (done) return;
+      done = true;
+      resolve(ok);
+    };
+    img.onload = () => finish(true);
+    img.onerror = () => finish(false);
+    img.src = src;
+    setTimeout(() => finish(false), timeout);
+  });
+  petImagePreloadCache.set(src, promise);
+  return promise;
+}
+function preloadPetAsset(pet) {
+  if (!pet) return Promise.resolve(false);
+  return preloadImage(petAssetUrl(pet, petLevelInfo(pet)));
+}
+function preloadPetWardrobe(pet) {
+  if (!pet) return;
+  const variants = [null].concat(petItems().filter(item => item.active !== false).map(item => item.item_key));
+  variants.forEach(itemKey => preloadPetAsset({ ...pet, equipped_item:itemKey }));
+}
+function petForStudent(studentId) { return petCfg().pets.find(p => String(p.student_id) === String(studentId)) || null; }
+function petInventoryFor(studentId) { return petCfg().inventory.filter(i => String(i.student_id) === String(studentId)).map(i => i.item_key); }
+function petEventsFor(studentId, limit = 5) { return petCfg().events.filter(e => String(e.student_id) === String(studentId)).slice(0, limit); }
+function signedPetDelta(value) { const n = Number(value || 0); return (n > 0 ? '+' : '') + n; }
+function petErrorMessage(error) {
+  const msg = String(error && (error.message || error.details || error.hint) || error || '');
+  if (msg.includes('42P01') || msg.includes('PGRST205')) return '请先在 Supabase 执行 supabase-pet-setup.sql。';
+  if (/not enough/i.test(msg)) return '宠物积分不足。';
+  if (/not owned/i.test(msg)) return '还没有获得这个装扮。';
+  return msg || '宠物数据处理失败。';
+}
+async function loadPetData(showDone = false) {
+  const cfg = petCfg();
+  const u = currentUser();
+  if (!sb) {
+    cfg.loading = false;
+    cfg.loaded = true;
+    cfg.error = 'Supabase 客户端没有加载成功，请检查网络或刷新页面。';
+    render();
+    return;
+  }
+  cfg.loading = true; cfg.error = ''; render();
+  const studentFilter = u && u.role === 'student' ? String(u.id) : '';
+  const maybeEq = (query, col) => studentFilter ? query.eq(col, studentFilter) : query;
+  const results = await Promise.all([
+    maybeEq(sb.from('student_pets').select('*').order('updated_at', { ascending:false }), 'student_id'),
+    maybeEq(sb.from('pet_inventory').select('*').order('acquired_at', { ascending:false }), 'student_id'),
+    sb.from('pet_item_rules').select('*').order('sort_order', { ascending:true }),
+    sb.from('pet_level_rules').select('*').order('level', { ascending:true }),
+    sb.from('pet_reward_rules').select('*').order('sort_order', { ascending:true }),
+    maybeEq(sb.from('pet_reward_events').select('*').order('created_at', { ascending:false }).limit(studentFilter ? 20 : 120), 'student_id')
+  ]);
+  const missing = results.some(r => r.error && (r.error.code === '42P01' || r.error.code === 'PGRST205'));
+  cfg.loading = false; cfg.loaded = true; cfg.missing = missing;
+  if (missing) cfg.error = '请先在 Supabase 执行 supabase-pet-setup.sql。';
+  else {
+    const fatal = results.map(r => r.error).filter(Boolean)[0];
+    cfg.error = fatal ? petErrorMessage(fatal) : '';
+  }
+  if (!results[0].error) cfg.pets = results[0].data || [];
+  if (!results[1].error) cfg.inventory = results[1].data || [];
+  if (!results[2].error && results[2].data?.length) cfg.itemRules = results[2].data;
+  if (!results[3].error && results[3].data?.length) cfg.levelRules = results[3].data;
+  if (!results[4].error && results[4].data?.length) cfg.rewardRules = results[4].data;
+  if (!results[5].error) cfg.events = results[5].data || [];
+  if (!cfg.activeStudentId && cfg.pets[0]) cfg.activeStudentId = cfg.pets[0].student_id;
+  if (showDone && !cfg.error) toast('宠物数据已刷新。');
+  render();
+}
 const normalizeClass = c => REVERSE_ALIAS[c] || String(c || '').replace(/_/g, '-');
 const classesOf = u => (u && Array.isArray(u.classes) ? u.classes : []).map(normalizeClass);
 const dbClass = id => CLASS_ALIAS[id] || id;
@@ -133,6 +270,13 @@ window.addEventListener('popstate', () => { const q = new URLSearchParams(locati
 async function loadData() {
   state.loading = true;
   render();
+  if (!sb) {
+    state.loading = false;
+    state.bannerError = 'Supabase 客户端没有加载成功，请检查网络或刷新页面。';
+    render();
+    toast('Supabase 客户端没有加载成功，请检查网络后刷新。');
+    return;
+  }
   try {
     const [students, homework, banners, logs] = await Promise.all([
       sb.from('students').select('*').order('id',{ascending:false}),
@@ -168,7 +312,7 @@ function updateCarousel(nextIndex) { const slides = homeSlides(); if (!slides.le
 function openCarouselSlide(index) { if (suppressCarouselClick) { suppressCarouselClick = false; return; } const slide = homeSlides()[index]; if (!slide) return; if (slide[6] === 'xiaoyao-radio-visit') return; if (slide[5]) location.assign(slide[5]); }
 function accessDeniedPage(level) { return '<div class="min-h-screen bg-[#F8F8FC] pb-20 text-[#1C1C28] overflow-x-hidden">' + teacherHeader() + '<section class="w-full px-6 md:px-10 pt-10 md:pt-16 max-w-xl mx-auto text-center"><div class="card-solid w-full overflow-hidden p-8 md:p-10"><div class="w-20 h-20 rounded-full bg-[#F4F2FF] text-[#6B48FF] flex items-center justify-center mx-auto mb-6 shadow-inner"><i class="fa-solid fa-lock text-3xl"></i></div><p class="text-[11px] md:text-[12px] font-bold tracking-[0.24em] uppercase text-gray-400 mb-3">Course Locked</p><h1 class="text-[26px] md:text-[34px] font-extrabold text-[#2D2A4A] tracking-tight leading-tight">暂未开放</h1><p class="mx-auto mt-4 max-w-[17rem] sm:max-w-md text-sm md:text-base leading-7 text-gray-500 font-medium break-words">' + esc(level.title) + ' 还没有开放到当前账号，请联系老师开通课程权限。</p><div class="mx-auto grid max-w-[17rem] grid-cols-1 sm:max-w-none sm:grid-cols-2 gap-3 mt-8"><button data-route="home" class="w-full rounded-full bg-[#6B48FF] text-white py-4 text-sm font-bold shadow-md shadow-[#6B48FF]/25 active-scale">返回首页</button><button data-login class="w-full rounded-full bg-[#F4F2FF] text-[#6B48FF] py-4 text-sm font-bold active-scale">切换账号</button></div></div></section></div>'; }
 function carousel() { const data = homeSlides(); if (state.slide >= data.length) state.slide = 0; const w = data.length * 100; const t = state.slide * (100 / data.length); const slides = data.map((s,i) => '<button class="relative flex aspect-[16/9] w-full shrink-0 cursor-pointer appearance-none items-start overflow-hidden border-0 p-7 text-left text-[#f6f0ff] sm:p-8 md:aspect-[21/8] md:p-10 lg:aspect-[3/1]" style="width:' + (100/data.length) + '%;background-color:#5827fc;background-image:' + esc(s[3]) + ';background-position:' + esc(s[4]) + ';background-repeat:no-repeat;background-size:cover" data-carousel-slide="' + i + '" aria-label="' + esc(s[1].join('，')) + '"><div class="relative z-10 max-w-[18.5rem] space-y-3 md:max-w-[20rem] md:space-y-4" style="margin-top:-0.45rem"><span class="inline-block rounded-full bg-white/20 px-3 py-1 text-[10px] font-bold uppercase tracking-widest backdrop-blur-md">' + esc(s[0]) + '</span><h2 class="text-[clamp(1.08rem,5.2vw,1.5rem)] font-extrabold leading-[1.30] tracking-normal text-white md:text-2xl">' + s[1].map(line => '<span class="block whitespace-nowrap" style="' + (line.trim().startsWith('《') ? 'margin-left:-0.42em' : '') + '">' + esc(line) + '</span>').join('') + '</h2><p class="max-w-[285px] text-sm leading-5 text-white/90">' + esc(s[2]) + '</p></div></button>').join(''); const dots = data.map((_,i) => '<button data-slide-index="' + i + '" class="' + dotClass(i) + '" aria-label="切换到第 ' + (i + 1) + ' 张" aria-pressed="' + (i === state.slide) + '"></button>').join(''); return '<div class="motion-hero-enter motion-card relative mb-8 w-full rounded-[2.35rem] shadow-[0_18px_42px_-18px_rgba(88,39,252,0.34)] md:mb-10 md:rounded-[2.75rem]"><section data-carousel class="group relative w-full overflow-hidden rounded-[2.35rem] md:rounded-[2.75rem]" style="clip-path:inset(0 round clamp(2.35rem,4vw,2.75rem));touch-action:pan-y"><div data-carousel-track class="flex h-full transition-transform duration-500 ease-out" style="width:' + w + '%;transform:translateX(-' + t + '%)">' + slides + '</div><div class="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-1.5">' + dots + '</div></section></div>'; }
-function homePage() { const u = currentUser(); const all = orderedLevels(); const visible = state.homeTab === 'hub' && u && u.role !== 'teacher' ? all.filter(hasAccess) : all; const login = state.homeTab === 'hub' && !u ? '<section class="motion-panel-enter mx-auto max-w-xl rounded-[1.75rem] bg-white p-6 text-center shadow-[0_12px_40px_-5px_rgba(92,45,255,0.08)]"><div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#eff0f7] text-[#5827fc]"><span class="material-symbols-outlined text-[30px]">lock_open</span></div><h3 class="mt-4 text-xl font-bold text-[#2c2f33]">Login to open My Hub</h3><p class="mt-2 text-sm leading-6 text-[#595b61]">Sign in to see the course levels connected to this account.</p><button data-login class="motion-button mt-5 inline-flex min-h-[44px] items-center justify-center rounded-full bg-[#5827fc] px-6 py-3 text-xs font-bold uppercase tracking-[0.18em] text-white shadow-[0_10px_24px_-10px_rgba(88,39,252,0.52)]">Login</button></section>' : ''; const grid = (state.homeTab === 'courses' || (state.homeTab === 'hub' && u)) ? '<section class="space-y-6 md:space-y-7"><div class="motion-panel-enter flex items-end justify-between px-2 md:px-1"><div><h2 class="text-2xl font-bold tracking-tight text-[#2c2f33] md:text-3xl">' + (state.homeTab === 'hub' ? 'My Courses' : 'All Courses') + '</h2><p class="text-sm text-[#595b61]">' + (state.homeTab === 'hub' ? 'Your available levels are shown here.' : 'View our full course collection here.') + '</p></div></div><div class="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-5 xl:grid-cols-4">' + visible.map(card).join('') + '</div></section>' : ''; return '<div class="home-viewport-frame text-[#2c2f33]"><div class="pointer-events-none absolute inset-0" style="background-color:#f5f6fc;background-image:radial-gradient(circle at top center,rgba(122,95,255,0.2) 0%,rgba(122,95,255,0.08) 18%,rgba(245,246,252,0) 42%),radial-gradient(circle at bottom center,rgba(140,118,255,0.12) 0%,rgba(245,246,252,0) 34%),linear-gradient(180deg,#fcfcff 0%,#f5f6fc 36%,#f4f5fc 100%)"></div>' + topNav(false,'Courses') + '<div class="home-shell-lock absolute inset-0 w-full overflow-hidden bg-transparent text-[#2c2f33]"><main class="home-dashboard-shell motion-page-enter absolute inset-x-0 mx-auto w-full max-w-[74rem] overflow-y-auto overflow-x-hidden px-4 no-scrollbar sm:px-6 lg:px-8" style="top:0;bottom:0;padding-top:var(--home-shell-top-offset,calc(5rem + 0.75rem));padding-bottom:calc(7.5rem + env(safe-area-inset-bottom,0px));overscroll-behavior-x:none;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y">' + (state.homeTab === 'courses' ? carousel() : '') + login + grid + '</main></div>' + bottomDock() + '</div>'; }
+function homePage() { const u = currentUser(); const all = orderedLevels(); const visible = state.homeTab === 'hub' && u && u.role !== 'teacher' ? all.filter(hasAccess) : all; const login = state.homeTab === 'hub' && !u ? '<section class="motion-panel-enter mx-auto max-w-xl rounded-[1.75rem] bg-white p-6 text-center shadow-[0_12px_40px_-5px_rgba(92,45,255,0.08)]"><div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#eff0f7] text-[#5827fc]"><span class="material-symbols-outlined text-[30px]">lock_open</span></div><h3 class="mt-4 text-xl font-bold text-[#2c2f33]">Login to open My Hub</h3><p class="mt-2 text-sm leading-6 text-[#595b61]">Sign in to see the course levels connected to this account.</p><button data-login class="motion-button mt-5 inline-flex min-h-[44px] items-center justify-center rounded-full bg-[#5827fc] px-6 py-3 text-xs font-bold uppercase tracking-[0.18em] text-white shadow-[0_10px_24px_-10px_rgba(88,39,252,0.52)]">Login</button></section>' : ''; const petPanel = state.homeTab === 'hub' && u && u.role !== 'teacher' ? '<div data-student-pet-panel class="mb-8">' + studentPetPanel() + '</div>' : ''; const grid = (state.homeTab === 'courses' || (state.homeTab === 'hub' && u)) ? '<section class="space-y-6 md:space-y-7"><div class="motion-panel-enter flex items-end justify-between px-2 md:px-1"><div><h2 class="text-2xl font-bold tracking-tight text-[#2c2f33] md:text-3xl">' + (state.homeTab === 'hub' ? 'My Courses' : 'All Courses') + '</h2><p class="text-sm text-[#595b61]">' + (state.homeTab === 'hub' ? 'Your available levels are shown here.' : 'View our full course collection here.') + '</p></div></div><div class="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-5 xl:grid-cols-4">' + visible.map(card).join('') + '</div></section>' : ''; return '<div class="home-viewport-frame text-[#2c2f33]"><div class="pointer-events-none absolute inset-0" style="background-color:#f5f6fc;background-image:radial-gradient(circle at top center,rgba(122,95,255,0.2) 0%,rgba(122,95,255,0.08) 18%,rgba(245,246,252,0) 42%),radial-gradient(circle at bottom center,rgba(140,118,255,0.12) 0%,rgba(245,246,252,0) 34%),linear-gradient(180deg,#fcfcff 0%,#f5f6fc 36%,#f4f5fc 100%)"></div>' + topNav(false,'Courses') + '<div class="home-shell-lock absolute inset-0 w-full overflow-hidden bg-transparent text-[#2c2f33]"><main class="home-dashboard-shell motion-page-enter absolute inset-x-0 mx-auto w-full max-w-[74rem] overflow-y-auto overflow-x-hidden px-4 no-scrollbar sm:px-6 lg:px-8" style="top:0;bottom:0;padding-top:var(--home-shell-top-offset,calc(5rem + 0.75rem));padding-bottom:calc(7.5rem + env(safe-area-inset-bottom,0px));overscroll-behavior-x:none;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y">' + (state.homeTab === 'courses' ? carousel() : '') + login + petPanel + grid + '</main></div>' + bottomDock() + '</div>'; }
 function levelModuleCard(item, index, meta, isTeacher) {
   const canOpen = item.isPublished || isTeacher;
   const attrs = canOpen ? 'data-open-lesson data-module-id="' + esc(item.id) + '" data-file="' + esc(item.file) + '"' : 'data-toast="这个单元暂未开放"';
@@ -220,9 +364,12 @@ function levelPage() {
 function teacherPage() {
   const u = currentUser();
   if (!u || u.role !== 'teacher') { setTimeout(showLogin,0); return homePage(); }
-  const tabs = [['students','学生管理','fa-user-graduate'],['homework','作业管理','fa-book'],['banners','主页宣传','fa-image'],['attendance','考勤管理','fa-calendar-check'],['reports','报表','fa-chart-line'],['vote','选题管理','fa-square-poll-vertical']];
-  const tabBtns = tabs.map(t => '<button data-teacher-tab="' + t[0] + '" class="shrink-0 px-6 py-3 rounded-full text-[14px] md:text-[15px] font-bold transition-all shadow-sm flex items-center gap-2 active-scale ' + (state.teacherTab === t[0] ? 'order-first sm:order-none bg-[#6B48FF] text-white shadow-md shadow-[#6B48FF]/30' : 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50') + '"><i class="fa-solid ' + t[2] + '"></i>' + t[1] + '</button>').join('');
-  return '<div class="min-h-screen bg-[#F8F8FC] pb-40 md:pb-44 text-[#1C1C28]">' + teacherHeader(false) + '<section class="px-4 sm:px-6 md:px-10 pt-4 mb-8 max-w-5xl mx-auto"><h1 class="text-[30px] md:text-[36px] font-extrabold text-[#2D2A4A] mb-2 tracking-tight">Teacher Admin</h1><p class="text-sm md:text-base text-gray-500 mb-6">工作室数据管理中心</p><div class="flex gap-3 overflow-x-auto hide-scrollbar pb-5 mb-5 -mx-4 px-4 sm:-mx-6 sm:px-6 md:mx-0 md:px-0 touch-pan-x">' + tabBtns + '</div>' + teacherPanel() + '</section>' + teacherBottomNav() + '</div>';
+  const tabs = [['students','学生管理','fa-user-graduate'],['homework','作业管理','fa-book'],['banners','主页宣传','fa-image'],['attendance','考勤管理','fa-calendar-check'],['reports','报表','fa-chart-line'],['vote','选题管理','fa-square-poll-vertical'],['pets','宠物管理','fa-paw']];
+  const tabBtns = tabs.map(t => {
+    const active = state.teacherTab === t[0];
+    return '<button data-teacher-tab="' + t[0] + '" class="shrink-0 rounded-full px-5 py-3.5 text-[14px] font-extrabold transition-all duration-200 shadow-sm flex items-center gap-2 active-scale md:shrink md:px-5 md:text-[14px] lg:px-6 ' + (active ? 'scale-[1.02] bg-[#6B48FF] text-white shadow-lg shadow-[#6B48FF]/30 ring-4 ring-[#6B48FF]/10' : 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50') + '"><i class="fa-solid ' + t[2] + '"></i><span class="whitespace-nowrap">' + t[1] + '</span>' + (active ? '<span class="ml-0.5 h-2 w-2 rounded-full bg-white/90 shadow-sm"></span>' : '') + '</button>';
+  }).join('');
+  return '<div class="min-h-screen bg-[#F8F8FC] pb-40 md:pb-44 text-[#1C1C28]">' + teacherHeader(false) + '<section class="px-4 sm:px-6 md:px-10 pt-4 mb-8 max-w-6xl mx-auto"><h1 class="text-[30px] md:text-[36px] font-extrabold text-[#2D2A4A] mb-2 tracking-tight">Teacher Admin</h1><p class="text-sm md:text-base text-gray-500 mb-6">工作室数据管理中心</p><div data-teacher-tabs class="flex gap-2.5 overflow-x-auto hide-scrollbar pb-5 mb-5 -mx-4 px-4 sm:-mx-6 sm:px-6 md:mx-0 md:flex-wrap md:overflow-visible md:px-0 md:pb-2 md:touch-auto lg:gap-3 touch-pan-x">' + tabBtns + '</div><div class="motion-panel-enter">' + teacherPanel() + '</div></section>' + teacherBottomNav() + '</div>';
 }
 function teacherHeader(showBack = false) {
   const u = currentUser();
@@ -233,7 +380,7 @@ function teacherHeader(showBack = false) {
 function teacherBottomNav() {
   return '<nav class="motion-dock-enter fixed inset-x-0 bottom-0 z-50 mx-auto flex w-full max-w-[42rem] items-center justify-around rounded-t-[3rem] border-t border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.72)_0%,rgba(255,255,255,0.92)_36%,rgba(239,240,247,0.96)_100%)] px-4 py-3 backdrop-blur-[18px] shadow-[0_-12px_40px_-8px_rgba(92,45,255,0.12)] sm:w-[calc(100%_-_2rem)] md:bottom-5 md:rounded-full md:border" style="padding-bottom:calc(0.75rem + env(safe-area-inset-bottom,0px));background-color:rgba(239,240,247,0.94)"><button data-route="home" class="motion-tab flex min-h-[44px] flex-col items-center justify-center px-4 py-2 md:px-6 text-[#74777c]"><span class="material-symbols-outlined">home</span><span class="mt-0.5 text-[10px] font-medium uppercase tracking-[0.18em]">Home</span></button><button data-route="teacher" class="motion-tab flex min-h-[44px] flex-col items-center justify-center rounded-full bg-[#5c2dff] px-4 py-2 text-white shadow-[0_8px_20px_-4px_rgba(92,45,255,0.4)] md:px-6"><span class="material-symbols-outlined">dashboard_customize</span><span class="mt-0.5 text-[10px] font-medium uppercase tracking-[0.18em]">Teacher</span></button></nav>';
 }
-function teacherPanel() { if (state.teacherTab === 'students') return studentsPanel(); if (state.teacherTab === 'homework') return homeworkUploadPanel(); if (state.teacherTab === 'banners') return bannersPanel(); if (state.teacherTab === 'attendance') return attendancePanel(); if (state.teacherTab === 'reports') return reportsPanelV2(); if (state.teacherTab === 'vote') return voteResultsPanel(); state.teacherTab = 'students'; return studentsPanel(); }
+function teacherPanel() { if (state.teacherTab === 'students') return studentsPanel(); if (state.teacherTab === 'homework') return homeworkUploadPanel(); if (state.teacherTab === 'banners') return bannersPanel(); if (state.teacherTab === 'attendance') return attendancePanel(); if (state.teacherTab === 'reports') return reportsPanelV2(); if (state.teacherTab === 'vote') return voteResultsPanel(); if (state.teacherTab === 'pets') return petsPanel(); state.teacherTab = 'students'; return studentsPanel(); }
 function teacherClasses() { return orderedLevels().map((l, i) => ({ code:l.id, name:l.title, icon:['fa-face-smile','fa-graduation-cap','fa-star','fa-trophy','fa-wand-magic-sparkles','fa-comments','fa-book-open','fa-user-tie','fa-newspaper'][i % 9] })); }
 function moduleWithLevel(id) { for (const levelId of Object.keys(window.XY_CONTENT_MODULES)) { const m = modulesByLevel(levelId).find(x => x.id === id); if (m) return { module:m, levelId }; } return null; }
 function lessonLevelId(id) { const found = moduleWithLevel(id); if (found) return normalizeClass(found.levelId); const hw = homeworkById(id); return hw ? normalizeClass(hw.classCode) : ''; }
@@ -260,6 +407,72 @@ function homeworkFileState(file) {
   return ['本地课程','text-gray-400','fa-folder'];
 }
 function studentsPanel() { const groups = teacherClasses().map(cls => { const list = state.students.filter(s => classesOf(s).includes(cls.code)); if (!list.length) return ''; const rows = list.map(s => '<div class="flex items-center justify-between gap-4 border-b border-gray-50 bg-white p-4 last:border-0"><div class="min-w-0"><p class="truncate text-[15px] font-bold text-[#2D2A4A] md:text-[16px]">' + esc(s.name) + '</p></div><div class="flex shrink-0 items-center gap-3"><button data-student-info="' + esc(s.id) + '" class="flex h-10 w-10 items-center justify-center rounded-full bg-[#F4F2FF] text-[#6B48FF] shadow-sm transition-colors active-scale hover:bg-[#6B48FF] hover:text-white" aria-label="学生信息"><i class="fa-solid fa-circle-info text-sm"></i></button><button data-delete-student="' + esc(s.id) + '" data-student-name="' + esc(s.name) + '" class="flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-red-500 shadow-sm transition-colors active-scale hover:bg-red-500 hover:text-white" aria-label="删除学生"><i class="fa-solid fa-trash-can text-sm"></i></button></div></div>').join(''); return '<details class="mb-3 overflow-hidden rounded-[1.35rem] border border-gray-100 bg-white shadow-sm"><summary class="flex cursor-pointer list-none items-center justify-between gap-4 bg-[#F4F2FF] px-5 py-4"><span class="flex min-w-0 items-center gap-3"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#6B48FF] shadow-sm"><i class="fa-solid ' + cls.icon + ' text-sm"></i></span><span class="min-w-0"><span class="block truncate text-sm font-extrabold text-[#2D2A4A]">' + esc(cls.name) + '</span><span class="mt-0.5 block text-xs font-bold text-[#6B48FF]/70">' + list.length + ' 名学生</span></span></span><i class="fa-solid fa-chevron-down text-xs text-[#6B48FF]"></i></summary><div>' + rows + '</div></details>'; }).join(''); const chips = teacherClasses().map(c => '<button type="button" data-toggle-chip="' + esc(c.code) + '" class="chip bg-[#F8F8FC] text-gray-500 text-[13px] md:text-[14px] px-4 py-2.5 rounded-xl active-scale">' + esc(c.name) + '</button>').join(''); return '<div class="tab-content active"><div class="mb-10"><h2 class="text-base md:text-lg font-extrabold text-[#2D2A4A] mb-5 pl-1">班级名单与进度概览</h2><div class="max-h-[500px] overflow-y-auto hide-scrollbar pb-5">' + (groups || '<p class="text-sm text-gray-400">暂无学生数据</p>') + '</div></div><h2 class="text-xl md:text-2xl font-extrabold text-[#2D2A4A] mb-4 pl-1">添加新学生</h2><div class="card-solid p-6 md:p-8 pb-10"><div class="md:grid md:grid-cols-2 md:gap-5"><div class="mb-5 md:mb-0"><label class="text-[11px] md:text-[13px] font-bold text-gray-400 uppercase ml-1 mb-2 block">ID (可修改)</label><input type="text" id="form-id" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-5 py-4 text-base font-bold text-[#6B48FF] outline-none focus:border-[#6B48FF]"></div><div class="mb-5 md:mb-0"><label class="text-[11px] md:text-[13px] font-bold text-gray-400 uppercase ml-1 mb-2 flex justify-between">PWD <button type="button" data-regen-pwd class="fa-solid fa-rotate text-[#6B48FF] active-scale" aria-label="刷新密码"></button></label><input type="text" id="form-pwd" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-5 py-4 text-base font-bold text-[#6B48FF] outline-none focus:border-[#6B48FF]"></div></div><div class="mb-5 mt-5"><label class="text-[11px] md:text-[13px] font-bold text-gray-400 uppercase ml-1 mb-2 block">Name</label><input type="text" id="form-name" placeholder="输入姓名" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-5 py-4 text-base font-medium outline-none focus:border-[#6B48FF]"></div><div class="mb-8"><label class="text-[11px] md:text-[13px] font-bold text-gray-400 uppercase ml-1 mb-3 block">Assign Classes (多选)</label><div class="flex flex-wrap gap-2 md:gap-3" id="chip-container">' + chips + '</div></div><button data-save-student class="w-full bg-[#2D2A4A] text-white font-bold rounded-xl py-4 text-base shadow-lg active-scale" id="btn-register">直接添加至云端</button></div></div>'; }
+function studentPetPanel() {
+  const u = currentUser();
+  if (!u || u.role !== 'student') return '';
+  const cfg = petCfg();
+  if (!cfg.loaded && !cfg.loading) setTimeout(() => loadPetData(false), 0);
+  if (cfg.loading && !cfg.loaded) return '<section class="motion-panel-enter rounded-[1.75rem] bg-white p-6 text-center shadow-[0_12px_40px_-5px_rgba(92,45,255,0.08)]"><span class="material-symbols-outlined text-[42px] text-[#6B48FF]">sync</span><p class="mt-3 text-sm font-black text-[#74777c]">正在读取宠物档案...</p></section>';
+  if (cfg.missing) return '<section class="motion-panel-enter rounded-[1.75rem] border border-dashed border-[#d8d4ff] bg-white/75 p-5 text-center text-sm font-bold text-[#74777c]">宠物模块还没有完成后端初始化。</section>';
+  const pet = petForStudent(u.id);
+  if (!pet) {
+    const options = PET_TYPES.map((type, i) => '<button data-init-pet="' + type.id + '" class="motion-card rounded-[1.35rem] border border-white bg-gradient-to-br ' + type.tone + ' p-4 text-left shadow-[0_12px_30px_-18px_rgba(88,39,252,0.22)] active-scale"><span class="flex h-12 w-12 items-center justify-center rounded-full bg-white/80 text-[#5c2dff] shadow-sm"><span class="material-symbols-outlined">' + type.icon + '</span></span><span class="mt-3 block text-base font-black text-[#2c2f33]">' + type.zh + '</span><span class="mt-1 block text-xs font-bold text-[#74777c]">' + (i === 0 ? '灵敏、热情，适合冲刺型学习节奏。' : '安静、稳定，适合长期积累型学习节奏。') + '</span></button>').join('');
+    return '<section class="motion-panel-enter space-y-4 rounded-[1.9rem] bg-white p-5 shadow-[0_12px_40px_-5px_rgba(92,45,255,0.08)] md:p-6"><div><h2 class="text-2xl font-black text-[#2c2f33]">给你的成长伙伴起个名字</h2><p class="mt-2 text-sm font-semibold leading-6 text-[#74777c]">先写下名字，再选择小伙伴。完成课程后会自动获得经验和宠物积分。</p></div><label class="block"><span class="mb-2 ml-1 block text-xs font-black uppercase tracking-[0.16em] text-gray-400">宠物名字</span><input id="pet-name" value="" maxlength="24" placeholder="比如：小星星、Momo、Captain..." class="w-full rounded-2xl border border-[#e4e6ef] bg-[#f8f8fc] px-4 py-3 text-sm font-black text-[#2c2f33] outline-none transition focus:border-[#6B48FF] focus:bg-white"></label><div class="grid gap-3 sm:grid-cols-2">' + options + '</div>' + (cfg.error ? '<p class="rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-500">' + esc(cfg.error) + '</p>' : '') + '</section>';
+  }
+  if (pet.is_visible === false) return '<section class="motion-panel-enter rounded-[1.75rem] bg-white p-6 text-center shadow-[0_12px_40px_-5px_rgba(92,45,255,0.08)]"><span class="material-symbols-outlined text-[42px] text-[#9ca3af]">visibility_off</span><h2 class="mt-3 text-xl font-black text-[#2c2f33]">宠物暂时隐藏</h2><p class="mt-2 text-sm font-semibold text-[#74777c]">老师后台开启后会重新显示。</p></section>';
+  const info = petLevelInfo(pet);
+  const type = petTypeMeta(pet.pet_type);
+  const env = petEnvMeta(pet.environment_key);
+  const owned = new Set(petInventoryFor(u.id));
+  const asset = petAssetUrl(pet, info);
+  const latest = petEventsFor(u.id, 1)[0];
+  const remainingXp = info.nextXp ? Math.max(0, Number(info.nextXp) - Number(info.xp || 0)) : 0;
+  const latestXp = latest ? signedPetDelta(latest.xp_delta) + ' EXP' : '--';
+  const latestPoints = latest ? signedPetDelta(latest.point_delta) + ' 积分' : '--';
+  const itemButtons = ['base'].concat(petItems().filter(i => i.active !== false).map(i => i.item_key)).map(key => {
+    if (key === 'base') return '<button data-pet-equip="" class="' + petItemButtonClass(!pet.equipped_item) + '">原始</button>';
+    const item = petItems().find(i => i.item_key === key);
+    const has = owned.has(key);
+    const active = pet.equipped_item === key;
+    return '<button ' + (has ? 'data-pet-equip="' + esc(key) + '"' : 'data-pet-buy="' + esc(key) + '"') + ' class="' + petItemButtonClass(active) + '">' + esc(item?.label || key) + (has ? '' : ' · ' + Number(item?.price || 0)) + '</button>';
+  }).join('');
+  const envButtons = PET_ENVIRONMENTS.map(item => '<button data-pet-env="' + esc(item.id) + '" class="' + petEnvButtonClass(env.id === item.id) + '"><span class="material-symbols-outlined text-[16px]">' + item.icon + '</span>' + item.label + '</button>').join('') + '<button data-pet-env-demo="test" class="' + petEnvDemoButtonClass(false) + '"><span class="material-symbols-outlined text-[16px]">image</span>测试</button>';
+  setTimeout(() => preloadPetWardrobe(pet), 0);
+  return '<section class="motion-panel-enter overflow-hidden rounded-[2rem] bg-white shadow-[0_18px_50px_-24px_rgba(92,45,255,0.22)]"><div data-pet-env-stage class="relative overflow-hidden bg-white px-5 pb-12 pt-5 md:px-7 md:pb-14 md:pt-7" style="background-image:' + petEnvironmentLayeredBackground(env.id) + ';background-size:cover;background-position:center"><div class="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-b from-white/0 via-white/72 to-white"></div><div class="relative z-10 flex flex-col gap-5 md:flex-row md:items-stretch"><div class="flex min-w-0 flex-1 flex-col justify-between"><div><div class="flex flex-wrap items-center gap-2"><h2 class="text-[clamp(1.65rem,7vw,2.45rem)] font-black leading-tight tracking-tight text-[#2c2f33]">' + esc(pet.pet_name) + '</h2><span data-pet-kind-env class="rounded-full bg-white/55 px-3 py-1 text-[10px] font-black text-[#2D2A4A] backdrop-blur-sm">' + type.zh + ' · ' + env.label + '</span></div><p class="mt-2 text-sm font-bold leading-6 text-[#4b5563]">完成课程后自动成长。经验负责升级，积分用来解锁装扮。</p></div><div class="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3"><div class="rounded-[1.2rem] bg-white/68 p-3 backdrop-blur-sm"><p class="text-[10px] font-black uppercase tracking-[0.14em] text-gray-500">Level</p><p class="mt-1 text-2xl font-black text-[#6B48FF]">Lv.' + info.level + '</p></div><div class="rounded-[1.2rem] bg-white/68 p-3 backdrop-blur-sm"><p class="text-[10px] font-black uppercase tracking-[0.14em] text-gray-500">EXP</p><p class="mt-1 text-2xl font-black text-[#2D2A4A]">' + info.xp + '</p></div><div class="col-span-2 rounded-[1.2rem] bg-white/68 p-3 backdrop-blur-sm sm:col-span-1"><p class="text-[10px] font-black uppercase tracking-[0.14em] text-gray-500">积分</p><p data-pet-points-value class="mt-1 text-2xl font-black text-[#2D2A4A]">' + Number(pet.pet_points || 0) + '</p></div></div></div><div class="flex shrink-0 flex-col items-center justify-center md:w-[17rem]"><div class="pet-orbit-scene relative flex aspect-[16/10] w-64 max-w-full items-center justify-center md:w-72" style="--pet-accent:' + type.accent + '">' + petParticleNodes() + '<span class="pet-float"><img data-pet-image src="' + esc(asset) + '" alt="' + esc(pet.pet_name) + '" loading="lazy" onerror="this.style.display=&quot;none&quot;" class="p-2"><span class="pet-fallback-icon material-symbols-outlined text-[82px]" style="color:' + type.accent + '">' + type.icon + '</span></span></div><span data-pet-stage-text class="mt-2 rounded-full bg-white/70 px-4 py-2 text-xs font-black text-[#4b5563] backdrop-blur-sm">Stage ' + info.stage + '</span></div></div></div><div class="relative z-20 -mt-8 bg-white px-5 pb-5 pt-0 md:px-7"><div class="grid gap-4 md:grid-cols-[1.35fr_.85fr]"><div class="rounded-[1.35rem] bg-[#F8F8FC] p-4"><div class="flex items-center justify-between gap-3"><div><p class="text-xs font-black uppercase tracking-[0.18em] text-gray-400">成长进度</p><p class="mt-1 text-sm font-black text-[#2D2A4A]">' + (info.nextXp ? '距离 Lv.' + (info.level + 1) + ' 还差 ' + remainingXp + ' EXP' : '已经达到最高等级') + '</p></div><span class="rounded-full bg-white px-3 py-1.5 text-sm font-black text-[#6B48FF] shadow-sm">' + info.progress + '%</span></div><div class="mt-4 h-3 overflow-hidden rounded-full bg-white"><div class="h-full rounded-full bg-[#6B48FF] transition-all duration-300" style="width:' + info.progress + '%"></div></div></div><div class="rounded-[1.35rem] bg-[#F8F8FC] p-4"><p class="text-xs font-black uppercase tracking-[0.18em] text-gray-400">最近获得</p><div class="mt-3 flex flex-wrap gap-2"><span class="rounded-full bg-white px-3 py-1.5 text-xs font-black text-[#6B48FF] shadow-sm">' + latestXp + '</span><span class="rounded-full bg-white px-3 py-1.5 text-xs font-black text-[#2D2A4A] shadow-sm">' + latestPoints + '</span></div><p class="mt-2 line-clamp-2 text-xs font-bold leading-5 text-gray-400">' + (latest ? esc(latest.reason || '课程奖励已入账') : '完成一次课程后，这里会显示奖励。') + '</p></div></div><div class="mt-4 grid gap-4 md:grid-cols-2"><div class="min-w-0 rounded-[1.35rem] border border-gray-100 bg-white p-4"><p class="mb-3 text-xs font-black uppercase tracking-[0.18em] text-gray-400">环境</p><div class="flex flex-nowrap gap-2 overflow-x-auto pb-1 hide-scrollbar">' + envButtons + '</div></div><div class="min-w-0 rounded-[1.35rem] border border-gray-100 bg-white p-4"><p class="mb-3 text-xs font-black uppercase tracking-[0.18em] text-gray-400">装扮</p><div class="flex flex-nowrap gap-2 overflow-x-auto pb-1 hide-scrollbar">' + itemButtons + '</div></div>' + (cfg.error ? '<p class="rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-500 md:col-span-2">' + esc(cfg.error) + '</p>' : '') + '</div></div></section>';
+}
+function petsPanel() {
+  const cfg = petCfg();
+  if (!cfg.loaded && !cfg.loading) setTimeout(() => loadPetData(false), 0);
+  const pets = cfg.pets || [];
+  const students = state.students.slice().sort((a,b) => String(a.name || a.id).localeCompare(String(b.name || b.id), 'zh-Hans'));
+  const q = String(cfg.search || '').trim().toLowerCase();
+  const filtered = students.filter(s => !q || String(s.name || '').toLowerCase().includes(q) || String(s.id || '').toLowerCase().includes(q));
+  const stats = [
+    ['学生总数', students.length, 'fa-user-graduate'],
+    ['已创建宠物', pets.length, 'fa-paw'],
+    ['可见宠物', pets.filter(p => p.is_visible !== false).length, 'fa-eye'],
+    ['总积分', pets.reduce((s,p) => s + Number(p.pet_points || 0), 0), 'fa-coins']
+  ].map(s => '<div class="rounded-[1.25rem] bg-[#F8F8FC] p-4"><p class="text-[10px] font-black uppercase tracking-[0.16em] text-gray-400"><i class="fa-solid ' + s[2] + ' mr-2 text-[#6B48FF]"></i>' + s[0] + '</p><p class="mt-2 text-2xl font-black text-[#2D2A4A]">' + s[1] + '</p></div>').join('');
+  const typeOpts = PET_TYPES.map(t => '<option value="' + t.id + '">' + t.zh + '</option>').join('');
+  const studentCards = filtered.map((s, index) => {
+    const p = petForStudent(s.id);
+    const info = p ? petLevelInfo(p) : null;
+    const levelOpts = petLevels().map(l => '<option value="' + l.level + '" ' + (p && Number(p.manual_level) === Number(l.level) ? 'selected' : '') + '>Lv.' + l.level + '</option>').join('');
+    const open = String(cfg.activeStudentId || '') === String(s.id) || (!cfg.activeStudentId && index === 0) ? 'open ' : '';
+    const status = p ? 'Lv.' + info.level + ' · ' + Number(p.pet_points || 0) + ' 积分' : '未创建';
+    const body = p ? '<div class="space-y-4 p-4 md:p-5"><div class="grid gap-4 md:grid-cols-2"><label class="block"><span class="mb-2 ml-1 block text-xs font-black uppercase text-gray-400">宠物名</span><input data-pet-admin-name value="' + esc(p.pet_name) + '" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-black outline-none"></label><label class="block"><span class="mb-2 ml-1 block text-xs font-black uppercase text-gray-400">显示</span><select data-pet-admin-visible class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-black outline-none"><option value="true" ' + (p.is_visible !== false ? 'selected' : '') + '>显示</option><option value="false" ' + (p.is_visible === false ? 'selected' : '') + '>隐藏</option></select></label><label class="block"><span class="mb-2 ml-1 block text-xs font-black uppercase text-gray-400">经验</span><input data-pet-admin-xp type="number" min="0" value="' + Number(p.experience_points || 0) + '" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-black outline-none"></label><label class="block"><span class="mb-2 ml-1 block text-xs font-black uppercase text-gray-400">积分</span><input data-pet-admin-points type="number" min="0" value="' + Number(p.pet_points || 0) + '" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-black outline-none"></label><label class="block"><span class="mb-2 ml-1 block text-xs font-black uppercase text-gray-400">等级模式</span><select data-pet-admin-level-mode class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-black outline-none"><option value="auto" ' + (p.level_mode !== 'manual' ? 'selected' : '') + '>自动</option><option value="manual" ' + (p.level_mode === 'manual' ? 'selected' : '') + '>手动</option></select></label><label class="block"><span class="mb-2 ml-1 block text-xs font-black uppercase text-gray-400">手动等级</span><select data-pet-admin-manual-level class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-black outline-none">' + levelOpts + '</select></label></div><button data-admin-save-pet="' + esc(s.id) + '" class="w-full rounded-xl bg-[#2D2A4A] py-4 text-sm font-black text-white active-scale">保存宠物档案</button><div class="rounded-[1.25rem] bg-[#F8F8FC] p-4"><p class="mb-3 text-sm font-black text-[#2D2A4A]">手动补偿</p><div class="grid gap-3 md:grid-cols-3"><input data-pet-adjust-xp type="number" placeholder="EXP +/-" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-black outline-none"><input data-pet-adjust-points type="number" placeholder="积分 +/-" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-black outline-none"><input data-pet-adjust-reason placeholder="原因" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-black outline-none"></div><button data-admin-adjust-pet="' + esc(s.id) + '" class="mt-3 w-full rounded-xl bg-[#6B48FF] py-3 text-sm font-black text-white active-scale">应用补偿</button></div><p class="text-xs font-bold text-gray-400">当前 Lv.' + info.level + ' · Stage ' + info.stage + ' · 进度 ' + info.progress + '%</p></div>' : '<div class="p-4 md:p-5"><div class="rounded-[1.35rem] bg-[#F8F8FC] p-5"><p class="text-sm font-black text-[#2D2A4A]">' + esc(s.name || s.id) + ' 还没有宠物。</p><div class="mt-4 grid gap-3 md:grid-cols-[1fr_1fr_auto]"><input data-pet-create-name value="' + esc((s.name || 'Student') + ' Pet') + '" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-black outline-none"><select data-pet-create-type class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-black outline-none">' + typeOpts + '</select><button data-admin-create-pet="' + esc(s.id) + '" class="rounded-xl bg-[#6B48FF] px-5 py-3 text-sm font-black text-white active-scale">创建</button></div></div></div>';
+    return '<details ' + open + 'data-pet-student-panel="' + esc(s.id) + '" class="group overflow-hidden rounded-[1.35rem] border border-gray-100 bg-white shadow-sm"><summary class="flex min-h-[64px] cursor-pointer list-none items-center justify-between gap-4 bg-[#F8F8FC] px-5 py-4"><span class="flex min-w-0 items-center gap-3"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#6B48FF] shadow-sm"><i class="fa-solid fa-user-graduate text-sm"></i></span><span class="min-w-0"><span class="block truncate text-sm font-extrabold text-[#2D2A4A] md:text-base">' + esc(s.name || s.id) + '</span><span class="mt-0.5 block text-xs font-bold text-gray-400">' + esc(s.id) + '</span></span></span><span class="flex shrink-0 items-center gap-3"><span class="rounded-full bg-white px-3 py-1.5 text-[10px] font-black text-[#6B48FF] shadow-sm md:text-xs">' + status + '</span><i class="fa-solid fa-chevron-down text-xs text-[#6B48FF] transition-transform group-open:rotate-180"></i></span></summary>' + body + '</details>';
+  }).join('');
+  const fieldHint = (label, hint) => '<span class="mb-1 block text-[10px] font-black uppercase tracking-[0.14em] text-gray-400">' + label + '</span><span class="mb-2 block text-[11px] font-bold leading-4 text-gray-400">' + hint + '</span>';
+  const itemRows = petItems().map(item => '<div class="grid gap-3 rounded-[1rem] bg-[#F8F8FC] p-3 md:grid-cols-[minmax(9rem,1fr)_11rem_9rem_6rem] md:items-end"><p class="min-w-0 self-center font-black text-[#2D2A4A]">' + esc(item.label) + '</p><label class="block min-w-0">' + fieldHint('消耗积分', '学生购买会扣除') + '<input id="pet-item-price-' + esc(item.item_key) + '" type="number" min="0" value="' + Number(item.price || 0) + '" class="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-black outline-none"></label><label class="block min-w-0">' + fieldHint('学生端状态', '是否可购买') + '<select id="pet-item-active-' + esc(item.item_key) + '" class="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-black outline-none"><option value="true" ' + (item.active !== false ? 'selected' : '') + '>启用</option><option value="false" ' + (item.active === false ? 'selected' : '') + '>停用</option></select></label><button data-save-pet-item="' + esc(item.item_key) + '" class="min-h-[40px] rounded-xl bg-white px-4 py-2 text-xs font-black text-[#6B48FF] shadow-sm active-scale">保存</button></div>').join('');
+  const levelRows = petLevels().map(level => '<div class="grid gap-3 rounded-[1rem] bg-[#F8F8FC] p-3 md:grid-cols-[minmax(9rem,1fr)_11rem_11rem_6rem] md:items-end"><p class="min-w-0 self-center font-black text-[#2D2A4A]">Lv.' + level.level + '</p><label class="block min-w-0">' + fieldHint('升级门槛 EXP', '累计达到后升级') + '<input id="pet-level-xp-' + level.level + '" type="number" min="0" value="' + Number(level.required_xp || 0) + '" class="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-black outline-none"></label><label class="block min-w-0">' + fieldHint('图片阶段', '对应宠物形态') + '<input id="pet-level-stage-' + level.level + '" type="number" min="1" max="4" value="' + Number(level.stage || level.level) + '" class="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-black outline-none"></label><button data-save-pet-level="' + level.level + '" class="min-h-[40px] rounded-xl bg-white px-4 py-2 text-xs font-black text-[#6B48FF] shadow-sm active-scale">保存</button></div>').join('');
+  const rewardRows = petRewards().map(rule => '<div class="grid gap-3 rounded-[1rem] bg-[#F8F8FC] p-3 md:grid-cols-[minmax(9rem,1fr)_9rem_9rem_9rem_6rem] md:items-end"><p class="min-w-0 self-center font-black text-[#2D2A4A]">' + esc(rule.label) + '</p><label class="block min-w-0">' + fieldHint('触发分数 >=', '达到才发奖励') + '<input id="pet-reward-min-' + esc(rule.tier_key) + '" type="number" min="0" max="100" value="' + Number(rule.min_score || 0) + '" class="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-black outline-none"></label><label class="block min-w-0">' + fieldHint('奖励 EXP', '用于宠物升级') + '<input id="pet-reward-xp-' + esc(rule.tier_key) + '" type="number" min="0" value="' + Number(rule.xp_reward || 0) + '" class="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-black outline-none"></label><label class="block min-w-0">' + fieldHint('奖励积分', '用于购买装扮') + '<input id="pet-reward-points-' + esc(rule.tier_key) + '" type="number" min="0" value="' + Number(rule.point_reward || 0) + '" class="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-black outline-none"></label><button data-save-pet-reward="' + esc(rule.tier_key) + '" class="min-h-[40px] rounded-xl bg-white px-4 py-2 text-xs font-black text-[#6B48FF] shadow-sm active-scale">保存</button></div>').join('');
+  const eventRows = cfg.events.slice(0, 12).map(e => '<div class="flex items-start justify-between gap-4 rounded-[1rem] bg-[#F8F8FC] px-4 py-3"><div class="min-w-0"><p class="truncate text-sm font-black text-[#2D2A4A]">' + esc(state.students.find(s => String(s.id) === String(e.student_id))?.name || e.student_id) + '</p><p class="mt-1 text-xs font-bold text-gray-400">' + esc(e.reason || e.source_type || '宠物奖励') + '</p></div><span class="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-black text-[#6B48FF]">' + signedPetDelta(e.xp_delta) + ' / ' + signedPetDelta(e.point_delta) + '</span></div>').join('');
+  const ruleOpen = window.innerWidth >= 768 ? 'open ' : '';
+  const ruleBlock = (title, icon, note, rows) => '<details ' + ruleOpen + 'class="group card-solid overflow-hidden"><summary class="flex min-h-[64px] cursor-pointer list-none items-center justify-between gap-4 bg-gradient-to-r from-[#F8F8FC] via-white to-[#F4F2FF] px-5 py-4 md:cursor-default md:px-6"><span class="flex min-w-0 items-center gap-3"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#6B48FF] shadow-sm"><i class="fa-solid ' + icon + ' text-sm"></i></span><span class="min-w-0"><span class="block truncate text-lg font-black text-[#2D2A4A]">' + title + '</span><span class="mt-1 block text-xs font-bold leading-5 text-gray-400">' + note + '</span></span></span><i class="fa-solid fa-chevron-down shrink-0 text-xs text-[#6B48FF] transition-transform group-open:rotate-180 md:hidden"></i></summary><div class="space-y-3 p-4 md:p-5">' + rows + '</div></details>';
+  const rulesSection = '<section class="space-y-4">' + ruleBlock('装扮规则', 'fa-shirt', '价格表示学生购买该装扮需要消耗的宠物积分；状态控制是否在学生端开放购买。', itemRows) + ruleBlock('等级规则', 'fa-chart-simple', '所需经验表示达到该等级需要的累计 EXP；阶段对应宠物图片成长阶段。', levelRows) + ruleBlock('奖励规则', 'fa-gift', '最低分表示触发该档奖励的分数线；经验和积分分别是完成作业后发放给宠物的 EXP 与宠物积分。', rewardRows) + '</section>';
+  return '<div class="tab-content active space-y-5 md:space-y-6"><section class="card-solid overflow-hidden"><div class="flex flex-col gap-4 border-b border-gray-100 bg-gradient-to-r from-[#F8F8FC] via-white to-[#F4F2FF] px-5 py-5 md:flex-row md:items-end md:justify-between md:px-6"><div><p class="text-xs font-black uppercase tracking-[0.3em] text-gray-400">Pet Center</p><h2 class="mt-3 text-2xl font-black text-[#2D2A4A] md:text-3xl">宠物管理</h2></div><button data-pet-refresh class="inline-flex min-h-[40px] items-center justify-center rounded-full bg-white px-4 py-2 text-sm font-black text-[#6B48FF] shadow-sm active-scale"><i class="fa-solid fa-rotate mr-2"></i>刷新</button></div>' + (cfg.error ? '<div class="mx-5 mt-5 rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-500 md:mx-6">' + esc(cfg.error) + '</div>' : '') + '<div class="grid gap-3 px-5 py-5 md:grid-cols-4 md:px-6">' + stats + '</div></section><section class="card-solid overflow-hidden"><div class="flex flex-col gap-3 border-b border-gray-100 bg-white px-5 py-4 md:flex-row md:items-center md:justify-between md:px-6"><div><h3 class="text-lg font-black text-[#2D2A4A]">学生宠物</h3><p class="mt-1 text-xs font-bold text-gray-400">按学生展开后编辑宠物档案。</p></div><input data-pet-search value="' + esc(cfg.search || '') + '" placeholder="搜索学生" class="min-h-[42px] rounded-full border border-gray-200 bg-[#F8F8FC] px-4 py-2 text-sm font-black outline-none md:w-64"></div><div class="space-y-3 p-4 md:p-5">' + (studentCards || '<p class="rounded-[1.25rem] bg-[#F8F8FC] p-5 text-center text-sm font-bold text-gray-400">暂无学生</p>') + '</div></section>' + rulesSection + '<section class="card-solid p-5"><h3 class="mb-4 text-lg font-black text-[#2D2A4A]">最近奖励</h3><div class="grid gap-3 md:grid-cols-2">' + (eventRows || '<p class="rounded-[1.25rem] bg-[#F8F8FC] p-5 text-center text-sm font-bold text-gray-400">暂无宠物奖励记录。</p>') + '</div></section></div>';
+}
 function homeworkPanel() { const rows = displayHomework(); const openCount = rows.filter(h => h.status === 'open').length; const byClass = teacherClasses().map(cls => { const classHw = rows.filter(h => normalizeClass(h.classCode) === cls.code); if (!classHw.length) return ''; const units = [...new Set(classHw.map(h => h.unit || 'Unit'))]; const unitHtml = units.map(u => { const items = classHw.filter(h => (h.unit || 'Unit') === u).map(hw => '<div class="flex justify-between items-center py-3 border-b border-gray-50 last:border-0 pl-5"><p class="text-[14px] md:text-[16px] font-bold text-[#2D2A4A] truncate pr-3">' + esc(hw.title) + '</p><div class="flex items-center gap-4 shrink-0"><label class="toggle"><input type="checkbox" ' + (hw.status === 'open' ? 'checked' : '') + ' data-toggle-lesson="' + esc(hw.id) + '"><span class="slider"></span></label><button data-delete-homework="' + esc(hw.id) + '" class="w-9 h-9 rounded-full bg-red-50 text-red-500 flex items-center justify-center active-scale hover:bg-red-500 hover:text-white transition-colors shadow-sm"><i class="fa-solid fa-trash-can text-sm"></i></button></div></div>').join(''); return '<div class="mb-4"><div class="text-[12px] md:text-[14px] font-bold text-[#6B48FF] bg-[#F4F2FF] px-5 py-2 rounded-t-xl">' + esc(u) + '</div><div class="border border-t-0 border-[#F4F2FF] rounded-b-xl px-2 bg-white shadow-sm">' + items + '</div></div>'; }).join(''); return '<div class="mb-8"><h3 class="text-base md:text-lg font-extrabold text-[#2D2A4A] mb-3 pl-1"><i class="fa-solid ' + cls.icon + ' text-gray-400 mr-2 text-sm"></i> ' + esc(cls.name) + '</h3>' + unitHtml + '</div>'; }).join(''); const classOptions = teacherClasses().map(c => '<option value="' + esc(c.code) + '">' + esc(c.name) + '</option>').join(''); return '<div class="tab-content active"><div class="flex justify-between items-end mb-4 px-1"><h2 class="text-xl md:text-2xl font-extrabold text-[#2D2A4A]">在线大纲 (<span id="ui-hw-count" class="text-[#00BFA5]">' + openCount + '</span>)</h2><button data-close-old-hw class="text-sm font-bold text-red-500 bg-red-50 px-4 py-2 rounded-lg active-scale">一键关闭旧作业</button></div><div class="overflow-hidden mb-10 max-h-[500px] overflow-y-auto hide-scrollbar">' + (byClass || '<div class="card-solid p-6 text-center text-sm text-gray-400">暂无作业</div>') + '</div><h2 class="text-xl md:text-2xl font-extrabold text-[#2D2A4A] mb-4 pl-1">添加路径配置</h2><div class="card-solid p-6 md:p-8 pb-10"><div class="mb-5"><label class="text-[11px] md:text-[13px] font-bold text-gray-400 uppercase ml-1 mb-2 block">班级 (Class Code)</label><select id="hw-class" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-5 py-4 text-base font-bold text-[#6B48FF] outline-none">' + classOptions + '</select></div><div class="md:grid md:grid-cols-2 md:gap-5 mb-5"><div class="mb-5 md:mb-0"><label class="text-[11px] md:text-[13px] font-bold text-gray-400 uppercase ml-1 mb-2 block">单元(Unit)</label><input type="text" id="hw-unit" placeholder="U1" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-5 py-4 text-base font-medium outline-none"></div><div><label class="text-[11px] md:text-[13px] font-bold text-gray-400 uppercase ml-1 mb-2 block">标题(Title)</label><input type="text" id="hw-title" placeholder="Food & Drink" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-5 py-4 text-base font-medium outline-none"></div></div><div class="mb-8"><label class="text-[11px] md:text-[13px] font-bold text-gray-400 uppercase ml-1 mb-2 block">课程文件路径（相对 classes/）</label><input type="text" id="hw-file" placeholder="lessons/a2-unit1-review.html" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-5 py-4 text-base font-medium outline-none"></div><button id="btn-add-hw" data-add-homework class="w-full bg-[#00BFA5] text-white font-bold rounded-xl py-4 text-base shadow-lg active-scale">保存路径配置</button></div></div>'; }
 function homeworkUploadPanel() {
   const rows = displayHomework();
@@ -298,7 +511,10 @@ function bannerPositionOptions(value) {
 }
 function bannerRow(b) {
   const isOpen = b.status !== 'closed';
-  return '<div data-banner-card="' + esc(b.id) + '" draggable="true" class="card-solid mb-5 overflow-hidden p-4 transition-all duration-200 md:p-5"><div class="flex flex-col gap-4 md:flex-row"><button data-banner-drag-handle class="flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[#F4F2FF] text-[12px] font-black text-[#6B48FF] active-scale md:h-28 md:w-12 md:flex-col md:shrink-0" aria-label="拖拽排序"><i class="fa-solid fa-grip-lines text-base"></i><span class="md:[writing-mode:vertical-rl]">拖拽</span></button><button data-preview-banner="' + esc(b.id) + '" class="h-40 w-full overflow-hidden rounded-2xl bg-gray-100 shadow-sm active-scale md:h-28 md:w-44 md:shrink-0" aria-label="预览宣传图"><img src="' + esc(b.image) + '" class="h-full w-full object-cover"></button><div class="min-w-0 flex-1"><div class="mb-2 flex flex-wrap items-center gap-2"><span class="rounded-full px-3 py-1.5 text-[10px] font-black ' + (isOpen ? 'bg-[#E9FFF9] text-[#00BFA5]' : 'bg-gray-100 text-gray-400') + '">' + (isOpen ? '显示中' : '已隐藏') + '</span><span class="rounded-full bg-gray-50 px-3 py-1.5 text-[10px] font-black text-gray-400">' + esc(b.tag || 'Studio News') + '</span></div><p class="line-clamp-2 text-[16px] font-black leading-6 text-[#2D2A4A] md:text-[18px]">' + esc(b.title) + '</p><p class="mt-2 line-clamp-2 text-[12px] font-medium leading-5 text-gray-400 md:text-[13px]">' + esc(b.subtitle || '点击查看详情。') + '</p><p class="mt-2 truncate text-[11px] font-bold text-gray-300">' + (b.link ? esc(b.link) : '无跳转链接') + '</p></div></div><div class="mt-4 rounded-2xl bg-[#F8F8FC] p-2.5"><div class="grid grid-cols-4 gap-2 md:flex md:items-center md:justify-start md:gap-2"><label class="flex h-11 min-w-0 items-center justify-center gap-2 rounded-full bg-white px-3 shadow-sm md:w-[7.25rem]"><span class="hidden text-[12px] font-black text-gray-400 sm:inline">显示</span><span class="toggle scale-[0.86]"><input type="checkbox" ' + (isOpen ? 'checked' : '') + ' data-toggle-banner="' + esc(b.id) + '"><span class="slider"></span></span></label><button data-preview-banner="' + esc(b.id) + '" class="flex h-11 min-w-0 items-center justify-center rounded-full bg-white text-[#6B48FF] shadow-sm transition-colors active-scale hover:bg-[#6B48FF] hover:text-white md:w-11" aria-label="预览"><i class="fa-solid fa-eye text-sm"></i></button><button data-edit-banner="' + esc(b.id) + '" class="flex h-11 min-w-0 items-center justify-center rounded-full bg-white text-[#6B48FF] shadow-sm transition-colors active-scale hover:bg-[#6B48FF] hover:text-white md:w-11" aria-label="编辑"><i class="fa-solid fa-pen text-sm"></i></button><button data-delete-banner="' + esc(b.id) + '" class="flex h-11 min-w-0 items-center justify-center rounded-full bg-red-50 text-red-500 transition-colors active-scale hover:bg-red-500 hover:text-white md:w-11" aria-label="删除"><i class="fa-solid fa-trash-can text-sm"></i></button></div></div></div>';
+  const ordered = (state.banners || []).slice().sort((a,b) => (Number(a.sort_order) || 999) - (Number(b.sort_order) || 999));
+  const page = Math.max(1, ordered.findIndex(item => String(item.id) === String(b.id)) + 1);
+  const total = Math.max(1, ordered.length);
+  return '<div data-banner-card="' + esc(b.id) + '" class="card-solid mb-5 overflow-hidden p-4 transition-all duration-200 md:p-5"><div class="flex flex-col gap-4 md:flex-row"><button data-preview-banner="' + esc(b.id) + '" class="h-40 w-full overflow-hidden rounded-2xl bg-gray-100 shadow-sm active-scale md:h-28 md:w-44 md:shrink-0" aria-label="预览宣传图"><img src="' + esc(b.image) + '" class="h-full w-full object-cover"></button><div class="min-w-0 flex-1"><div class="mb-2 flex flex-wrap items-center gap-2"><span class="rounded-full bg-gray-50 px-3 py-1.5 text-[10px] font-black text-gray-400">' + esc(b.tag || 'Studio News') + '</span></div><p class="line-clamp-2 text-[16px] font-black leading-6 text-[#2D2A4A] md:text-[18px]">' + esc(b.title) + '</p><p class="mt-2 line-clamp-2 text-[12px] font-medium leading-5 text-gray-400 md:text-[13px]">' + esc(b.subtitle || '点击查看详情。') + '</p><p class="mt-2 truncate text-[11px] font-bold text-gray-300">' + (b.link ? esc(b.link) : '无跳转链接') + '</p></div></div><div class="mt-4 rounded-2xl bg-[#F8F8FC] p-1.5 md:p-2"><div class="flex items-center justify-between gap-1 overflow-x-hidden md:gap-2"><label class="banner-switch ' + (isOpen ? 'is-open' : '') + '" aria-label="切换显示状态"><input type="checkbox" ' + (isOpen ? 'checked' : '') + ' data-toggle-banner="' + esc(b.id) + '"><span class="banner-switch-track"></span><span class="banner-switch-knob"></span><span class="banner-switch-text banner-switch-text-on">显示</span><span class="banner-switch-text banner-switch-text-off">隐藏</span></label><div class="flex h-9 w-[4.7rem] shrink-0 items-center justify-between rounded-full bg-white px-1 shadow-sm md:h-11 md:w-[8rem] md:px-2"><button data-banner-page-step="' + esc(b.id) + '" data-banner-page-delta="-1" class="flex h-6 w-6 items-center justify-center rounded-full text-gray-400 transition active-scale hover:bg-[#F4F2FF] hover:text-[#6B48FF] md:h-8 md:w-8" aria-label="前移一页"><i class="fa-solid fa-minus text-[9px] md:text-[11px]"></i></button><span class="min-w-[1.55rem] text-center text-[11px] font-black text-[#6B48FF] md:min-w-[2rem] md:text-[12px]">' + page + '</span><button data-banner-page-step="' + esc(b.id) + '" data-banner-page-delta="1" class="flex h-6 w-6 items-center justify-center rounded-full text-gray-400 transition active-scale hover:bg-[#F4F2FF] hover:text-[#6B48FF] md:h-8 md:w-8" aria-label="后移一页"><i class="fa-solid fa-plus text-[9px] md:text-[11px]"></i></button></div><span class="hidden rounded-full bg-white px-3 py-3 text-[11px] font-black text-gray-300 md:inline-flex">共 ' + total + ' 页</span><div class="flex shrink-0 gap-1 md:ml-auto md:gap-2"><button data-preview-banner="' + esc(b.id) + '" class="flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#6B48FF] shadow-sm transition-colors active-scale hover:bg-[#6B48FF] hover:text-white md:h-11 md:w-11" aria-label="预览"><i class="fa-solid fa-eye text-[11px] md:text-sm"></i></button><button data-edit-banner="' + esc(b.id) + '" class="flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#6B48FF] shadow-sm transition-colors active-scale hover:bg-[#6B48FF] hover:text-white md:h-11 md:w-11" aria-label="编辑"><i class="fa-solid fa-pen text-[11px] md:text-sm"></i></button><button data-delete-banner="' + esc(b.id) + '" class="flex h-8 w-8 items-center justify-center rounded-full bg-red-50 text-red-500 transition-colors active-scale hover:bg-red-500 hover:text-white md:h-11 md:w-11" aria-label="删除"><i class="fa-solid fa-trash-can text-[11px] md:text-sm"></i></button></div></div></div></div>';
 }
 function bannerForm(prefix, b) {
   const item = b || { image:'', link:'', tag:'NEW', title:'', subtitle:'', position:'center', sort_order:(state.banners.length + 1), status:'open' };
@@ -308,7 +524,7 @@ function bannersPanel() {
   const rows = (state.banners || []).slice().sort((a,b) => (Number(a.sort_order) || 999) - (Number(b.sort_order) || 999)).map(bannerRow).join('');
   const setup = state.bannerError ? '<div class="mb-3 rounded-2xl bg-red-50 px-4 py-3 text-[12px] font-bold leading-5 text-red-500">后端宣传表还没有初始化：请先在 Supabase SQL Editor 执行 xiaoyao1/supabase-banner-setup.sql。当前首页会继续使用前端应急 fallback。</div>' : '';
   const fallback = !rows ? '<div class="mb-3 rounded-2xl bg-[#F4F2FF] px-4 py-3 text-[12px] font-bold leading-5 text-[#6B48FF]">后端暂无主页宣传卡片。首页当前使用应急 fallback；完成 seed 后会自动改用后端内容。</div>' + defaultBannerList() : '';
-  return '<div class="tab-content active space-y-5 md:space-y-6"><section class="card-solid overflow-hidden"><div class="flex flex-col gap-4 border-b border-gray-100 bg-gradient-to-r from-[#F8F8FC] via-white to-[#F4F2FF] px-5 py-5 md:flex-row md:items-end md:justify-between md:px-6"><div class="min-w-0"><p class="text-xs font-black uppercase tracking-[0.3em] text-gray-400">Homepage Banners</p><h2 class="mt-3 text-2xl font-black text-[#2D2A4A] md:text-3xl">主页宣传</h2></div><a href="#banner-create-form" class="inline-flex min-h-[40px] items-center justify-center rounded-full bg-white px-4 py-2 text-[12px] font-black text-[#6B48FF] shadow-sm active-scale">新增卡片</a></div><div class="px-5 py-5 md:px-6"><p class="mb-4 text-[12px] font-bold text-gray-400">拖拽卡片即可排序，首页会按拖拽后的顺序展示</p><div class="max-h-[430px] overflow-y-auto hide-scrollbar">' + setup + (rows || fallback) + '</div></div></section><section id="banner-create-form" class="card-solid overflow-hidden bg-gradient-to-b from-white to-[#F8F8FC]"><div class="border-b border-gray-100 px-5 py-5 md:px-6"><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Create</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">新增主页卡片</h3></div><div class="p-6 pb-10 md:p-8">' + bannerForm('ban') + '<button id="btn-add-ban" data-add-banner class="w-full rounded-xl bg-[#6B48FF] py-4 text-base font-bold text-white shadow-lg shadow-[#6B48FF]/30 active-scale">新增并发布到主页轮播</button></div></section></div>';
+  return '<div class="tab-content active space-y-5 md:space-y-6"><section class="card-solid overflow-hidden"><div class="flex flex-col gap-4 border-b border-gray-100 bg-gradient-to-r from-[#F8F8FC] via-white to-[#F4F2FF] px-5 py-5 md:flex-row md:items-end md:justify-between md:px-6"><div class="min-w-0"><p class="text-xs font-black uppercase tracking-[0.3em] text-gray-400">Homepage Banners</p><h2 class="mt-3 text-2xl font-black text-[#2D2A4A] md:text-3xl">主页宣传</h2></div><a href="#banner-create-form" class="inline-flex min-h-[40px] items-center justify-center rounded-full bg-white px-4 py-2 text-[12px] font-black text-[#6B48FF] shadow-sm active-scale">新增卡片</a></div><div class="px-5 py-5 md:px-6"><p class="mb-4 text-[12px] font-bold text-gray-400">用每行的页数胶囊调整轮播顺序，首页会按页数从小到大展示</p><div class="max-h-[430px] overflow-y-auto hide-scrollbar">' + setup + (rows || fallback) + '</div></div></section><section id="banner-create-form" class="card-solid overflow-hidden bg-gradient-to-b from-white to-[#F8F8FC]"><div class="border-b border-gray-100 px-5 py-5 md:px-6"><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Create</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">新增主页卡片</h3></div><div class="p-6 pb-10 md:p-8">' + bannerForm('ban') + '<button id="btn-add-ban" data-add-banner class="w-full rounded-xl bg-[#6B48FF] py-4 text-base font-bold text-white shadow-lg shadow-[#6B48FF]/30 active-scale">新增并发布到主页轮播</button></div></section></div>';
 }
 const REPORT_COLORS = ['#6B48FF','#00BFA5','#FF4B72','#FFB800','#3949AB'];
 const REPORT_BUCKETS = [{ label:'90-100', min:90, max:100, color:'#059669' },{ label:'80-89', min:80, max:89, color:'#0284c7' },{ label:'60-79', min:60, max:79, color:'#d97706' },{ label:'<60', min:0, max:59, color:'#e11d48' }];
@@ -607,6 +823,7 @@ function render() {
   else if (state.page === 'vote') app.innerHTML = votePage();
   else app.innerHTML = homePage();
   initTeacherForm();
+  hydrateStudentPetCollapse();
 }
 function initTeacherForm() {
   if (state.page !== 'teacher') return;
@@ -631,11 +848,15 @@ function initTeacherForm() {
     const cfg = reportCfg();
     if (!cfg.loaded && !cfg.loading) loadReportData(false);
   }
+  if (state.teacherTab === 'pets') {
+    const cfg = petCfg();
+    if (!cfg.loaded && !cfg.loading) loadPetData(false);
+  }
 }
 function showLogin() { modalRoot.innerHTML = '<div class="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm"><div class="motion-auth-panel-enter w-full max-w-sm rounded-[2rem] bg-white p-6 shadow-2xl"><h2 class="text-2xl font-black">登录</h2><input id="login-id" class="mt-5 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 font-bold" placeholder="账号"><input id="login-pwd" type="password" class="mt-3 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 font-bold" placeholder="密码"><button class="mt-5 w-full rounded-xl bg-[#5827fc] px-4 py-4 font-black text-white" data-do-login>进入</button><button class="mt-3 w-full rounded-xl bg-slate-100 px-4 py-4 font-black text-slate-500" data-close-modal>取消</button></div></div>'; }
 function closeModal() { modalRoot.innerHTML = ''; }
-async function doLogin() { const id = document.getElementById('login-id').value.trim(); const password = document.getElementById('login-pwd').value; if (id === TEACHER.id && password === TEACHER.password) { localStorage.setItem('xy_user', JSON.stringify({ id, role:'teacher', name:TEACHER.name })); closeModal(); routeTo('teacher', null, true); return; } const result = await sb.from('students').select('*').eq('id', id.toUpperCase()).eq('password', password).maybeSingle(); if (result.error || !result.data) { toast('账号或密码不正确'); return; } localStorage.setItem('xy_user', JSON.stringify({ id:result.data.id, role:'student', name:result.data.name, classes:result.data.classes || [] })); closeModal(); render(); }
-function logout() { localStorage.removeItem('xy_user'); routeTo('home', null, true); }
+async function doLogin() { const id = document.getElementById('login-id').value.trim(); const password = document.getElementById('login-pwd').value; if (id === TEACHER.id && password === TEACHER.password) { localStorage.setItem('xy_user', JSON.stringify({ id, role:'teacher', name:TEACHER.name })); state.pet = null; closeModal(); routeTo('teacher', null, true); return; } const result = await sb.from('students').select('*').eq('id', id.toUpperCase()).eq('password', password).maybeSingle(); if (result.error || !result.data) { toast('账号或密码不正确'); return; } localStorage.setItem('xy_user', JSON.stringify({ id:result.data.id, role:'student', name:result.data.name, classes:result.data.classes || [] })); state.pet = null; closeModal(); render(); }
+function logout() { localStorage.removeItem('xy_user'); state.pet = null; routeTo('home', null, true); }
 function regenPwd() { const el = document.getElementById('form-pwd'); if (el) el.value = Math.floor(1000 + Math.random() * 9000); }
 function showStudentInfo(id) {
   const student = state.students.find(s => String(s.id) === String(id));
@@ -930,30 +1151,25 @@ async function deleteBanner(id) { showConfirm('确定要从主页删除这张宣
 async function updateBannerStatus(id, checked, el) {
   const next = checked ? 'open' : 'closed';
   const prev = state.banners.find(b => String(b.id) === String(id))?.status || 'open';
+  const switchEl = el ? el.closest('.banner-switch') : null;
   state.banners = state.banners.map(b => String(b.id) === String(id) ? { ...b, status:next } : b);
-  render();
+  if (switchEl) switchEl.classList.toggle('is-open', checked);
   const result = await sb.from('banners').update({ status:next }).eq('id', id);
   if (result.error) {
     state.banners = state.banners.map(b => String(b.id) === String(id) ? { ...b, status:prev } : b);
     if (el) el.checked = prev !== 'closed';
-    render();
+    if (switchEl) switchEl.classList.toggle('is-open', prev !== 'closed');
     return showAlert('更新显示状态失败: ' + result.error.message, '错误');
   }
 }
-async function updateBannerOrder(id, value) {
-  const sort = Number(value);
-  if (!Number.isFinite(sort) || sort < 1) return showAlert('排序必须是大于 0 的数字。', '提示');
-  const result = await sb.from('banners').update({ sort_order:sort }).eq('id', id);
-  if (result.error) return showAlert('更新排序失败: ' + result.error.message, '错误');
-  state.banners = state.banners.map(b => String(b.id) === String(id) ? { ...b, sort_order:sort } : b);
-  render();
-}
-function reorderBannersInState(fromId, toId) {
-  if (!fromId || !toId || String(fromId) === String(toId)) return null;
+function reorderBannersInState(fromId, toIdOrIndex) {
+  if (!fromId && fromId !== 0) return null;
   const ordered = (state.banners || []).slice().sort((a,b) => (Number(a.sort_order) || 999) - (Number(b.sort_order) || 999));
   const from = ordered.findIndex(b => String(b.id) === String(fromId));
-  const to = ordered.findIndex(b => String(b.id) === String(toId));
+  const requestedTo = typeof toIdOrIndex === 'number' ? toIdOrIndex : ordered.findIndex(b => String(b.id) === String(toIdOrIndex));
+  const to = Math.max(0, Math.min(ordered.length - 1, requestedTo));
   if (from < 0 || to < 0) return null;
+  if (from === to) return ordered.map((b, i) => ({ ...b, sort_order:i + 1 }));
   const [moved] = ordered.splice(from, 1);
   ordered.splice(to, 0, moved);
   return ordered.map((b, i) => ({ ...b, sort_order:i + 1 }));
@@ -964,8 +1180,21 @@ async function persistBannerOrder(ordered) {
   const error = results.find(r => r.error)?.error;
   if (error) {
     await loadData();
-    return showAlert('保存拖拽排序失败: ' + error.message, '错误');
+    return showAlert('保存页数排序失败: ' + error.message, '错误');
   }
+}
+async function shiftBannerPage(id, delta) {
+  const ordered = (state.banners || []).slice().sort((a,b) => (Number(a.sort_order) || 999) - (Number(b.sort_order) || 999));
+  const index = ordered.findIndex(b => String(b.id) === String(id));
+  if (index < 0) return showAlert('没有找到这张宣传图。', '排序失败');
+  const target = Math.max(0, Math.min(ordered.length - 1, index + Number(delta || 0)));
+  if (target === index) return;
+  const next = reorderBannersInState(id, target);
+  if (!next) return;
+  state.banners = next;
+  state.slide = 0;
+  render();
+  await persistBannerOrder(next);
 }
 async function loadAttendanceRecords(showDone = false) {
   const cfg = attendanceCfg();
@@ -1161,6 +1390,265 @@ function toggleReportCompare(entityId) {
   else cfg.selectedComparisonIds = current.concat(entityId);
   render();
 }
+async function createPetForStudent(studentId, type, name) {
+  const cleanName = String(name || '').trim();
+  if (!studentId || !cleanName) return showAlert('请填写宠物名字。', '提示');
+  const result = await sb.rpc('initialize_student_pet', { p_student_id:String(studentId), p_pet_type:type || 'fox', p_pet_name:cleanName });
+  if (result.error) return showAlert(petErrorMessage(result.error), '宠物创建失败');
+  petCfg().activeStudentId = String(studentId);
+  await loadPetData(false);
+  toast('宠物已创建。');
+}
+async function saveStudentPet(studentId, source) {
+  const pet = petForStudent(studentId);
+  if (!pet) return;
+  const root = source?.closest('[data-pet-student-panel]') || document;
+  const payload = {
+    pet_name:(root.querySelector('[data-pet-admin-name]')?.value || document.getElementById('pet-admin-name')?.value || pet.pet_name).trim() || pet.pet_name,
+    is_visible:(root.querySelector('[data-pet-admin-visible]')?.value || document.getElementById('pet-admin-visible')?.value) !== 'false',
+    experience_points:Math.max(0, Number(root.querySelector('[data-pet-admin-xp]')?.value || document.getElementById('pet-admin-xp')?.value || 0)),
+    pet_points:Math.max(0, Number(root.querySelector('[data-pet-admin-points]')?.value || document.getElementById('pet-admin-points')?.value || 0)),
+    level_mode:(root.querySelector('[data-pet-admin-level-mode]')?.value || document.getElementById('pet-admin-level-mode')?.value) === 'manual' ? 'manual' : 'auto',
+    manual_level:Number(root.querySelector('[data-pet-admin-manual-level]')?.value || document.getElementById('pet-admin-manual-level')?.value || pet.manual_level || 1)
+  };
+  const result = await sb.from('student_pets').update(payload).eq('student_id', String(studentId));
+  if (result.error) return showAlert(petErrorMessage(result.error), '保存失败');
+  petCfg().activeStudentId = String(studentId);
+  await loadPetData(false);
+  toast('宠物档案已保存。');
+}
+async function adjustStudentPet(studentId, source) {
+  const root = source?.closest('[data-pet-student-panel]') || document;
+  const xp = Number(root.querySelector('[data-pet-adjust-xp]')?.value || document.getElementById('pet-adjust-xp')?.value || 0);
+  const points = Number(root.querySelector('[data-pet-adjust-points]')?.value || document.getElementById('pet-adjust-points')?.value || 0);
+  const reason = (root.querySelector('[data-pet-adjust-reason]')?.value || document.getElementById('pet-adjust-reason')?.value || '教师补偿').trim();
+  if (!xp && !points) return showAlert('请填写要调整的经验或积分。', '提示');
+  const result = await sb.rpc('admin_adjust_pet', { p_target_student_id:String(studentId), p_xp_delta:xp, p_point_delta:points, p_reason:reason });
+  if (result.error) return showAlert(petErrorMessage(result.error), '调整失败');
+  petCfg().activeStudentId = String(studentId);
+  await loadPetData(false);
+  toast('宠物补偿已应用。');
+}
+function updateLocalPet(pet) {
+  if (!pet || !pet.student_id) return;
+  const cfg = petCfg();
+  const index = cfg.pets.findIndex(p => String(p.student_id) === String(pet.student_id));
+  if (index >= 0) cfg.pets[index] = { ...cfg.pets[index], ...pet };
+  else cfg.pets.unshift(pet);
+}
+function petItemButtonClass(active) {
+  return 'min-h-[38px] shrink-0 rounded-full px-4 text-xs font-black active-scale ' + (active ? 'bg-[#6B48FF] text-white' : 'bg-[#F8F8FC] text-[#74777c] border border-gray-100');
+}
+function petEnvButtonClass(active) {
+  return 'inline-flex min-h-[38px] shrink-0 items-center gap-1.5 rounded-full px-4 text-xs font-black active-scale ' + (active ? 'bg-[#2D2A4A] text-white' : 'bg-[#F8F8FC] text-[#74777c] border border-gray-100');
+}
+function petEnvDemoButtonClass(active) {
+  return 'inline-flex min-h-[38px] shrink-0 items-center gap-1.5 rounded-full px-4 text-xs font-black active-scale ' + (active ? 'bg-[#6B48FF] text-white' : 'bg-white text-[#6B48FF] border border-[#E3DEFF]');
+}
+function petEnvironmentBackground(id) {
+  const backgrounds = {
+    'warm-sun':'radial-gradient(circle at 18% 24%,rgba(255,255,255,.92) 0 8%,rgba(255,255,255,0) 22%),linear-gradient(145deg,#bfdbfe 0%,#fef3c7 52%,#bbf7d0 100%)',
+    forest:'radial-gradient(circle at 16% 18%,rgba(255,255,255,.55) 0 9%,rgba(255,255,255,0) 24%),linear-gradient(145deg,#dcfce7 0%,#86efac 48%,#14532d 100%)',
+    starry:'radial-gradient(circle at 22% 20%,rgba(255,255,255,.86) 0 2%,rgba(255,255,255,0) 7%),radial-gradient(circle at 72% 28%,rgba(255,255,255,.75) 0 1.5%,rgba(255,255,255,0) 6%),linear-gradient(145deg,#312e81 0%,#1e1b4b 52%,#020617 100%)',
+    ocean:'radial-gradient(circle at 20% 18%,rgba(255,255,255,.85) 0 8%,rgba(255,255,255,0) 22%),linear-gradient(145deg,#bae6fd 0%,#38bdf8 50%,#0f766e 100%)',
+    test:'radial-gradient(circle at 18% 24%,rgba(255,255,255,.9) 0 8%,rgba(255,255,255,0) 22%),linear-gradient(145deg,#bfdbfe 0%,#fef3c7 48%,#bbf7d0 100%)'
+  };
+  return backgrounds[id] || backgrounds['warm-sun'];
+}
+function petEnvironmentLayeredBackground(id) {
+  return 'linear-gradient(180deg,rgba(255,255,255,.12) 0%,rgba(255,255,255,.58) 58%,rgba(255,255,255,.94) 100%),' + petEnvironmentBackground(id);
+}
+function showPetEnvironmentDemo(source) {
+  const panel = source?.closest('[data-student-pet-panel]') || document;
+  panel.querySelectorAll('[data-pet-env-demo]').forEach(button => { button.className = petEnvDemoButtonClass(button === source); });
+  const stage = panel.querySelector('[data-pet-env-stage]');
+  if (stage) {
+    stage.style.backgroundImage = petEnvironmentLayeredBackground(source?.dataset.petEnvDemo || 'test');
+    stage.classList.add('ring-2','ring-[#6B48FF]/30');
+    setTimeout(() => stage.classList.remove('ring-2','ring-[#6B48FF]/30'), 420);
+  }
+}
+function updateStudentPetDom(pet) {
+  const panel = document.querySelector('[data-student-pet-panel]');
+  if (!panel || !pet) return;
+  const info = petLevelInfo(pet);
+  const type = petTypeMeta(pet.pet_type);
+  const env = petEnvMeta(pet.environment_key);
+  const asset = petAssetUrl(pet, info);
+  panel.querySelectorAll('[data-pet-image]').forEach(img => {
+    img.alt = pet.pet_name || 'pet';
+    if (img.getAttribute('src') !== asset) {
+      img.style.opacity = '0';
+      img.onload = () => { img.style.opacity = ''; };
+      img.src = asset;
+    }
+  });
+  panel.querySelectorAll('[data-pet-kind-env]').forEach(node => { node.textContent = type.zh + ' · ' + env.label; });
+  panel.querySelectorAll('[data-pet-env-stage]').forEach(node => { node.style.backgroundImage = petEnvironmentLayeredBackground(env.id); });
+  panel.querySelectorAll('[data-pet-env-demo]').forEach(button => { button.className = petEnvDemoButtonClass(false); });
+  panel.querySelectorAll('[data-pet-points-text]').forEach(node => { node.textContent = Number(pet.pet_points || 0) + ' 积分'; });
+  panel.querySelectorAll('[data-pet-points-value]').forEach(node => { node.textContent = Number(pet.pet_points || 0); });
+  panel.querySelectorAll('[data-pet-stage-text]').forEach(node => { node.textContent = 'Stage ' + info.stage; });
+  panel.querySelectorAll('[data-pet-equip]').forEach(button => {
+    const key = button.dataset.petEquip || '';
+    button.className = petItemButtonClass((pet.equipped_item || '') === key);
+  });
+  panel.querySelectorAll('[data-pet-env]').forEach(button => {
+    button.className = petEnvButtonClass(env.id === button.dataset.petEnv);
+  });
+}
+function markPetItemOwned(itemKey) {
+  const panel = document.querySelector('[data-student-pet-panel]');
+  const button = Array.from(panel?.querySelectorAll('[data-pet-buy]') || []).find(node => node.dataset.petBuy === itemKey);
+  if (!button) return;
+  const item = petItems().find(i => i.item_key === itemKey);
+  button.removeAttribute('data-pet-buy');
+  button.dataset.petEquip = itemKey;
+  button.textContent = item?.label || itemKey;
+}
+function hydrateStudentPetCollapse() {
+  const u = currentUser();
+  if (!u || u.role !== 'student') return;
+  const pet = petForStudent(u.id);
+  if (!pet || pet.is_visible === false) return;
+  const panel = document.querySelector('[data-student-pet-panel]');
+  if (!panel || panel.querySelector('[data-pet-collapse]')) return;
+  const content = panel.firstElementChild;
+  if (!content || !content.matches('section')) return;
+  const info = petLevelInfo(pet);
+  const type = petTypeMeta(pet.pet_type);
+  const env = petEnvMeta(pet.environment_key);
+  const asset = petAssetUrl(pet, info);
+  const collapsedKey = 'xy_pet_collapsed:' + String(u.id);
+  const details = document.createElement('details');
+  details.dataset.petCollapse = '1';
+  details.open = localStorage.getItem(collapsedKey) !== '1';
+  details.className = 'pet-collapse group motion-panel-enter overflow-hidden rounded-[2rem] bg-white shadow-[0_18px_50px_-24px_rgba(92,45,255,0.22)]';
+  details.innerHTML = '<summary class="pet-collapse-summary relative flex min-h-[86px] cursor-pointer list-none items-center justify-between gap-4 bg-white px-4 py-3 md:px-5"><span class="pet-collapse-brief flex min-w-0 flex-1 items-center justify-between gap-4"><span class="flex min-w-0 items-center gap-3"><span class="pet-orbit-scene relative flex h-14 w-14 shrink-0 items-center justify-center" style="--pet-accent:' + type.accent + '">' + petParticleNodes('mini') + '<span class="pet-float"><img data-pet-image src="' + esc(asset) + '" alt="' + esc(pet.pet_name) + '" loading="lazy" onerror="this.style.display=&quot;none&quot;" class="p-1"><span class="pet-fallback-icon material-symbols-outlined text-[30px]" style="color:' + type.accent + '">' + type.icon + '</span></span></span><span class="min-w-0"><span class="block truncate text-lg font-black text-[#2c2f33]">' + esc(pet.pet_name) + '</span><span class="mt-1 flex flex-wrap items-center gap-2"><span class="rounded-full bg-[#F4F2FF] px-2.5 py-1 text-[10px] font-black text-[#6B48FF]">Lv.' + info.level + '</span><span data-pet-kind-env class="rounded-full bg-[#F8F8FC] px-2.5 py-1 text-[10px] font-black text-gray-500">' + type.zh + ' · ' + env.label + '</span></span></span></span><span class="flex shrink-0 items-center gap-3"><span class="hidden min-w-[8rem] sm:block"><span class="mb-1 flex justify-between text-[10px] font-black text-gray-400"><span>EXP</span><span>' + info.progress + '%</span></span><span class="block h-2 overflow-hidden rounded-full bg-[#F4F2FF]"><span class="block h-full rounded-full bg-[#6B48FF]" style="width:' + info.progress + '%"></span></span></span><span data-pet-points-text class="rounded-full bg-[#F8F8FC] px-3 py-1.5 text-xs font-black text-[#2D2A4A]">' + Number(pet.pet_points || 0) + ' 积分</span></span></span><span class="pet-collapse-open-title flex min-w-0 items-center gap-2 text-sm font-black text-[#6B48FF]"><span class="material-symbols-outlined text-[20px]">keyboard_arrow_up</span><span>收起宠物档案</span></span><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#F4F2FF] text-[#6B48FF]"><i class="pet-collapse-chevron fa-solid fa-chevron-down text-xs"></i></span></summary><div data-pet-collapse-body class="pet-collapse-body border-t border-gray-100"></div>';
+  panel.replaceChild(details, content);
+  const body = details.querySelector('[data-pet-collapse-body]');
+  const summary = details.querySelector('summary');
+  const reducedMotion = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  body.appendChild(content);
+  body.style.height = details.open ? 'auto' : '0px';
+  summary.addEventListener('click', event => {
+    event.preventDefault();
+    if (details.dataset.animating === '1') return;
+    const nextOpen = !details.open;
+    localStorage.setItem(collapsedKey, nextOpen ? '0' : '1');
+    if (reducedMotion()) {
+      details.open = nextOpen;
+      body.style.height = nextOpen ? 'auto' : '0px';
+      return;
+    }
+    details.dataset.animating = '1';
+    if (nextOpen) {
+      details.open = true;
+      body.style.height = '0px';
+      body.style.opacity = '0';
+      requestAnimationFrame(() => {
+        body.style.height = body.scrollHeight + 'px';
+        body.style.opacity = '1';
+      });
+      const onOpenEnd = event => {
+        if (event.target !== body || event.propertyName !== 'height') return;
+        body.style.height = 'auto';
+        body.style.opacity = '';
+        details.dataset.animating = '0';
+        body.removeEventListener('transitionend', onOpenEnd);
+      };
+      body.addEventListener('transitionend', onOpenEnd);
+    } else {
+      body.style.height = body.scrollHeight + 'px';
+      body.style.opacity = '1';
+      body.offsetHeight;
+      requestAnimationFrame(() => {
+        body.style.height = '0px';
+        body.style.opacity = '0';
+      });
+      const onCloseEnd = event => {
+        if (event.target !== body || event.propertyName !== 'height') return;
+        details.open = false;
+        body.style.opacity = '';
+        details.dataset.animating = '0';
+        body.removeEventListener('transitionend', onCloseEnd);
+      };
+      body.addEventListener('transitionend', onCloseEnd);
+    }
+  });
+}
+function refreshStudentPetPanel() {
+  const panel = document.querySelector('[data-student-pet-panel]');
+  if (panel) {
+    panel.innerHTML = studentPetPanel();
+    hydrateStudentPetCollapse();
+  }
+}
+async function buyPetItem(itemKey) {
+  const u = currentUser();
+  if (!u || u.role !== 'student') return;
+  const result = await sb.rpc('purchase_pet_item', { p_student_id:String(u.id), p_item_key:itemKey });
+  if (result.error) return showAlert(petErrorMessage(result.error), '购买失败');
+  const pet = result.data && (result.data.pet || result.data);
+  updateLocalPet(pet);
+  if (!petCfg().inventory.some(i => String(i.student_id) === String(u.id) && i.item_key === itemKey)) petCfg().inventory.unshift({ student_id:String(u.id), item_key:itemKey, acquired_at:new Date().toISOString() });
+  markPetItemOwned(itemKey);
+  if (pet) {
+    await preloadPetAsset(pet);
+    updateStudentPetDom(pet);
+  } else {
+    refreshStudentPetPanel();
+  }
+}
+async function equipPetItem(itemKey) {
+  const u = currentUser();
+  if (!u || u.role !== 'student') return;
+  const current = petForStudent(u.id);
+  const target = current ? { ...current, equipped_item:itemKey || null } : null;
+  const preload = preloadPetAsset(target);
+  const result = await sb.rpc('equip_pet_item', { p_student_id:String(u.id), p_item_key:itemKey || null });
+  if (result.error) return showAlert(petErrorMessage(result.error), '装扮失败');
+  const pet = result.data || target;
+  await preload;
+  await preloadPetAsset(pet);
+  updateLocalPet(pet);
+  updateStudentPetDom(pet);
+}
+async function setPetEnvironment(environmentKey) {
+  const u = currentUser();
+  if (!u || u.role !== 'student') return;
+  const result = await sb.rpc('set_pet_environment', { p_student_id:String(u.id), p_environment_key:environmentKey });
+  if (result.error) return showAlert(petErrorMessage(result.error), '切换失败');
+  const current = petForStudent(u.id);
+  const pet = result.data || (current ? { ...current, environment_key:environmentKey } : null);
+  updateLocalPet(pet);
+  updateStudentPetDom(pet);
+}
+async function savePetItemRule(itemKey) {
+  const item = petItems().find(i => i.item_key === itemKey);
+  if (!item) return;
+  const payload = { item_key:itemKey, label:item.label, price:Math.max(0, Number(document.getElementById('pet-item-price-' + itemKey)?.value || 0)), sort_order:item.sort_order || 0, active:document.getElementById('pet-item-active-' + itemKey)?.value !== 'false' };
+  const result = await sb.from('pet_item_rules').upsert(payload);
+  if (result.error) return showAlert(petErrorMessage(result.error), '保存失败');
+  await loadPetData(false);
+  toast('装扮规则已保存。');
+}
+async function savePetLevelRule(level) {
+  const payload = { level:Number(level), required_xp:Math.max(0, Number(document.getElementById('pet-level-xp-' + level)?.value || 0)), stage:Math.max(1, Math.min(4, Number(document.getElementById('pet-level-stage-' + level)?.value || level))) };
+  const result = await sb.from('pet_level_rules').upsert(payload);
+  if (result.error) return showAlert(petErrorMessage(result.error), '保存失败');
+  await loadPetData(false);
+  toast('等级规则已保存。');
+}
+async function savePetRewardRule(key) {
+  const rule = petRewards().find(r => r.tier_key === key);
+  if (!rule) return;
+  const payload = { tier_key:key, label:rule.label, min_score:Math.max(0, Math.min(100, Number(document.getElementById('pet-reward-min-' + key)?.value || 0))), xp_reward:Math.max(0, Number(document.getElementById('pet-reward-xp-' + key)?.value || 0)), point_reward:Math.max(0, Number(document.getElementById('pet-reward-points-' + key)?.value || 0)), sort_order:rule.sort_order || 0, active:rule.active !== false };
+  const result = await sb.from('pet_reward_rules').upsert(payload);
+  if (result.error) return showAlert(petErrorMessage(result.error), '保存失败');
+  await loadPetData(false);
+  toast('奖励规则已保存。');
+}
 function showConfirm(msg, title, okText, okClass, onConfirm) {
   window.__xy_confirm_action = async () => {
     window.__xy_confirm_action = null;
@@ -1171,15 +1659,31 @@ function showConfirm(msg, title, okText, okClass, onConfirm) {
 }
 function showAlert(msg, title = '提示') { modalRoot.innerHTML = '<div class="fixed inset-0 z-[9999] flex items-center justify-center p-4"><div class="absolute inset-0 bg-black/40 backdrop-blur-sm" data-close-modal></div><div class="bg-white rounded-[32px] p-8 w-full max-w-sm relative z-10 shadow-2xl text-center motion-auth-panel-enter"><h3 class="text-[20px] font-black text-[#2D2A4A] mb-3">' + esc(title) + '</h3><p class="text-[15px] text-gray-500 mb-8 font-medium whitespace-pre-wrap leading-relaxed">' + esc(msg) + '</p><button data-close-modal class="w-full bg-[#6B48FF] text-white font-bold rounded-2xl py-4 text-base shadow-lg shadow-[#6B48FF]/30 active-scale">我知道了</button></div></div>'; }
 function openLesson(id, file) { const access = lessonAccess(id); if (!access.allowed) { if (access.reason === 'login') return showLogin(); return toast(access.reason === 'class' ? '这个单元还没有开放给你' : '没有识别到这个单元的权限信息'); } location.href = lessonHref(file, id); }
+function switchTeacherTab(tabEl) {
+  const next = tabEl.dataset.teacherTab;
+  const scroller = tabEl.closest('[data-teacher-tabs]');
+  const oldScrollLeft = scroller ? scroller.scrollLeft : 0;
+  state.teacherTab = next;
+  render();
+  requestAnimationFrame(() => {
+    const nextScroller = document.querySelector('[data-teacher-tabs]');
+    if (nextScroller) nextScroller.scrollLeft = oldScrollLeft;
+    requestAnimationFrame(() => {
+      document.querySelector('[data-teacher-tab="' + next + '"]')?.scrollIntoView({ behavior:'smooth', inline:'center', block:'nearest' });
+    });
+  });
+}
 function toast(message) { const node = document.createElement('div'); node.className = 'fixed left-1/2 top-8 z-[100] max-w-sm -translate-x-1/2 rounded-full bg-[#2c2f33] px-5 py-3 text-center text-sm font-black text-white shadow-2xl'; node.textContent = message; document.body.appendChild(node); setTimeout(() => node.remove(),2600); }
-document.addEventListener('click', e => { if (e.target.closest('button,a,[data-route],[data-toast],[data-home-tab],[data-slide-index],[data-carousel-slide],[data-login],[data-logout],[data-open-lesson],[data-teacher-tab]') && !suppressCarouselClick) playClick(); const route = e.target.closest('[data-route]'); if (route) return routeTo(route.dataset.route, route.dataset.level || null, true); const t = e.target.closest('[data-toast]'); if (t) return toast(t.dataset.toast); const homeTab = e.target.closest('[data-home-tab]'); if (homeTab) { state.homeTab = homeTab.dataset.homeTab; return render(); } const dot = e.target.closest('[data-slide-index]'); if (dot) return updateCarousel(Number(dot.dataset.slideIndex) || 0); const slide = e.target.closest('[data-carousel-slide]'); if (slide) return openCarouselSlide(Number(slide.dataset.carouselSlide) || 0); if (e.target.closest('[data-login]')) return showLogin(); if (e.target.closest('[data-logout]')) return logout(); const open = e.target.closest('[data-open-lesson]'); if (open) return openLesson(open.dataset.moduleId, open.dataset.file); const tab = e.target.closest('[data-teacher-tab]'); if (tab) { state.teacherTab = tab.dataset.teacherTab; return render(); } const chip = e.target.closest('[data-toggle-chip]'); if (chip) { chip.classList.toggle('selected'); return; } if (e.target.closest('[data-regen-pwd]')) return regenPwd(); if (e.target.closest('[data-save-student]') || e.target.closest('[data-add-student]')) return addStudent(); const studentInfo = e.target.closest('[data-student-info]'); if (studentInfo) return showStudentInfo(studentInfo.dataset.studentInfo); const delStudent = e.target.closest('[data-delete-student]'); if (delStudent) return deleteStudent(delStudent.dataset.deleteStudent); const pub = e.target.closest('[data-publish-lesson]'); if (pub) return syncLesson(pub.dataset.publishLesson, 'open'); if (e.target.closest('[data-add-homework]')) return addHomework(); if (e.target.closest('[data-migrate-lessons]')) return migrateRegistryLessonsToStorage(); const editHw = e.target.closest('[data-edit-homework]'); if (editHw) return showHomeworkEditor(editHw.dataset.editHomework); if (e.target.closest('[data-save-homework-edit]')) return saveHomeworkEdit(); if (e.target.closest('[data-close-old-hw]')) return closeAllOldHw(); const delHw = e.target.closest('[data-delete-homework]'); if (delHw) return deleteHomework(delHw.dataset.deleteHomework); if (e.target.closest('[data-generate-attendance]')) return generateAttendance(); const exempt = e.target.closest('[data-open-exempt]'); if (exempt) return openExemptModal(exempt.dataset.openExempt, exempt.dataset.studentName); const applyExemptBtn = e.target.closest('[data-apply-exempt]'); if (applyExemptBtn) return applyExempt(applyExemptBtn.dataset.applyExempt, applyExemptBtn.dataset.studentName); if (e.target.closest('[data-report-refresh]')) return loadReportData(true); const compare = e.target.closest('[data-report-compare]'); if (compare) return toggleReportCompare(compare.dataset.reportCompare); if (e.target.closest('[data-confirm-action]') && window.__xy_confirm_action) return window.__xy_confirm_action(); const previewBanner = e.target.closest('[data-preview-banner]'); if (previewBanner) return showBannerPreview(previewBanner.dataset.previewBanner); const editBanner = e.target.closest('[data-edit-banner]'); if (editBanner) return showBannerEditor(editBanner.dataset.editBanner); if (e.target.closest('[data-save-banner-edit]')) return saveBannerEdit(); if (e.target.closest('[data-add-banner]')) return addBanner(); const delBanner = e.target.closest('[data-delete-banner]'); if (delBanner) return deleteBanner(delBanner.dataset.deleteBanner); if (e.target.closest('[data-do-login]')) return doLogin(); if (e.target.closest('[data-close-modal]')) return closeModal(); });
+document.addEventListener('click', e => {
+  const tab = e.target.closest('[data-teacher-tab]');
+  if (!tab) return;
+  e.stopImmediatePropagation();
+  if (!suppressCarouselClick) playClick();
+  switchTeacherTab(tab);
+}, true);
+document.addEventListener('click', e => { if (e.target.closest('button,a,[data-route],[data-toast],[data-home-tab],[data-slide-index],[data-carousel-slide],[data-login],[data-logout],[data-open-lesson],[data-teacher-tab]') && !suppressCarouselClick) playClick(); const route = e.target.closest('[data-route]'); if (route) return routeTo(route.dataset.route, route.dataset.level || null, true); const t = e.target.closest('[data-toast]'); if (t) return toast(t.dataset.toast); const homeTab = e.target.closest('[data-home-tab]'); if (homeTab) { state.homeTab = homeTab.dataset.homeTab; return render(); } const dot = e.target.closest('[data-slide-index]'); if (dot) return updateCarousel(Number(dot.dataset.slideIndex) || 0); const slide = e.target.closest('[data-carousel-slide]'); if (slide) return openCarouselSlide(Number(slide.dataset.carouselSlide) || 0); if (e.target.closest('[data-login]')) return showLogin(); if (e.target.closest('[data-logout]')) return logout(); const open = e.target.closest('[data-open-lesson]'); if (open) return openLesson(open.dataset.moduleId, open.dataset.file); const tab = e.target.closest('[data-teacher-tab]'); if (tab) { state.teacherTab = tab.dataset.teacherTab; render(); setTimeout(() => document.querySelector('[data-teacher-tab="' + state.teacherTab + '"]')?.scrollIntoView({ behavior:'smooth', inline:'center', block:'nearest' }), 40); return; } const chip = e.target.closest('[data-toggle-chip]'); if (chip) { chip.classList.toggle('selected'); return; } if (e.target.closest('[data-regen-pwd]')) return regenPwd(); if (e.target.closest('[data-save-student]') || e.target.closest('[data-add-student]')) return addStudent(); const studentInfo = e.target.closest('[data-student-info]'); if (studentInfo) return showStudentInfo(studentInfo.dataset.studentInfo); const delStudent = e.target.closest('[data-delete-student]'); if (delStudent) return deleteStudent(delStudent.dataset.deleteStudent); const pub = e.target.closest('[data-publish-lesson]'); if (pub) return syncLesson(pub.dataset.publishLesson, 'open'); if (e.target.closest('[data-add-homework]')) return addHomework(); if (e.target.closest('[data-migrate-lessons]')) return migrateRegistryLessonsToStorage(); const editHw = e.target.closest('[data-edit-homework]'); if (editHw) return showHomeworkEditor(editHw.dataset.editHomework); if (e.target.closest('[data-save-homework-edit]')) return saveHomeworkEdit(); if (e.target.closest('[data-close-old-hw]')) return closeAllOldHw(); const delHw = e.target.closest('[data-delete-homework]'); if (delHw) return deleteHomework(delHw.dataset.deleteHomework); if (e.target.closest('[data-generate-attendance]')) return generateAttendance(); const exempt = e.target.closest('[data-open-exempt]'); if (exempt) return openExemptModal(exempt.dataset.openExempt, exempt.dataset.studentName); const applyExemptBtn = e.target.closest('[data-apply-exempt]'); if (applyExemptBtn) return applyExempt(applyExemptBtn.dataset.applyExempt, applyExemptBtn.dataset.studentName); if (e.target.closest('[data-report-refresh]')) return loadReportData(true); const compare = e.target.closest('[data-report-compare]'); if (compare) return toggleReportCompare(compare.dataset.reportCompare); if (e.target.closest('[data-confirm-action]') && window.__xy_confirm_action) return window.__xy_confirm_action(); const previewBanner = e.target.closest('[data-preview-banner]'); if (previewBanner) return showBannerPreview(previewBanner.dataset.previewBanner); const editBanner = e.target.closest('[data-edit-banner]'); if (editBanner) return showBannerEditor(editBanner.dataset.editBanner); if (e.target.closest('[data-save-banner-edit]')) return saveBannerEdit(); if (e.target.closest('[data-add-banner]')) return addBanner(); const bannerPageStep = e.target.closest('[data-banner-page-step]'); if (bannerPageStep) return shiftBannerPage(bannerPageStep.dataset.bannerPageStep, Number(bannerPageStep.dataset.bannerPageDelta)); const delBanner = e.target.closest('[data-delete-banner]'); if (delBanner) return deleteBanner(delBanner.dataset.deleteBanner); if (e.target.closest('[data-do-login]')) return doLogin(); if (e.target.closest('[data-close-modal]')) return closeModal(); });
 document.addEventListener('touchstart', e => { const carousel = e.target.closest('[data-carousel]'); if (!carousel) return; const touch = e.touches && e.touches[0]; if (!touch) return; if (carouselSuppressTimer) clearTimeout(carouselSuppressTimer); suppressCarouselClick = false; carouselStartX = touch.clientX; carouselStartY = touch.clientY; }, { passive:true });
 document.addEventListener('touchend', e => { const carousel = e.target.closest('[data-carousel]'); if (!carousel) return; const touch = e.changedTouches && e.changedTouches[0]; if (!touch) return; const dx = touch.clientX - carouselStartX; const dy = touch.clientY - carouselStartY; const ax = Math.abs(dx); const ay = Math.abs(dy); if (ax < 56 || ax <= ay + 12) { suppressCarouselClick = false; return; } suppressCarouselClick = true; if (carouselSuppressTimer) clearTimeout(carouselSuppressTimer); carouselSuppressTimer = setTimeout(() => { suppressCarouselClick = false; carouselSuppressTimer = null; }, 260); updateCarousel(state.slide + (dx < 0 ? 1 : -1)); }, { passive:true });
-document.addEventListener('dragstart', e => { const card = e.target.closest('[data-banner-card]'); if (!card) return; draggedBannerId = card.dataset.bannerCard; card.classList.add('opacity-60','scale-[0.99]'); if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', draggedBannerId); } });
-document.addEventListener('dragover', e => { const card = e.target.closest('[data-banner-card]'); if (!card || !draggedBannerId) return; e.preventDefault(); card.classList.add('ring-2','ring-[#6B48FF]/35'); if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'; });
-document.addEventListener('dragleave', e => { const card = e.target.closest('[data-banner-card]'); if (card) card.classList.remove('ring-2','ring-[#6B48FF]/35'); });
-document.addEventListener('drop', e => { const card = e.target.closest('[data-banner-card]'); if (!card || !draggedBannerId) return; e.preventDefault(); document.querySelectorAll('[data-banner-card]').forEach(el => el.classList.remove('ring-2','ring-[#6B48FF]/35','opacity-60','scale-[0.99]')); const ordered = reorderBannersInState(draggedBannerId, card.dataset.bannerCard); draggedBannerId = ''; if (!ordered) return; state.banners = ordered; render(); persistBannerOrder(ordered); });
-document.addEventListener('dragend', () => { draggedBannerId = ''; document.querySelectorAll('[data-banner-card]').forEach(el => el.classList.remove('ring-2','ring-[#6B48FF]/35','opacity-60','scale-[0.99]')); });
 document.addEventListener('change', e => { const reportField = e.target.closest('[data-report-field]'); if (reportField) return updateReportField(reportField.dataset.reportField, reportField.value); const bannerToggle = e.target.closest('[data-toggle-banner]'); if (bannerToggle) return updateBannerStatus(bannerToggle.dataset.toggleBanner, bannerToggle.checked, bannerToggle); const toggle = e.target.closest('[data-toggle-lesson]'); if (toggle) syncLesson(toggle.dataset.toggleLesson, toggle.checked ? 'open' : 'closed', toggle); });
 document.addEventListener('click', e => { if (e.target.closest('[data-open-att-picker]')) return showAttendancePicker(); if (e.target.closest('[data-close-att-picker]')) return closeAttendancePicker(); const pickerToggle = e.target.closest('[data-att-picker-toggle]'); if (pickerToggle) return toggleAttendancePickerStudent(pickerToggle.dataset.attPickerToggle); if (e.target.closest('[data-att-picker-all]')) return pickerSelectAllAttendanceStudents(); if (e.target.closest('[data-att-picker-clear]')) return pickerClearAttendanceStudents(); if (e.target.closest('[data-att-select-all]')) return selectAllAttendanceStudents(); if (e.target.closest('[data-att-clear]')) return clearAttendanceStudents(); if (e.target.closest('[data-save-attendance]')) return saveAttendance(); if (e.target.closest('[data-refresh-attendance]')) return loadAttendanceRecords(true); const del = e.target.closest('[data-delete-attendance]'); if (del) return deleteAttendance(del.dataset.deleteAttendance); });
 document.addEventListener('change', e => { const field = e.target.closest('[data-att-field]'); if (field) return updateAttendanceField(field.dataset.attField, field.value); const student = e.target.closest('[data-att-student]'); if (student) return toggleAttendanceStudent(student.dataset.attStudent, student.checked); });
@@ -1187,4 +1691,39 @@ document.addEventListener('input', e => { const field = e.target.closest('[data-
 document.addEventListener('click', e => { if (e.target.closest('[data-vote-refresh]')) return loadVoteTopics(true); if (e.target.closest('[data-vote-refresh-results]')) return loadVoteResults(true); const pick = e.target.closest('[data-vote-select]'); if (pick) { voteCfg().selectedTopicNumber = Number(pick.dataset.voteSelect); voteCfg().error = ''; voteCfg().success = null; return render(); } if (e.target.closest('[data-vote-back]')) { voteCfg().selectedTopicNumber = null; voteCfg().error = ''; return render(); } if (e.target.closest('[data-vote-clear-success]')) { voteCfg().success = null; return render(); } if (e.target.closest('[data-vote-export]')) return exportVoteCsv(); const delVote = e.target.closest('[data-delete-vote]'); if (delVote) return deleteVoteSubmission(delVote.dataset.deleteVote); });
 document.addEventListener('submit', e => { const form = e.target.closest('#vote-form'); if (!form) return; e.preventDefault(); submitVoteForm(form); });
 document.addEventListener('change', e => { const filter = e.target.closest('[data-vote-class-filter]'); if (filter) { voteCfg().classFilter = filter.value; render(); } });
+document.addEventListener('click', e => {
+  if (e.target.closest('[data-pet-refresh]')) return loadPetData(true);
+  const init = e.target.closest('[data-init-pet]');
+  if (init) return createPetForStudent(currentUser()?.id, init.dataset.initPet, document.getElementById('pet-name')?.value || '');
+  const buy = e.target.closest('[data-pet-buy]');
+  if (buy) return buyPetItem(buy.dataset.petBuy);
+  const equip = e.target.closest('[data-pet-equip]');
+  if (equip) return equipPetItem(equip.dataset.petEquip || '');
+  const demoEnv = e.target.closest('[data-pet-env-demo]');
+  if (demoEnv) return showPetEnvironmentDemo(demoEnv);
+  const env = e.target.closest('[data-pet-env]');
+  if (env) return setPetEnvironment(env.dataset.petEnv);
+  const student = e.target.closest('[data-pet-student]');
+  if (student) { petCfg().activeStudentId = student.dataset.petStudent; return render(); }
+  const create = e.target.closest('[data-admin-create-pet]');
+  if (create) { const root = create.closest('[data-pet-student-panel]') || document; return createPetForStudent(create.dataset.adminCreatePet, root.querySelector('[data-pet-create-type]')?.value || document.getElementById('pet-admin-create-type')?.value || 'fox', root.querySelector('[data-pet-create-name]')?.value || document.getElementById('pet-admin-create-name')?.value || ''); }
+  const save = e.target.closest('[data-admin-save-pet]');
+  if (save) return saveStudentPet(save.dataset.adminSavePet, save);
+  const adjust = e.target.closest('[data-admin-adjust-pet]');
+  if (adjust) return adjustStudentPet(adjust.dataset.adminAdjustPet, adjust);
+  const item = e.target.closest('[data-save-pet-item]');
+  if (item) return savePetItemRule(item.dataset.savePetItem);
+  const level = e.target.closest('[data-save-pet-level]');
+  if (level) return savePetLevelRule(level.dataset.savePetLevel);
+  const reward = e.target.closest('[data-save-pet-reward]');
+  if (reward) return savePetRewardRule(reward.dataset.savePetReward);
+});
+document.addEventListener('input', e => {
+  const search = e.target.closest('[data-pet-search]');
+  if (search) {
+    petCfg().search = search.value;
+    if (petSearchTimer) clearTimeout(petSearchTimer);
+    petSearchTimer = setTimeout(() => { petSearchTimer = null; render(); }, 180);
+  }
+});
 const query = new URLSearchParams(location.search); if (query.get('tab')) state.teacherTab = query.get('tab'); routeTo(query.get('page') || 'home', query.get('level'), false); loadData();
