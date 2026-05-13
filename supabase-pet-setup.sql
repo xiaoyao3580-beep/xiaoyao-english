@@ -30,6 +30,25 @@ create table if not exists public.student_pets (
   updated_at timestamptz not null default now()
 );
 
+do $$
+declare
+  constraint_name text;
+begin
+  for constraint_name in
+    select conname
+    from pg_constraint
+    where conrelid = 'public.student_pets'::regclass
+      and contype = 'c'
+      and pg_get_constraintdef(oid) like '%pet_type%'
+  loop
+    execute format('alter table public.student_pets drop constraint if exists %I', constraint_name);
+  end loop;
+end $$;
+
+alter table public.student_pets
+add constraint student_pets_pet_type_check
+check (pet_type in ('fox', 'owl', 'deer', 'whale', 'otter', 'dragon'));
+
 create table if not exists public.pet_inventory (
   student_id text not null references public.students(id) on delete cascade,
   item_key text not null,
@@ -62,6 +81,31 @@ create table if not exists public.pet_reward_rules (
   sort_order integer not null default 0,
   active boolean not null default true,
   updated_at timestamptz not null default now()
+);
+
+create table if not exists public.pet_type_rules (
+  pet_type text primary key check (pet_type in ('fox', 'owl', 'deer', 'whale', 'otter', 'dragon')),
+  label_zh text not null,
+  is_hidden boolean not null default false,
+  unlock_points integer not null default 0 check (unlock_points >= 0),
+  unlock_pet_count integer not null default 0 check (unlock_pet_count >= 0),
+  switch_price integer not null default 80 check (switch_price >= 0),
+  sort_order integer not null default 0,
+  active boolean not null default true,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.pet_type_rules
+add column if not exists switch_price integer not null default 80 check (switch_price >= 0);
+
+create table if not exists public.pet_type_unlocks (
+  student_id text not null references public.students(id) on delete cascade,
+  pet_type text not null check (pet_type in ('fox', 'owl', 'deer', 'whale', 'otter', 'dragon')),
+  source text not null default 'manual',
+  reason text,
+  created_by text,
+  created_at timestamptz not null default now(),
+  primary key (student_id, pet_type)
 );
 
 create table if not exists public.pet_reward_events (
@@ -122,6 +166,24 @@ set label = excluded.label,
     active = excluded.active,
     updated_at = now();
 
+insert into public.pet_type_rules (pet_type, label_zh, is_hidden, unlock_points, unlock_pet_count, switch_price, sort_order, active)
+values
+  ('fox', '小狐狸', false, 0, 0, 80, 1, true),
+  ('owl', '小夜鹰', false, 0, 0, 80, 2, true),
+  ('deer', '小鹿', false, 0, 0, 80, 3, true),
+  ('otter', '小水獭', false, 0, 0, 80, 4, true),
+  ('whale', '小鲸鱼', true, 600, 0, 160, 5, true),
+  ('dragon', '小龙', true, 0, 4, 160, 6, true)
+on conflict (pet_type) do update
+set label_zh = excluded.label_zh,
+    is_hidden = excluded.is_hidden,
+    unlock_points = excluded.unlock_points,
+    unlock_pet_count = excluded.unlock_pet_count,
+    switch_price = excluded.switch_price,
+    sort_order = excluded.sort_order,
+    active = excluded.active,
+    updated_at = now();
+
 drop trigger if exists trg_student_pets_updated_at on public.student_pets;
 create trigger trg_student_pets_updated_at
 before update on public.student_pets
@@ -142,11 +204,18 @@ create trigger trg_pet_reward_rules_updated_at
 before update on public.pet_reward_rules
 for each row execute function public.xy_touch_updated_at();
 
+drop trigger if exists trg_pet_type_rules_updated_at on public.pet_type_rules;
+create trigger trg_pet_type_rules_updated_at
+before update on public.pet_type_rules
+for each row execute function public.xy_touch_updated_at();
+
 alter table public.student_pets enable row level security;
 alter table public.pet_inventory enable row level security;
 alter table public.pet_item_rules enable row level security;
 alter table public.pet_level_rules enable row level security;
 alter table public.pet_reward_rules enable row level security;
+alter table public.pet_type_rules enable row level security;
+alter table public.pet_type_unlocks enable row level security;
 alter table public.pet_reward_events enable row level security;
 
 drop policy if exists "student_pets_public_all" on public.student_pets;
@@ -154,6 +223,8 @@ drop policy if exists "pet_inventory_public_all" on public.pet_inventory;
 drop policy if exists "pet_item_rules_public_all" on public.pet_item_rules;
 drop policy if exists "pet_level_rules_public_all" on public.pet_level_rules;
 drop policy if exists "pet_reward_rules_public_all" on public.pet_reward_rules;
+drop policy if exists "pet_type_rules_public_all" on public.pet_type_rules;
+drop policy if exists "pet_type_unlocks_public_all" on public.pet_type_unlocks;
 drop policy if exists "pet_reward_events_public_all" on public.pet_reward_events;
 
 create policy "student_pets_public_all" on public.student_pets
@@ -165,6 +236,10 @@ for all to anon, authenticated using (true) with check (true);
 create policy "pet_level_rules_public_all" on public.pet_level_rules
 for all to anon, authenticated using (true) with check (true);
 create policy "pet_reward_rules_public_all" on public.pet_reward_rules
+for all to anon, authenticated using (true) with check (true);
+create policy "pet_type_rules_public_all" on public.pet_type_rules
+for all to anon, authenticated using (true) with check (true);
+create policy "pet_type_unlocks_public_all" on public.pet_type_unlocks
 for all to anon, authenticated using (true) with check (true);
 create policy "pet_reward_events_public_all" on public.pet_reward_events
 for all to anon, authenticated using (true) with check (true);
@@ -283,6 +358,74 @@ create trigger trg_growth_log_pet_reward
 after insert on public.growth_logs
 for each row execute function public.handle_growth_log_pet_reward();
 
+create or replace function public.pet_type_unlock_count(p_student_id text)
+returns integer
+language sql
+stable
+set search_path = public
+as $$
+  select count(distinct pet_type)::integer
+  from (
+    select pet_type from public.pet_type_unlocks where student_id = trim(p_student_id)
+    union
+    select pet_type from public.student_pets where student_id = trim(p_student_id)
+  ) owned;
+$$;
+
+create or replace function public.is_pet_type_unlocked(
+  p_student_id text,
+  p_pet_type text
+)
+returns boolean
+language plpgsql
+stable
+set search_path = public
+as $$
+declare
+  clean_student text := trim(p_student_id);
+  clean_type text := trim(p_pet_type);
+  type_rule public.pet_type_rules;
+  current_pet public.student_pets;
+begin
+  select * into type_rule
+  from public.pet_type_rules
+  where pet_type = clean_type and active = true;
+
+  if type_rule.pet_type is null then
+    return false;
+  end if;
+
+  if type_rule.is_hidden = false then
+    return true;
+  end if;
+
+  if exists (
+    select 1 from public.pet_type_unlocks
+    where student_id = clean_student and pet_type = clean_type
+  ) then
+    return true;
+  end if;
+
+  select * into current_pet
+  from public.student_pets
+  where student_id = clean_student;
+
+  if current_pet.pet_type = clean_type then
+    return true;
+  end if;
+
+  if type_rule.unlock_points > 0 and coalesce(current_pet.pet_points, 0) >= type_rule.unlock_points then
+    return true;
+  end if;
+
+  if type_rule.unlock_pet_count > 0 and public.pet_type_unlock_count(clean_student) >= type_rule.unlock_pet_count then
+    return true;
+  end if;
+
+  return false;
+end;
+$$;
+
 create or replace function public.initialize_student_pet(
   p_student_id text,
   p_pet_type text,
@@ -297,8 +440,11 @@ declare
   clean_name text := nullif(trim(p_pet_name), '');
   next_pet public.student_pets;
 begin
-  if p_pet_type not in ('fox', 'owl') then
+  if p_pet_type not in ('fox', 'owl', 'deer', 'whale', 'otter', 'dragon') then
     raise exception 'Unsupported pet type.';
+  end if;
+  if not public.is_pet_type_unlocked(trim(p_student_id), p_pet_type) then
+    raise exception 'Pet type locked.';
   end if;
   if clean_name is null or length(clean_name) > 24 then
     raise exception 'Pet name must be 1-24 characters.';
@@ -309,6 +455,10 @@ begin
   on conflict (student_id) do update
   set pet_name = excluded.pet_name
   returning * into next_pet;
+
+  insert into public.pet_type_unlocks (student_id, pet_type, source, reason, created_by)
+  values (trim(p_student_id), p_pet_type, 'create', '创建宠物', trim(p_student_id))
+  on conflict do nothing;
 
   perform public.sync_pet_rewards_for_student(next_pet.student_id);
   select * into next_pet from public.student_pets where student_id = trim(p_student_id);
@@ -376,6 +526,118 @@ begin
   end if;
 
   return next_pet;
+end;
+$$;
+
+create or replace function public.set_student_pet_type(
+  p_student_id text,
+  p_pet_type text
+)
+returns public.student_pets
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  clean_student text := trim(p_student_id);
+  clean_type text := trim(p_pet_type);
+  type_rule public.pet_type_rules;
+  switch_cost integer := 0;
+  next_pet public.student_pets;
+begin
+  if clean_type not in ('fox', 'owl', 'deer', 'whale', 'otter', 'dragon') then
+    raise exception 'Unsupported pet type.';
+  end if;
+
+  select * into type_rule
+  from public.pet_type_rules
+  where pet_type = clean_type and active = true;
+
+  if type_rule.pet_type is null then
+    raise exception 'Pet type is not available.';
+  end if;
+
+  if not public.is_pet_type_unlocked(clean_student, clean_type) then
+    raise exception 'Pet type locked.';
+  end if;
+
+  select * into next_pet
+  from public.student_pets
+  where student_id = clean_student
+  for update;
+
+  if next_pet.student_id is null then
+    raise exception 'Pet not found.';
+  end if;
+
+  if next_pet.pet_type = clean_type then
+    return next_pet;
+  end if;
+
+  switch_cost := greatest(0, coalesce(type_rule.switch_price, 0));
+
+  if next_pet.pet_points < switch_cost then
+    raise exception 'Not enough pet points.';
+  end if;
+
+  update public.student_pets
+  set pet_type = clean_type,
+      equipped_item = null,
+      pet_points = pet_points - switch_cost
+  where student_id = clean_student
+  returning * into next_pet;
+
+  insert into public.pet_type_unlocks (student_id, pet_type, source, reason, created_by)
+  values (clean_student, clean_type, 'auto', '切换宠物', clean_student)
+  on conflict do nothing;
+
+  if switch_cost > 0 then
+    insert into public.pet_reward_events (
+      student_id, source_type, tier_key, xp_delta, point_delta, reason, created_by
+    )
+    values (
+      clean_student,
+      'pet_switch',
+      clean_type,
+      0,
+      -switch_cost,
+      '更换宠物为' || type_rule.label_zh,
+      clean_student
+    );
+  end if;
+
+  return next_pet;
+end;
+$$;
+
+create or replace function public.admin_unlock_pet_type(
+  p_target_student_id text,
+  p_pet_type text,
+  p_reason text default '教师手动发放'
+)
+returns public.pet_type_unlocks
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  clean_student text := trim(p_target_student_id);
+  clean_type text := trim(p_pet_type);
+  next_unlock public.pet_type_unlocks;
+begin
+  if clean_type not in ('fox', 'owl', 'deer', 'whale', 'otter', 'dragon') then
+    raise exception 'Unsupported pet type.';
+  end if;
+
+  insert into public.pet_type_unlocks (student_id, pet_type, source, reason, created_by)
+  values (clean_student, clean_type, 'manual', nullif(trim(p_reason), ''), 'teacher')
+  on conflict (student_id, pet_type) do update
+  set source = excluded.source,
+      reason = excluded.reason,
+      created_by = excluded.created_by
+  returning * into next_unlock;
+
+  return next_unlock;
 end;
 $$;
 
@@ -496,13 +758,19 @@ grant select, insert, update, delete on public.pet_inventory to anon, authentica
 grant select, insert, update, delete on public.pet_item_rules to anon, authenticated;
 grant select, insert, update, delete on public.pet_level_rules to anon, authenticated;
 grant select, insert, update, delete on public.pet_reward_rules to anon, authenticated;
+grant select, insert, update, delete on public.pet_type_rules to anon, authenticated;
+grant select, insert, update, delete on public.pet_type_unlocks to anon, authenticated;
 grant select, insert, update, delete on public.pet_reward_events to anon, authenticated;
+grant execute on function public.pet_type_unlock_count(text) to anon, authenticated;
+grant execute on function public.is_pet_type_unlocked(text, text) to anon, authenticated;
 grant execute on function public.award_pet_for_growth_log(uuid) to anon, authenticated;
 grant execute on function public.sync_pet_rewards_for_student(text) to anon, authenticated;
 grant execute on function public.initialize_student_pet(text, text, text) to anon, authenticated;
 grant execute on function public.equip_pet_item(text, text) to anon, authenticated;
 grant execute on function public.set_pet_environment(text, text) to anon, authenticated;
+grant execute on function public.set_student_pet_type(text, text) to anon, authenticated;
 grant execute on function public.purchase_pet_item(text, text) to anon, authenticated;
 grant execute on function public.admin_adjust_pet(text, integer, integer, text) to anon, authenticated;
+grant execute on function public.admin_unlock_pet_type(text, text, text) to anon, authenticated;
 
 notify pgrst, 'reload schema';
