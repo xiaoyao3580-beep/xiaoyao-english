@@ -5,9 +5,7 @@ module.exports = {
     './content-data.js',
     './vote-data.js',
     './classes/**/*.html',
-    './classes/**/*.js',
-    './src/**/*.{html,js}',
-    './assets/**/*.{html,js}'
+    './classes/**/*.js'
   ],
   theme: {
     extend: {}
