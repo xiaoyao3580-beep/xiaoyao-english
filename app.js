@@ -1621,7 +1621,7 @@ function petSwitchOptionCard(type, pet) {
   const target = { ...pet, pet_type:id, equipped_item:null };
   const asset = petAssetUrl(target, petLevelInfo(target));
   const bg = petCreationEnvironmentId(id);
-  return '<button data-confirm-pet-switch="' + esc(id) + '" class="pet-switch-modal-card relative flex min-h-[9.25rem] overflow-hidden rounded-[1.35rem] border p-4 text-left active-scale ' + (enough ? 'border-white/80 shadow-[0_16px_34px_-22px_rgba(88,39,252,.42)]' : 'border-gray-100 opacity-55') + '" style="background-image:' + petEnvironmentLayeredBackground(bg) + '" ' + (enough ? '' : 'disabled') + '><span class="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/82 via-white/48 to-white/8"></span><span class="relative z-10 flex min-w-0 flex-1 flex-col justify-center gap-2 pr-3"><span class="inline-flex w-fit items-center rounded-full bg-white/82 px-3 py-1.5 text-base font-black text-[#2c2f33] shadow-sm backdrop-blur-md">' + esc(label) + '</span><span class="inline-flex w-fit items-center gap-1.5 rounded-full bg-white/70 px-3 py-1.5 text-xs font-black text-[#6B48FF] shadow-sm backdrop-blur-md"><i class="fa-solid fa-coins text-[11px]"></i>' + cost + ' 积分</span><span class="text-[11px] font-bold text-gray-500">' + (enough ? '替换当前宠物，成长进度保留。' : '积分不足，暂时不能切换。') + '</span></span><span class="pet-orbit-scene relative z-10 flex h-28 w-28 shrink-0 items-center justify-center self-center" style="--pet-accent:' + meta.accent + '">' + petParticleNodes('mini') + '<span class="pet-float"><img src="' + esc(asset) + '" alt="' + esc(label) + '" loading="lazy" decoding="async" onerror="this.style.display=&quot;none&quot;" class="p-2"></span></span></button>';
+  return '<button data-confirm-pet-switch="' + esc(id) + '" class="pet-switch-modal-card relative flex min-h-[9.25rem] overflow-hidden rounded-[1.35rem] border p-4 text-left active-scale ' + (enough ? 'border-white/80 shadow-[0_16px_34px_-22px_rgba(88,39,252,.42)]' : 'border-gray-100 opacity-55') + '" style="background-image:' + petEnvironmentLayeredBackground(bg) + '" ' + (enough ? '' : 'disabled') + '><span class="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/82 via-white/48 to-white/8"></span><span class="relative z-10 flex min-w-0 flex-1 flex-col justify-center gap-2 pr-3"><span class="inline-flex w-fit items-center rounded-full bg-white/82 px-3 py-1.5 text-base font-black text-[#2c2f33] shadow-sm backdrop-blur-md">' + esc(label) + '</span><span class="inline-flex w-fit items-center gap-1.5 rounded-full bg-white/70 px-3 py-1.5 text-xs font-black text-[#6B48FF] shadow-sm backdrop-blur-md"><i class="fa-solid fa-coins text-[11px]"></i>' + cost + ' 积分</span><span class="text-[11px] font-bold text-gray-500">' + (enough ? '新宠物会从第一形态开始。' : '积分不足，暂时不能切换。') + '</span></span><span class="pet-orbit-scene relative z-10 flex h-28 w-28 shrink-0 items-center justify-center self-center" style="--pet-accent:' + meta.accent + '">' + petParticleNodes('mini') + '<span class="pet-float"><img src="' + esc(asset) + '" alt="' + esc(label) + '" loading="lazy" decoding="async" onerror="this.style.display=&quot;none&quot;" class="p-2"></span></span></button>';
 }
 function applyPetEnvironmentStageStyle(node, id) {
   if (!node) return;
@@ -1798,7 +1798,7 @@ function showPetSwitchModal() {
   if (!options.length) return showAlert('暂时没有可切换的宠物。', '换宠物');
   options.forEach(type => preloadPetAsset({ ...pet, pet_type:type.pet_type || type.id, equipped_item:null }));
   const cards = options.map(type => petSwitchOptionCard(type, pet)).join('');
-  modalRoot.innerHTML = '<div class="fixed inset-0 z-[9999] flex items-center justify-center p-4"><div class="absolute inset-0 bg-black/40 backdrop-blur-sm" data-close-modal></div><div class="relative z-10 max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[32px] bg-white p-5 shadow-2xl motion-auth-panel-enter md:p-7"><div class="mb-5 flex items-start justify-between gap-4"><div><p class="text-[11px] font-black uppercase tracking-[0.22em] text-[#6B48FF]">Switch Pet</p><h3 class="mt-1 text-[24px] font-black text-[#2D2A4A]">换宠物</h3><p class="mt-2 text-sm font-bold leading-6 text-gray-400">会替换当前宠物，等级、经验、积分和环境保留，已穿戴装扮会先卸下。</p></div><button data-close-modal class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#F8F8FC] text-gray-400 active-scale" aria-label="关闭"><i class="fa-solid fa-xmark"></i></button></div><div class="grid gap-3 sm:grid-cols-2">' + cards + '</div><button data-close-modal class="mt-5 w-full rounded-2xl bg-gray-100 py-4 text-base font-bold text-gray-600 active-scale">再想想</button></div></div>';
+  modalRoot.innerHTML = '<div class="fixed inset-0 z-[9999] flex items-center justify-center p-4"><div class="absolute inset-0 bg-black/40 backdrop-blur-sm" data-close-modal></div><div class="relative z-10 max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[32px] bg-white p-5 shadow-2xl motion-auth-panel-enter md:p-7"><div class="mb-5 flex items-start justify-between gap-4"><div><p class="text-[11px] font-black uppercase tracking-[0.22em] text-[#6B48FF]">Switch Pet</p><h3 class="mt-1 text-[24px] font-black text-[#2D2A4A]">换宠物</h3><p class="mt-2 text-sm font-bold leading-6 text-gray-400">会替换当前宠物，新宠物会从第一形态开始；宠物积分扣除消耗后保留，环境保留，已穿戴装扮会先卸下。</p></div><button data-close-modal class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#F8F8FC] text-gray-400 active-scale" aria-label="关闭"><i class="fa-solid fa-xmark"></i></button></div><div class="grid gap-3 sm:grid-cols-2">' + cards + '</div><button data-close-modal class="mt-5 w-full rounded-2xl bg-gray-100 py-4 text-base font-bold text-gray-600 active-scale">再想想</button></div></div>';
 }
 function playPetFarewellAnimation() {
   const panel = document.querySelector('[data-student-pet-panel]');
@@ -1809,7 +1809,7 @@ function playPetFarewellAnimation() {
     scene.querySelectorAll('.pet-goodbye-layer').forEach(node => node.remove());
     const layer = document.createElement('span');
     layer.className = 'pet-goodbye-layer';
-    layer.innerHTML = '<span class="pet-goodbye-ring"></span><span class="pet-goodbye-spark"></span><span class="pet-goodbye-spark"></span><span class="pet-goodbye-spark"></span><span class="pet-goodbye-spark"></span><span class="pet-goodbye-spark"></span>';
+    layer.innerHTML = '<span class="pet-goodbye-bubble">Bye bye</span><span class="pet-goodbye-ring"></span><span class="pet-goodbye-spark"></span><span class="pet-goodbye-spark"></span><span class="pet-goodbye-spark"></span><span class="pet-goodbye-spark"></span><span class="pet-goodbye-spark"></span>';
     scene.appendChild(layer);
     scene.offsetHeight;
     scene.classList.add('pet-saying-bye');
@@ -1822,6 +1822,17 @@ function playPetFarewellAnimation() {
     resolve();
   }, 1120));
 }
+function playPetArrivalAnimation() {
+  const panel = document.querySelector('[data-student-pet-panel]');
+  const scenes = Array.from(panel?.querySelectorAll('.pet-orbit-scene') || []).filter(scene => scene.querySelector('[data-pet-image]'));
+  if (!scenes.length || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
+  scenes.forEach(scene => {
+    scene.classList.remove('pet-arriving');
+    scene.offsetHeight;
+    scene.classList.add('pet-arriving');
+  });
+  setTimeout(() => scenes.forEach(scene => scene.classList.remove('pet-arriving')), 980);
+}
 async function switchStudentPetType(typeKey) {
   const u = currentUser();
   if (!u || u.role !== 'student') return;
@@ -1831,20 +1842,21 @@ async function switchStudentPetType(typeKey) {
   if (Number(current.pet_points || 0) < cost) return showAlert('积分还不够，换这个宠物需要 ' + cost + ' 积分。', '换宠物');
   closeModal();
   petCfg().switchingPet = true;
-  const target = { ...current, pet_type:typeKey, equipped_item:null };
+  const target = { ...current, pet_type:typeKey, equipped_item:null, experience_points:0, level_mode:'auto', manual_level:null, pet_points:Math.max(0, Number(current.pet_points || 0) - cost) };
   await preloadPetAsset(target);
   const result = await sb.rpc('set_student_pet_type', { p_student_id:String(u.id), p_pet_type:typeKey });
   if (result.error) {
     petCfg().switchingPet = false;
     return showAlert(petErrorMessage(result.error), '换宠物失败');
   }
-  const pet = result.data || target;
+  const pet = { ...target, ...(result.data || {}), pet_type:typeKey, equipped_item:null, experience_points:0, level_mode:'auto', manual_level:null };
   await preloadPetAsset(pet);
   await playPetFarewellAnimation();
   updateLocalPet(pet);
   if (!petCfg().typeUnlocks.some(row => String(row.student_id) === String(u.id) && row.pet_type === typeKey)) petCfg().typeUnlocks.unshift({ student_id:String(u.id), pet_type:typeKey, source:'switch', created_at:new Date().toISOString() });
   petCfg().switchingPet = false;
   refreshStudentPetPanel();
+  playPetArrivalAnimation();
   toast('已经换成' + petTypeMeta(typeKey).zh + '。');
 }
 async function savePetItemRule(itemKey) {

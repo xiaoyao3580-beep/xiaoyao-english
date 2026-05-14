@@ -583,6 +583,9 @@ begin
   update public.student_pets
   set pet_type = clean_type,
       equipped_item = null,
+      experience_points = 0,
+      level_mode = 'auto',
+      manual_level = null,
       pet_points = pet_points - switch_cost
   where student_id = clean_student
   returning * into next_pet;
