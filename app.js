@@ -2160,4 +2160,4 @@ document.addEventListener('input', e => {
     petSearchTimer = setTimeout(() => { petSearchTimer = null; render(); }, 180);
   }
 });
-const query = new URLSearchParams(location.search); if (query.get('tab')) state.teacherTab = query.get('tab'); routeTo(query.get('page') || 'home', query.get('level'), false); loadData();
+const query = new URLSearchParams(location.search); if (query.get('tab')) state.teacherTab = query.get('tab'); state.loading = false; routeTo(query.get('page') || 'home', query.get('level'), false); loadHomeData(false).then(() => { const u = currentUser(); if (state.page === 'teacher' && u?.role === 'teacher') loadTeacherData(false); });
