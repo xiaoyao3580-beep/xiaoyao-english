@@ -99,7 +99,8 @@ let carouselAutoTimer = null;
 const CAROUSEL_AUTO_DELAY = 5200;
 let attendanceRequestSeq = 0;
 let petSearchTimer = null;
-let teacherDataPromise = null;
+let teacherStudentsPromise = null;
+let teacherStudentsLoaded = false;
 const HOMEWORK_HOME_FIELDS = 'id,class_code,unit,title,date,file,status';
 const BANNER_HOME_FIELDS = 'id,image,link,tag,title,subtitle,position,sort_order,status,created_at';
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -299,9 +300,13 @@ const dbClass = id => CLASS_ALIAS[id] || id;
 const isAbsoluteUrl = value => /^https?:\/\//i.test(String(value || '').trim());
 const normalizeLessonFile = file => String(file || '').trim().replace(/^classes\//,'');
 const REMOTE_LESSON_KEY_PREFIX = 'xy_remote_lesson:';
+function lessonSourceHref(file) {
+  const raw = normalizeLessonFile(file);
+  return isAbsoluteUrl(raw) ? raw : new URL('classes/' + raw, location.href).href;
+}
 function lessonHref(file, id) {
   const raw = normalizeLessonFile(file);
-  const target = isAbsoluteUrl(raw) ? raw : new URL('classes/' + raw, location.href).href;
+  const target = lessonSourceHref(raw);
   const shouldProxy = isAbsoluteUrl(raw) || (location.protocol !== 'file:' && /\.html?(?:$|[?#])/i.test(raw));
   const levelId = id ? lessonLevelId(id) : '';
   if (shouldProxy) {
@@ -316,6 +321,26 @@ function lessonHref(file, id) {
   if (id) url.searchParams.set('hwId', id);
   if (levelId) url.searchParams.set('class', levelId);
   return url.href;
+}
+function prefetchHref(href) {
+  if (!href || Array.from(document.querySelectorAll('link[data-xy-prefetch]')).some(link => link.href === href)) return;
+  const link = document.createElement('link');
+  link.rel = 'prefetch';
+  link.href = href;
+  link.dataset.xyPrefetch = href;
+  document.head.appendChild(link);
+}
+function prefetchLesson(id, file) {
+  try {
+    prefetchHref(lessonSourceHref(file));
+    prefetchHref(lessonHref(file, id));
+  } catch {}
+}
+function showLessonLaunchOverlay(title = '正在打开作业') {
+  modalRoot.innerHTML = '<div data-lesson-launch class="fixed inset-0 z-[10000] flex items-center justify-center bg-[#F5F6FC] px-6 text-center text-[#2D2A4A]"><div class="motion-auth-panel-enter w-full max-w-sm rounded-[2rem] bg-white px-7 py-8 shadow-2xl"><div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#F4F2FF] text-[#6B48FF]"><i class="fa-solid fa-spinner fa-spin text-xl"></i></div><h2 class="mt-5 text-xl font-black">' + esc(title) + '</h2><p class="mt-2 text-sm font-bold leading-6 text-gray-400">马上就到啦，正在帮你准备页面。</p></div></div>';
+}
+function clearLessonLaunchOverlay() {
+  if (modalRoot.querySelector('[data-lesson-launch]')) modalRoot.innerHTML = '';
 }
 function shortHash(text) {
   let hash = 0;
@@ -391,10 +416,12 @@ async function loadHomeData(showLoading = true) {
     render();
   }
 }
-async function loadTeacherData(showLoading = true) {
+function teacherTabNeedsStudents(tab = state.teacherTab) { return ['students','attendance','reports','pets'].includes(tab); }
+async function loadTeacherStudents(showLoading = true) {
   if (currentUser()?.role !== 'teacher') return;
-  if (teacherDataPromise) return teacherDataPromise;
-  teacherDataPromise = (async () => {
+  if (teacherStudentsLoaded) return;
+  if (teacherStudentsPromise) return teacherStudentsPromise;
+  teacherStudentsPromise = (async () => {
     if (showLoading) {
       state.loading = true;
       render();
@@ -404,21 +431,36 @@ async function loadTeacherData(showLoading = true) {
       return;
     }
     try {
-      const [students, logs] = await Promise.all([
-        sb.from('students').select('*').order('id',{ascending:false}),
-        sb.from('growth_logs').select('*').order('created_at',{ascending:false}).limit(600)
-      ]);
+      const students = await sb.from('students').select('*').order('id',{ascending:false});
+      if (students.error) throw students.error;
       state.students = students.data || [];
-      state.logs = logs.data || [];
+      teacherStudentsLoaded = true;
     } catch (e) {
-      toast('教师后台数据加载失败：' + e.message);
+      toast('学生数据加载失败：' + e.message);
     } finally {
       state.loading = false;
-      teacherDataPromise = null;
+      teacherStudentsPromise = null;
       render();
     }
   })();
-  return teacherDataPromise;
+  return teacherStudentsPromise;
+}
+async function ensureTeacherTabData(tab = state.teacherTab, showLoading = false) {
+  if (currentUser()?.role !== 'teacher') return;
+  const tasks = [];
+  if (teacherTabNeedsStudents(tab) && !teacherStudentsLoaded && !teacherStudentsPromise) tasks.push(loadTeacherStudents(showLoading));
+  if (tab === 'reports') {
+    const cfg = reportCfg();
+    if (!cfg.loaded && !cfg.loading) tasks.push(loadReportData(false));
+  }
+  if (tab === 'attendance') {
+    const cfg = attendanceCfg();
+    if (!cfg.loaded && !cfg.loading) tasks.push(loadAttendanceRecords(false));
+  }
+  await Promise.all(tasks);
+}
+async function loadTeacherData(showLoading = true) {
+  return ensureTeacherTabData(state.teacherTab, showLoading);
 }
 async function loadStudentData(user) {
   return user || currentUser();
@@ -446,7 +488,20 @@ function scheduleCarouselAuto() { stopCarouselAuto(); const slides = homeSlides(
 function updateCarousel(nextIndex) { const slides = homeSlides(); if (!slides.length) return; state.slide = (nextIndex + slides.length) % slides.length; const track = document.querySelector('[data-carousel-track]'); if (track) track.style.transform = 'translateX(-' + (state.slide * (100 / slides.length)) + '%)'; document.querySelectorAll('[data-slide-index]').forEach((dot, i) => { dot.className = dotClass(i); dot.setAttribute('aria-pressed', String(i === state.slide)); }); scheduleCarouselAuto(); }
 function openCarouselSlide(index) { if (suppressCarouselClick) { suppressCarouselClick = false; return; } const slide = homeSlides()[index]; if (!slide) return; if (slide[6] === 'xiaoyao-radio-visit') return; if (slide[5]) location.assign(slide[5]); }
 function accessDeniedPage(level) { return '<div class="min-h-screen bg-[#F8F8FC] pb-20 text-[#1C1C28] overflow-x-hidden">' + teacherHeader() + '<section class="w-full px-6 md:px-10 pt-10 md:pt-16 max-w-xl mx-auto text-center"><div class="card-solid w-full overflow-hidden p-8 md:p-10"><div class="w-20 h-20 rounded-full bg-[#F4F2FF] text-[#6B48FF] flex items-center justify-center mx-auto mb-6 shadow-inner"><i class="fa-solid fa-lock text-3xl"></i></div><p class="text-[11px] md:text-[12px] font-bold tracking-[0.24em] uppercase text-gray-400 mb-3">Course Locked</p><h1 class="text-[26px] md:text-[34px] font-extrabold text-[#2D2A4A] tracking-tight leading-tight">暂未开放</h1><p class="mx-auto mt-4 max-w-[17rem] sm:max-w-md text-sm md:text-base leading-7 text-gray-500 font-medium break-words">' + esc(level.title) + ' 还没有开放到当前账号，请联系老师开通课程权限。</p><div class="mx-auto grid max-w-[17rem] grid-cols-1 sm:max-w-none sm:grid-cols-2 gap-3 mt-8"><button data-route="home" class="w-full rounded-full bg-[#6B48FF] text-white py-4 text-sm font-bold shadow-md shadow-[#6B48FF]/25 active-scale">返回首页</button><button data-login class="w-full rounded-full bg-[#F4F2FF] text-[#6B48FF] py-4 text-sm font-bold active-scale">切换账号</button></div></div></section></div>'; }
-function carousel() { const data = homeSlides(); if (state.slide >= data.length) state.slide = 0; const w = data.length * 100; const t = state.slide * (100 / data.length); const slides = data.map((s,i) => '<button class="relative flex aspect-[16/9] w-full shrink-0 cursor-pointer appearance-none items-start overflow-hidden border-0 p-7 text-left text-[#f6f0ff] sm:p-8 md:aspect-[21/8] md:p-10 lg:aspect-[3/1]" style="width:' + (100/data.length) + '%;background-color:#5827fc;background-image:' + esc(s[3]) + ';background-position:' + esc(s[4]) + ';background-repeat:no-repeat;background-size:cover" data-carousel-slide="' + i + '" aria-label="' + esc(s[1].join('，')) + '"><div class="relative z-10 max-w-[18.5rem] space-y-3 md:max-w-[20rem] md:space-y-4" style="margin-top:-0.45rem"><span class="inline-block rounded-full bg-white/20 px-3 py-1 text-[10px] font-bold uppercase tracking-widest backdrop-blur-md">' + esc(s[0]) + '</span><h2 class="text-[clamp(1.08rem,5.2vw,1.5rem)] font-extrabold leading-[1.30] tracking-normal text-white md:text-2xl">' + s[1].map(line => '<span class="block whitespace-nowrap" style="' + (line.trim().startsWith('《') ? 'margin-left:-0.42em' : '') + '">' + esc(line) + '</span>').join('') + '</h2><p class="max-w-[285px] text-sm leading-5 text-white/90">' + esc(s[2]) + '</p></div></button>').join(''); const dots = data.map((_,i) => '<button data-slide-index="' + i + '" class="' + dotClass(i) + '" aria-label="切换到第 ' + (i + 1) + ' 张" aria-pressed="' + (i === state.slide) + '"></button>').join(''); return '<div class="motion-hero-enter motion-card relative mb-8 w-full rounded-[2.35rem] shadow-[0_18px_42px_-18px_rgba(88,39,252,0.34)] md:mb-10 md:rounded-[2.75rem]"><section data-carousel class="group relative w-full overflow-hidden rounded-[2.35rem] md:rounded-[2.75rem]" style="clip-path:inset(0 round clamp(2.35rem,4vw,2.75rem));touch-action:pan-y"><div data-carousel-track class="flex h-full transition-transform duration-500 ease-out" style="width:' + w + '%;transform:translateX(-' + t + '%)">' + slides + '</div><div class="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-1.5">' + dots + '</div></section></div>'; }
+function carousel() {
+  const data = homeSlides();
+  if (state.slide >= data.length) state.slide = 0;
+  const w = data.length * 100;
+  const t = state.slide * (100 / data.length);
+  const slides = data.map((s, i) => {
+    const img = slideImageUrl(s);
+    const priority = i === 0 ? ' loading="eager" fetchpriority="high"' : ' loading="lazy"';
+    const media = img ? '<img src="' + esc(img) + '" alt="" decoding="async"' + priority + ' class="absolute inset-0 h-full w-full object-cover" style="object-position:' + esc(s[4]) + '">' : '';
+    return '<button class="relative flex aspect-[16/9] w-full shrink-0 cursor-pointer appearance-none items-start overflow-hidden border-0 bg-[#5827fc] p-7 text-left text-[#f6f0ff] sm:p-8 md:aspect-[21/8] md:p-10 lg:aspect-[3/1]" style="width:' + (100 / data.length) + '%" data-carousel-slide="' + i + '" aria-label="' + esc(s[1].join('，')) + '">' + media + '<span class="pointer-events-none absolute inset-0" style="background:linear-gradient(135deg,rgba(88,39,252,0.78) 0%,rgba(161,146,255,0.68) 70%)"></span><div class="relative z-10 max-w-[18.5rem] space-y-3 md:max-w-[20rem] md:space-y-4" style="margin-top:-0.45rem"><span class="inline-block rounded-full bg-white/20 px-3 py-1 text-[10px] font-bold uppercase tracking-widest backdrop-blur-md">' + esc(s[0]) + '</span><h2 class="text-[clamp(1.08rem,5.2vw,1.5rem)] font-extrabold leading-[1.30] tracking-normal text-white md:text-2xl">' + s[1].map(line => '<span class="block whitespace-nowrap" style="' + (line.trim().startsWith('《') ? 'margin-left:-0.42em' : '') + '">' + esc(line) + '</span>').join('') + '</h2><p class="max-w-[285px] text-sm leading-5 text-white/90">' + esc(s[2]) + '</p></div></button>';
+  }).join('');
+  const dots = data.map((_, i) => '<button data-slide-index="' + i + '" class="' + dotClass(i) + '" aria-label="切换到第 ' + (i + 1) + ' 张" aria-pressed="' + (i === state.slide) + '"></button>').join('');
+  return '<div class="motion-hero-enter motion-card relative mb-8 w-full rounded-[2.35rem] shadow-[0_18px_42px_-18px_rgba(88,39,252,0.34)] md:mb-10 md:rounded-[2.75rem]"><section data-carousel class="group relative w-full overflow-hidden rounded-[2.35rem] md:rounded-[2.75rem]" style="clip-path:inset(0 round clamp(2.35rem,4vw,2.75rem));touch-action:pan-y"><div data-carousel-track class="flex h-full transition-transform duration-500 ease-out" style="width:' + w + '%;transform:translateX(-' + t + '%)">' + slides + '</div><div class="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-1.5">' + dots + '</div></section></div>';
+}
 function homePage() { const u = currentUser(); const all = orderedLevels(); const visible = state.homeTab === 'hub' && u && u.role !== 'teacher' ? all.filter(hasAccess) : all; const login = state.homeTab === 'hub' && !u ? '<section class="motion-panel-enter mx-auto max-w-xl rounded-[1.75rem] bg-white p-6 text-center shadow-[0_12px_40px_-5px_rgba(92,45,255,0.08)]"><div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#eff0f7] text-[#5827fc]"><span class="material-symbols-outlined text-[30px]">lock_open</span></div><h3 class="mt-4 text-xl font-bold text-[#2c2f33]">Login to open My Hub</h3><p class="mt-2 text-sm leading-6 text-[#595b61]">Sign in to see the course levels connected to this account.</p><button data-login class="motion-button mt-5 inline-flex min-h-[44px] items-center justify-center rounded-full bg-[#5827fc] px-6 py-3 text-xs font-bold uppercase tracking-[0.18em] text-white shadow-[0_10px_24px_-10px_rgba(88,39,252,0.52)]">Login</button></section>' : ''; const petPanel = state.homeTab === 'hub' && u && u.role !== 'teacher' ? '<div data-student-pet-panel class="mb-8">' + studentPetPanel() + '</div>' : ''; const grid = (state.homeTab === 'courses' || (state.homeTab === 'hub' && u)) ? '<section class="space-y-6 md:space-y-7"><div class="motion-panel-enter flex items-end justify-between px-2 md:px-1"><div><h2 class="text-2xl font-bold tracking-tight text-[#2c2f33] md:text-3xl">' + (state.homeTab === 'hub' ? 'My Courses' : 'All Courses') + '</h2><p class="text-sm text-[#595b61]">' + (state.homeTab === 'hub' ? 'Your available levels are shown here.' : 'View our full course collection here.') + '</p></div></div><div class="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-5 xl:grid-cols-4">' + visible.map(card).join('') + '</div></section>' : ''; return '<div class="home-viewport-frame text-[#2c2f33]"><div class="pointer-events-none absolute inset-0" style="background-color:#f5f6fc;background-image:radial-gradient(circle at top center,rgba(122,95,255,0.2) 0%,rgba(122,95,255,0.08) 18%,rgba(245,246,252,0) 42%),radial-gradient(circle at bottom center,rgba(140,118,255,0.12) 0%,rgba(245,246,252,0) 34%),linear-gradient(180deg,#fcfcff 0%,#f5f6fc 36%,#f4f5fc 100%)"></div>' + topNav(false,'Courses') + '<div class="home-shell-lock absolute inset-0 w-full overflow-hidden bg-transparent text-[#2c2f33]"><main class="home-dashboard-shell motion-page-enter absolute inset-x-0 mx-auto w-full max-w-[74rem] overflow-y-auto overflow-x-hidden px-4 no-scrollbar sm:px-6 lg:px-8" style="top:0;bottom:0;padding-top:var(--home-shell-top-offset,calc(5rem + 0.75rem));padding-bottom:calc(7.5rem + env(safe-area-inset-bottom,0px));overscroll-behavior-x:none;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y">' + (state.homeTab === 'courses' ? carousel() : '') + login + petPanel + grid + '</main></div>' + bottomDock() + '</div>'; }
 function levelModuleCard(item, index, meta, isTeacher) {
   const canOpen = item.isPublished || isTeacher;
@@ -515,7 +570,7 @@ function teacherHeader(showBack = false) {
 function teacherBottomNav() {
   return '<nav class="motion-dock-enter fixed inset-x-0 bottom-0 z-50 mx-auto flex w-full max-w-[42rem] items-center justify-around rounded-t-[3rem] border-t border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.72)_0%,rgba(255,255,255,0.92)_36%,rgba(239,240,247,0.96)_100%)] px-4 py-3 backdrop-blur-[18px] shadow-[0_-12px_40px_-8px_rgba(92,45,255,0.12)] sm:w-[calc(100%_-_2rem)] md:bottom-5 md:rounded-full md:border" style="padding-bottom:calc(0.75rem + env(safe-area-inset-bottom,0px));background-color:rgba(239,240,247,0.94)"><button data-route="home" class="motion-tab flex min-h-[44px] flex-col items-center justify-center px-4 py-2 md:px-6 text-[#74777c]"><span class="material-symbols-outlined">home</span><span class="mt-0.5 text-[10px] font-medium uppercase tracking-[0.18em]">Home</span></button><button data-route="teacher" class="motion-tab flex min-h-[44px] flex-col items-center justify-center rounded-full bg-[#5c2dff] px-4 py-2 text-white shadow-[0_8px_20px_-4px_rgba(92,45,255,0.4)] md:px-6"><span class="material-symbols-outlined">dashboard_customize</span><span class="mt-0.5 text-[10px] font-medium uppercase tracking-[0.18em]">Teacher</span></button></nav>';
 }
-function teacherPanel() { if (state.teacherTab === 'students') return studentsPanel(); if (state.teacherTab === 'homework') return homeworkUploadPanel(); if (state.teacherTab === 'banners') return bannersPanel(); if (state.teacherTab === 'attendance') return attendancePanel(); if (state.teacherTab === 'reports') return reportsPanelV2(); if (state.teacherTab === 'vote') return voteResultsPanel(); if (state.teacherTab === 'pets') return petsPanel(); state.teacherTab = 'students'; return studentsPanel(); }
+function teacherPanel() { setTimeout(() => ensureTeacherTabData(state.teacherTab, false), 0); if (state.teacherTab === 'students') return studentsPanel(); if (state.teacherTab === 'homework') return homeworkUploadPanel(); if (state.teacherTab === 'banners') return bannersPanel(); if (state.teacherTab === 'attendance') return attendancePanel(); if (state.teacherTab === 'reports') return reportsPanelV2(); if (state.teacherTab === 'vote') return voteResultsPanel(); if (state.teacherTab === 'pets') return petsPanel(); state.teacherTab = 'students'; return studentsPanel(); }
 function teacherClasses() { return orderedLevels().map((l, i) => ({ code:l.id, name:l.title, icon:['fa-face-smile','fa-graduation-cap','fa-star','fa-trophy','fa-wand-magic-sparkles','fa-comments','fa-book-open','fa-user-tie','fa-newspaper'][i % 9] })); }
 function studentManagerMode() { return state.studentManageView === 'personal' ? 'personal' : 'classes'; }
 function studentManagerNav() {
@@ -548,6 +603,7 @@ function studentPersonalPanel() {
 }
 function studentsPanel() {
   const mode = studentManagerMode();
+  if (!teacherStudentsLoaded) return '<div class="tab-content active space-y-5 md:space-y-6">' + studentManagerNav() + '<section class="card-solid p-8 text-center"><i class="fa-solid fa-spinner fa-spin text-2xl text-[#6B48FF]"></i><p class="mt-3 text-sm font-black text-gray-400">正在读取学生名单...</p></section></div>';
   return '<div class="tab-content active space-y-5 md:space-y-6">' + studentManagerNav() + (mode === 'personal' ? studentPersonalPanel() : studentClassPanel()) + '</div>';
 }
 function moduleWithLevel(id) { for (const levelId of Object.keys(window.XY_CONTENT_MODULES)) { const m = modulesByLevel(levelId).find(x => x.id === id); if (m) return { module:m, levelId }; } return null; }
@@ -1531,13 +1587,15 @@ async function deleteAttendance(id) {
 async function fetchOptionalTable(table, select, dateColumn, cfg) {
   const rows = [];
   let from = 0;
+  const maxRows = Number(cfg?.maxRows || 3000);
   while (true) {
-    let query = sb.from(table).select(select).order(dateColumn, { ascending:false }).range(from, from + 999);
+    const to = Math.min(from + 999, maxRows - 1);
+    let query = sb.from(table).select(select).order(dateColumn, { ascending:false }).range(from, to);
     const start = cfg && cfg.startDate ? reportBoundary(cfg.startDate, false) : null;
     const end = cfg && cfg.endDate ? reportBoundary(cfg.endDate, true) : null;
     if (start) query = query.gte(dateColumn, start.toISOString());
     if (end) query = query.lte(dateColumn, end.toISOString());
-    const result = await query;
+    const result = await withTimeout(query, 10000, table + ' 读取超时，请缩小日期范围后重试。');
     if (result.error) {
       const msg = String(result.error.message || '').toLowerCase();
       if (result.error.code === '42P01' || result.error.code === 'PGRST205' || msg.includes(table)) return { data:[], missing:true, error:null };
@@ -1545,10 +1603,10 @@ async function fetchOptionalTable(table, select, dateColumn, cfg) {
     }
     const batch = result.data || [];
     rows.push(...batch);
-    if (batch.length < 1000) break;
+    if (batch.length < 1000 || rows.length >= maxRows) break;
     from += 1000;
   }
-  return { data:rows, missing:false, error:null };
+  return { data:rows, missing:false, error:null, truncated:rows.length >= maxRows };
 }
 async function loadReportData(showDone = true) {
   const cfg = reportCfg();
@@ -1558,6 +1616,7 @@ async function loadReportData(showDone = true) {
   const logs = await fetchOptionalTable('growth_logs', '*', 'created_at', cfg);
   const errors = [logs.error].filter(Boolean);
   if (errors.length) cfg.error = errors.map(e => e.message).join(' / ');
+  else if (logs.truncated) cfg.error = '当前日期范围数据较多，已先加载最近 ' + (cfg.maxRows || 3000) + ' 条。缩小日期范围可以查看更完整的数据。';
   cfg.quizAttempts = [];
   cfg.diagnosticAttempts = [];
   if (!logs.error) state.logs = logs.data || state.logs;
@@ -1971,7 +2030,16 @@ function showConfirm(msg, title, okText, okClass, onConfirm) {
   modalRoot.innerHTML = '<div class="fixed inset-0 z-[9999] flex items-center justify-center p-4"><div class="absolute inset-0 bg-black/40 backdrop-blur-sm" data-close-modal></div><div class="bg-white rounded-[32px] p-8 w-full max-w-sm relative z-10 shadow-2xl text-center motion-auth-panel-enter"><h3 class="text-[20px] font-black text-[#2D2A4A] mb-3">' + esc(title || '确认操作') + '</h3><p class="text-[15px] text-gray-500 mb-8 font-medium whitespace-pre-wrap leading-relaxed">' + esc(msg) + '</p><div class="flex gap-4"><button data-close-modal class="flex-1 bg-gray-100 text-gray-600 font-bold rounded-2xl py-4 active-scale">取消</button><button data-confirm-action class="flex-1 text-white font-bold rounded-2xl py-4 shadow-lg active-scale ' + esc(okClass || 'bg-[#6B48FF] shadow-[#6B48FF]/30') + '">' + esc(okText || '确认') + '</button></div></div></div>';
 }
 function showAlert(msg, title = '提示') { modalRoot.innerHTML = '<div class="fixed inset-0 z-[9999] flex items-center justify-center p-4"><div class="absolute inset-0 bg-black/40 backdrop-blur-sm" data-close-modal></div><div class="bg-white rounded-[32px] p-8 w-full max-w-sm relative z-10 shadow-2xl text-center motion-auth-panel-enter"><h3 class="text-[20px] font-black text-[#2D2A4A] mb-3">' + esc(title) + '</h3><p class="text-[15px] text-gray-500 mb-8 font-medium whitespace-pre-wrap leading-relaxed">' + esc(msg) + '</p><button data-close-modal class="w-full bg-[#6B48FF] text-white font-bold rounded-2xl py-4 text-base shadow-lg shadow-[#6B48FF]/30 active-scale">我知道了</button></div></div>'; }
-function openLesson(id, file) { const access = lessonAccess(id); if (!access.allowed) { if (access.reason === 'login') return showLogin(); return toast(access.reason === 'class' ? '这个单元还没有开放给你' : '没有识别到这个单元的权限信息'); } location.href = lessonHref(file, id); }
+function openLesson(id, file) {
+  const access = lessonAccess(id);
+  if (!access.allowed) {
+    if (access.reason === 'login') return showLogin();
+    return toast(access.reason === 'class' ? '这个单元还没有开放给你' : '没有识别到这个单元的权限信息');
+  }
+  const href = lessonHref(file, id);
+  showLessonLaunchOverlay('正在打开作业');
+  requestAnimationFrame(() => setTimeout(() => { location.href = href; }, 30));
+}
 function switchTeacherTab(tabEl) {
   const next = tabEl.dataset.teacherTab;
   const scroller = tabEl.closest('[data-teacher-tabs]');
@@ -2034,10 +2102,19 @@ document.addEventListener('click', e => {
     return saveStudentProfile(saveProfile.dataset.saveStudentProfile);
   }
 });
+document.addEventListener('pointerover', e => {
+  const open = e.target.closest('[data-open-lesson]');
+  if (open) prefetchLesson(open.dataset.moduleId, open.dataset.file);
+}, { passive:true });
+document.addEventListener('touchstart', e => {
+  const open = e.target.closest('[data-open-lesson]');
+  if (open) prefetchLesson(open.dataset.moduleId, open.dataset.file);
+}, { passive:true });
+window.addEventListener('pageshow', clearLessonLaunchOverlay);
 document.addEventListener('click', e => { if (e.target.closest('button,a,[data-route],[data-toast],[data-home-tab],[data-slide-index],[data-carousel-slide],[data-login],[data-logout],[data-open-lesson],[data-teacher-tab],[data-open-pet-switch]') && !suppressCarouselClick) playClick(); const route = e.target.closest('[data-route]'); if (route) return routeTo(route.dataset.route, route.dataset.level || null, true); const t = e.target.closest('[data-toast]'); if (t) return toast(t.dataset.toast); const homeTab = e.target.closest('[data-home-tab]'); if (homeTab) { state.homeTab = homeTab.dataset.homeTab; return render(); } const dot = e.target.closest('[data-slide-index]'); if (dot) return updateCarousel(Number(dot.dataset.slideIndex) || 0); const slide = e.target.closest('[data-carousel-slide]'); if (slide) return openCarouselSlide(Number(slide.dataset.carouselSlide) || 0); if (e.target.closest('[data-login]')) return showLogin(); if (e.target.closest('[data-logout]')) return logout(); const open = e.target.closest('[data-open-lesson]'); if (open) return openLesson(open.dataset.moduleId, open.dataset.file); const tab = e.target.closest('[data-teacher-tab]'); if (tab) { state.teacherTab = tab.dataset.teacherTab; render(); setTimeout(() => document.querySelector('[data-teacher-tab="' + state.teacherTab + '"]')?.scrollIntoView({ behavior:'smooth', inline:'center', block:'nearest' }), 40); return; } const chip = e.target.closest('[data-toggle-chip]'); if (chip) { chip.classList.toggle('selected'); return; } if (e.target.closest('[data-regen-pwd]')) return regenPwd(); if (e.target.closest('[data-save-student]') || e.target.closest('[data-add-student]')) return addStudent(); const studentInfo = e.target.closest('[data-student-info]'); if (studentInfo) return showStudentInfo(studentInfo.dataset.studentInfo); const delStudent = e.target.closest('[data-delete-student]'); if (delStudent) return deleteStudent(delStudent.dataset.deleteStudent); const pub = e.target.closest('[data-publish-lesson]'); if (pub) return syncLesson(pub.dataset.publishLesson, 'open'); if (e.target.closest('[data-add-homework]')) return addHomework(); if (e.target.closest('[data-migrate-lessons]')) return migrateRegistryLessonsToStorage(); const editHw = e.target.closest('[data-edit-homework]'); if (editHw) return showHomeworkEditor(editHw.dataset.editHomework); if (e.target.closest('[data-save-homework-edit]')) return saveHomeworkEdit(); if (e.target.closest('[data-close-old-hw]')) return closeAllOldHw(); const delHw = e.target.closest('[data-delete-homework]'); if (delHw) return deleteHomework(delHw.dataset.deleteHomework); if (e.target.closest('[data-generate-attendance]')) return generateAttendance(); const exempt = e.target.closest('[data-open-exempt]'); if (exempt) return openExemptModal(exempt.dataset.openExempt, exempt.dataset.studentName); const applyExemptBtn = e.target.closest('[data-apply-exempt]'); if (applyExemptBtn) return applyExempt(applyExemptBtn.dataset.applyExempt, applyExemptBtn.dataset.studentName); if (e.target.closest('[data-report-refresh]')) return loadReportData(true); const compare = e.target.closest('[data-report-compare]'); if (compare) return toggleReportCompare(compare.dataset.reportCompare); if (e.target.closest('[data-confirm-action]') && window.__xy_confirm_action) return window.__xy_confirm_action(); const previewBanner = e.target.closest('[data-preview-banner]'); if (previewBanner) return showBannerPreview(previewBanner.dataset.previewBanner); const editBanner = e.target.closest('[data-edit-banner]'); if (editBanner) return showBannerEditor(editBanner.dataset.editBanner); if (e.target.closest('[data-save-banner-edit]')) return saveBannerEdit(); if (e.target.closest('[data-add-banner]')) return addBanner(); const bannerPageStep = e.target.closest('[data-banner-page-step]'); if (bannerPageStep) return shiftBannerPage(bannerPageStep.dataset.bannerPageStep, Number(bannerPageStep.dataset.bannerPageDelta)); const delBanner = e.target.closest('[data-delete-banner]'); if (delBanner) return deleteBanner(delBanner.dataset.deleteBanner); if (e.target.closest('[data-do-login]')) return doLogin(); if (e.target.closest('[data-close-modal]')) return closeModal(); });
 document.addEventListener('touchstart', e => { const carousel = e.target.closest('[data-carousel]'); if (!carousel) return; const touch = e.touches && e.touches[0]; if (!touch) return; if (carouselSuppressTimer) clearTimeout(carouselSuppressTimer); suppressCarouselClick = false; carouselStartX = touch.clientX; carouselStartY = touch.clientY; }, { passive:true });
 document.addEventListener('touchend', e => { const carousel = e.target.closest('[data-carousel]'); if (!carousel) return; const touch = e.changedTouches && e.changedTouches[0]; if (!touch) return; const dx = touch.clientX - carouselStartX; const dy = touch.clientY - carouselStartY; const ax = Math.abs(dx); const ay = Math.abs(dy); if (ax < 56 || ax <= ay + 12) { suppressCarouselClick = false; return; } suppressCarouselClick = true; if (carouselSuppressTimer) clearTimeout(carouselSuppressTimer); carouselSuppressTimer = setTimeout(() => { suppressCarouselClick = false; carouselSuppressTimer = null; }, 260); updateCarousel(state.slide + (dx < 0 ? 1 : -1)); }, { passive:true });
-document.addEventListener('visibilitychange', () => { if (document.hidden) stopCarouselAuto(); else scheduleCarouselAuto(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) stopCarouselAuto(); else { clearLessonLaunchOverlay(); scheduleCarouselAuto(); } });
 document.addEventListener('change', e => { const reportField = e.target.closest('[data-report-field]'); if (reportField) return updateReportField(reportField.dataset.reportField, reportField.value); const bannerToggle = e.target.closest('[data-toggle-banner]'); if (bannerToggle) return updateBannerStatus(bannerToggle.dataset.toggleBanner, bannerToggle.checked, bannerToggle); const toggle = e.target.closest('[data-toggle-lesson]'); if (toggle) syncLesson(toggle.dataset.toggleLesson, toggle.checked ? 'open' : 'closed', toggle); });
 document.addEventListener('click', e => { if (e.target.closest('[data-open-att-picker]')) return showAttendancePicker(); if (e.target.closest('[data-close-att-picker]')) return closeAttendancePicker(); const pickerToggle = e.target.closest('[data-att-picker-toggle]'); if (pickerToggle) return toggleAttendancePickerStudent(pickerToggle.dataset.attPickerToggle); if (e.target.closest('[data-att-picker-all]')) return pickerSelectAllAttendanceStudents(); if (e.target.closest('[data-att-picker-clear]')) return pickerClearAttendanceStudents(); if (e.target.closest('[data-att-select-all]')) return selectAllAttendanceStudents(); if (e.target.closest('[data-att-clear]')) return clearAttendanceStudents(); if (e.target.closest('[data-save-attendance]')) return saveAttendance(); if (e.target.closest('[data-refresh-attendance]')) return loadAttendanceRecords(true); const del = e.target.closest('[data-delete-attendance]'); if (del) return deleteAttendance(del.dataset.deleteAttendance); });
 document.addEventListener('change', e => { const field = e.target.closest('[data-att-field]'); if (field) return updateAttendanceField(field.dataset.attField, field.value); const student = e.target.closest('[data-att-student]'); if (student) return toggleAttendanceStudent(student.dataset.attStudent, student.checked); });
