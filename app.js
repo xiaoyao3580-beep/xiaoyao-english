@@ -460,6 +460,7 @@ async function ensureTeacherTabData(tab = state.teacherTab, showLoading = false)
   await Promise.all(tasks);
 }
 async function loadTeacherData(showLoading = true) {
+  if (currentUser()?.role !== 'teacher') return;
   return ensureTeacherTabData(state.teacherTab, showLoading);
 }
 async function loadStudentData(user) {
