@@ -7,7 +7,7 @@ const TEACHER = { id: 'xiaoyao', password: '929292', name: '肖瑶老师' };
 const CLASS_ALIAS = { 'junior-ability': 'ms', economist: 'econ', others: 'adult' };
 const REVERSE_ALIAS = { ms: 'junior-ability', econ: 'economist', adult: 'others' };
 const HOME_LEVEL_ORDER = window.XY_HOME_LEVEL_ORDER || ['f2','a1','a1-plus','a2','a2-plus','junior-ability','swsy','others','economist'];
-const state = { page: 'home', level: null, homeTab: 'courses', slide: 0, teacherTab: 'students', students: [], homework: [], banners: [], bannerError: '', logs: [], attendance: null, report: null, vote: null, pet: null, loading: true };
+const state = { page: 'home', level: null, homeTab: 'courses', slide: 0, teacherTab: 'students', studentManageView: 'classes', selectedStudentId: '', students: [], homework: [], banners: [], bannerError: '', logs: [], attendance: null, report: null, vote: null, pet: null, loading: true };
 const app = document.getElementById('app');
 const modalRoot = document.getElementById('modal-root');
 const clickAudio = new Audio('click.mp3');
@@ -517,6 +517,39 @@ function teacherBottomNav() {
 }
 function teacherPanel() { if (state.teacherTab === 'students') return studentsPanel(); if (state.teacherTab === 'homework') return homeworkUploadPanel(); if (state.teacherTab === 'banners') return bannersPanel(); if (state.teacherTab === 'attendance') return attendancePanel(); if (state.teacherTab === 'reports') return reportsPanelV2(); if (state.teacherTab === 'vote') return voteResultsPanel(); if (state.teacherTab === 'pets') return petsPanel(); state.teacherTab = 'students'; return studentsPanel(); }
 function teacherClasses() { return orderedLevels().map((l, i) => ({ code:l.id, name:l.title, icon:['fa-face-smile','fa-graduation-cap','fa-star','fa-trophy','fa-wand-magic-sparkles','fa-comments','fa-book-open','fa-user-tie','fa-newspaper'][i % 9] })); }
+function studentManagerMode() { return state.studentManageView === 'personal' ? 'personal' : 'classes'; }
+function studentManagerNav() {
+  const mode = studentManagerMode();
+  const item = (id, icon, title, note) => '<button data-student-manage-view="' + id + '" class="motion-card rounded-[1.35rem] border p-4 text-left active-scale ' + (mode === id ? 'border-[#6B48FF] bg-[#F4F2FF] text-[#2D2A4A] shadow-[0_16px_34px_-22px_rgba(88,39,252,.42)]' : 'border-gray-100 bg-white text-gray-500 shadow-sm') + '"><span class="mb-3 flex h-10 w-10 items-center justify-center rounded-full ' + (mode === id ? 'bg-white text-[#6B48FF]' : 'bg-[#F8F8FC] text-gray-400') + '"><i class="fa-solid ' + icon + ' text-sm"></i></span><span class="block text-base font-black">' + title + '</span><span class="mt-1 block text-xs font-bold leading-5 text-gray-400">' + note + '</span></button>';
+  return '<div class="mb-5 grid gap-3 md:grid-cols-2">' + item('classes', 'fa-layer-group', '班级', '查看每个班的名单和人数。') + item('personal', 'fa-id-card-clip', '学生个人', '修改密码和课程权限。') + '</div>';
+}
+function studentClassPermissionChip(code, label, active) {
+  return '<button type="button" data-student-class-chip="' + esc(code) + '" class="rounded-xl px-3 py-2 text-xs font-black active-scale ' + (active ? 'selected bg-[#6B48FF] text-white shadow-sm' : 'bg-white text-gray-400 ring-1 ring-gray-100') + '">' + esc(label) + '</button>';
+}
+function studentPersonalCard(student, index) {
+  const classes = new Set(classesOf(student));
+  const open = state.selectedStudentId ? String(state.selectedStudentId) === String(student.id) : index === 0;
+  const chips = teacherClasses().map(cls => studentClassPermissionChip(cls.code, cls.name, classes.has(cls.code))).join('');
+  return '<details ' + (open ? 'open ' : '') + 'data-student-profile="' + esc(student.id) + '" class="group overflow-hidden rounded-[1.35rem] border border-gray-100 bg-white shadow-sm"><summary class="flex min-h-[64px] cursor-pointer list-none items-center justify-between gap-4 bg-[#F8F8FC] px-5 py-4"><span class="flex min-w-0 items-center gap-3"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#6B48FF] shadow-sm"><i class="fa-solid fa-user-graduate text-sm"></i></span><span class="min-w-0"><span class="block truncate text-sm font-extrabold text-[#2D2A4A] md:text-base">' + esc(student.name || student.id) + '</span><span class="mt-0.5 block text-xs font-bold text-gray-400">' + esc(student.id) + ' · ' + classes.size + ' 个课程权限</span></span></span><i class="fa-solid fa-chevron-down text-xs text-[#6B48FF] transition-transform group-open:rotate-180"></i></summary><div class="space-y-4 p-4 md:p-5"><div class="grid gap-4 md:grid-cols-2"><label class="block"><span class="mb-2 ml-1 block text-xs font-black uppercase text-gray-400">姓名</span><input data-student-name value="' + esc(student.name || '') + '" class="w-full rounded-xl border border-gray-200 bg-[#F8F8FC] px-4 py-3 text-sm font-black outline-none focus:border-[#6B48FF]"></label><label class="block"><span class="mb-2 ml-1 block text-xs font-black uppercase text-gray-400">密码</span><input data-student-password value="' + esc(student.password || '') + '" class="w-full rounded-xl border border-gray-200 bg-[#F8F8FC] px-4 py-3 text-sm font-black text-[#6B48FF] outline-none focus:border-[#6B48FF]"></label></div><div><p class="mb-3 ml-1 text-xs font-black uppercase text-gray-400">课程权限</p><div class="flex flex-wrap gap-2">' + chips + '</div></div><div class="flex flex-col gap-3 sm:flex-row"><button data-save-student-profile="' + esc(student.id) + '" class="flex-1 rounded-xl bg-[#2D2A4A] py-3 text-sm font-black text-white active-scale">保存个人设置</button><button data-delete-student="' + esc(student.id) + '" data-student-name="' + esc(student.name || student.id) + '" class="rounded-xl bg-red-50 px-5 py-3 text-sm font-black text-red-500 active-scale">删除学生</button></div></div></details>';
+}
+function studentClassPanel() {
+  const groups = teacherClasses().map(cls => {
+    const list = state.students.filter(s => classesOf(s).includes(cls.code)).sort((a,b) => String(a.name || a.id).localeCompare(String(b.name || b.id), 'zh-Hans'));
+    const rows = list.map(s => '<div class="flex items-center justify-between gap-4 border-b border-gray-50 bg-white p-4 last:border-0"><div class="min-w-0"><p class="truncate text-[15px] font-bold text-[#2D2A4A] md:text-[16px]">' + esc(s.name || s.id) + '</p><p class="mt-1 truncate text-xs font-bold text-gray-400">' + esc(s.id) + '</p></div><button data-edit-student="' + esc(s.id) + '" class="shrink-0 rounded-full bg-[#F4F2FF] px-4 py-2 text-xs font-black text-[#6B48FF] active-scale">个人设置</button></div>').join('');
+    return '<details class="mb-3 overflow-hidden rounded-[1.35rem] border border-gray-100 bg-white shadow-sm"><summary class="flex cursor-pointer list-none items-center justify-between gap-4 bg-[#F4F2FF] px-5 py-4"><span class="flex min-w-0 items-center gap-3"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#6B48FF] shadow-sm"><i class="fa-solid ' + cls.icon + ' text-sm"></i></span><span class="min-w-0"><span class="block truncate text-sm font-extrabold text-[#2D2A4A]">' + esc(cls.name) + '</span><span class="mt-0.5 block text-xs font-bold text-[#6B48FF]/70">' + list.length + ' 名学生</span></span></span><i class="fa-solid fa-chevron-down text-xs text-[#6B48FF]"></i></summary><div>' + (rows || '<p class="p-4 text-sm font-bold text-gray-400">这个班级还没有学生。</p>') + '</div></details>';
+  }).join('');
+  return '<section class="card-solid p-5 md:p-6"><h2 class="mb-4 text-xl font-black text-[#2D2A4A] md:text-2xl">班级名单</h2><div class="max-h-[540px] overflow-y-auto hide-scrollbar pb-2">' + groups + '</div></section>';
+}
+function studentPersonalPanel() {
+  const chips = teacherClasses().map(c => '<button type="button" data-toggle-chip="' + esc(c.code) + '" class="chip rounded-xl bg-[#F8F8FC] px-4 py-2.5 text-[13px] text-gray-500 active-scale md:text-[14px]">' + esc(c.name) + '</button>').join('');
+  const students = state.students.slice().sort((a,b) => String(a.name || a.id).localeCompare(String(b.name || b.id), 'zh-Hans'));
+  const cards = students.map(studentPersonalCard).join('');
+  return '<section class="space-y-5"><div class="card-solid overflow-hidden"><div class="border-b border-gray-100 bg-gradient-to-r from-[#F8F8FC] via-white to-[#F4F2FF] px-5 py-5 md:px-6"><h2 class="text-xl font-black text-[#2D2A4A] md:text-2xl">学生个人</h2><p class="mt-1 text-xs font-bold text-gray-400">在这里修改学生密码和课程权限。</p></div><div class="space-y-3 p-4 md:p-5">' + (cards || '<p class="rounded-[1.25rem] bg-[#F8F8FC] p-5 text-center text-sm font-bold text-gray-400">暂无学生数据</p>') + '</div></div><div class="card-solid p-6 pb-10 md:p-8"><h2 class="mb-4 text-xl font-black text-[#2D2A4A] md:text-2xl">添加新学生</h2><div class="grid gap-5 md:grid-cols-2"><label class="block"><span class="mb-2 ml-1 block text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">ID</span><input type="text" id="form-id" class="w-full rounded-xl border border-gray-200 bg-[#F8F8FC] px-5 py-4 text-base font-bold text-[#6B48FF] outline-none focus:border-[#6B48FF]"></label><label class="block"><span class="mb-2 ml-1 flex justify-between text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">PWD <button type="button" data-regen-pwd class="fa-solid fa-rotate text-[#6B48FF] active-scale" aria-label="刷新密码"></button></span><input type="text" id="form-pwd" class="w-full rounded-xl border border-gray-200 bg-[#F8F8FC] px-5 py-4 text-base font-bold text-[#6B48FF] outline-none focus:border-[#6B48FF]"></label></div><label class="mt-5 block"><span class="mb-2 ml-1 block text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">Name</span><input type="text" id="form-name" placeholder="输入姓名" class="w-full rounded-xl border border-gray-200 bg-[#F8F8FC] px-5 py-4 text-base font-medium outline-none focus:border-[#6B48FF]"></label><div class="mb-8 mt-5"><p class="mb-3 ml-1 text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">课程权限</p><div class="flex flex-wrap gap-2 md:gap-3" id="chip-container">' + chips + '</div></div><button data-save-student class="w-full rounded-xl bg-[#2D2A4A] py-4 text-base font-bold text-white shadow-lg active-scale" id="btn-register">添加学生</button></div></section>';
+}
+function studentsPanel() {
+  const mode = studentManagerMode();
+  return '<div class="tab-content active space-y-5 md:space-y-6">' + studentManagerNav() + (mode === 'personal' ? studentPersonalPanel() : studentClassPanel()) + '</div>';
+}
 function moduleWithLevel(id) { for (const levelId of Object.keys(window.XY_CONTENT_MODULES)) { const m = modulesByLevel(levelId).find(x => x.id === id); if (m) return { module:m, levelId }; } return null; }
 function lessonLevelId(id) { const found = moduleWithLevel(id); if (found) return normalizeClass(found.levelId); const hw = homeworkById(id); return hw ? normalizeClass(hw.classCode) : ''; }
 function lessonAccess(id) { const u = currentUser(); if (!u) return { allowed:false, reason:'login' }; if (u.role === 'teacher') return { allowed:true, reason:'' }; const levelId = lessonLevelId(id); return { allowed:Boolean(levelId && classesOf(u).includes(levelId)), reason:levelId ? 'class' : 'unknown' }; }
@@ -541,7 +574,7 @@ function homeworkFileState(file) {
   if (isAbsoluteUrl(raw)) return ['云端已同步','text-[#00BFA5]','fa-cloud-arrow-up'];
   return ['本地课程','text-gray-400','fa-folder'];
 }
-function studentsPanel() { const groups = teacherClasses().map(cls => { const list = state.students.filter(s => classesOf(s).includes(cls.code)); if (!list.length) return ''; const rows = list.map(s => '<div class="flex items-center justify-between gap-4 border-b border-gray-50 bg-white p-4 last:border-0"><div class="min-w-0"><p class="truncate text-[15px] font-bold text-[#2D2A4A] md:text-[16px]">' + esc(s.name) + '</p></div><div class="flex shrink-0 items-center gap-3"><button data-student-info="' + esc(s.id) + '" class="flex h-10 w-10 items-center justify-center rounded-full bg-[#F4F2FF] text-[#6B48FF] shadow-sm transition-colors active-scale hover:bg-[#6B48FF] hover:text-white" aria-label="学生信息"><i class="fa-solid fa-circle-info text-sm"></i></button><button data-delete-student="' + esc(s.id) + '" data-student-name="' + esc(s.name) + '" class="flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-red-500 shadow-sm transition-colors active-scale hover:bg-red-500 hover:text-white" aria-label="删除学生"><i class="fa-solid fa-trash-can text-sm"></i></button></div></div>').join(''); return '<details class="mb-3 overflow-hidden rounded-[1.35rem] border border-gray-100 bg-white shadow-sm"><summary class="flex cursor-pointer list-none items-center justify-between gap-4 bg-[#F4F2FF] px-5 py-4"><span class="flex min-w-0 items-center gap-3"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#6B48FF] shadow-sm"><i class="fa-solid ' + cls.icon + ' text-sm"></i></span><span class="min-w-0"><span class="block truncate text-sm font-extrabold text-[#2D2A4A]">' + esc(cls.name) + '</span><span class="mt-0.5 block text-xs font-bold text-[#6B48FF]/70">' + list.length + ' 名学生</span></span></span><i class="fa-solid fa-chevron-down text-xs text-[#6B48FF]"></i></summary><div>' + rows + '</div></details>'; }).join(''); const chips = teacherClasses().map(c => '<button type="button" data-toggle-chip="' + esc(c.code) + '" class="chip bg-[#F8F8FC] text-gray-500 text-[13px] md:text-[14px] px-4 py-2.5 rounded-xl active-scale">' + esc(c.name) + '</button>').join(''); return '<div class="tab-content active"><div class="mb-10"><h2 class="text-base md:text-lg font-extrabold text-[#2D2A4A] mb-5 pl-1">班级名单与进度概览</h2><div class="max-h-[500px] overflow-y-auto hide-scrollbar pb-5">' + (groups || '<p class="text-sm text-gray-400">暂无学生数据</p>') + '</div></div><h2 class="text-xl md:text-2xl font-extrabold text-[#2D2A4A] mb-4 pl-1">添加新学生</h2><div class="card-solid p-6 md:p-8 pb-10"><div class="md:grid md:grid-cols-2 md:gap-5"><div class="mb-5 md:mb-0"><label class="text-[11px] md:text-[13px] font-bold text-gray-400 uppercase ml-1 mb-2 block">ID (可修改)</label><input type="text" id="form-id" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-5 py-4 text-base font-bold text-[#6B48FF] outline-none focus:border-[#6B48FF]"></div><div class="mb-5 md:mb-0"><label class="text-[11px] md:text-[13px] font-bold text-gray-400 uppercase ml-1 mb-2 flex justify-between">PWD <button type="button" data-regen-pwd class="fa-solid fa-rotate text-[#6B48FF] active-scale" aria-label="刷新密码"></button></label><input type="text" id="form-pwd" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-5 py-4 text-base font-bold text-[#6B48FF] outline-none focus:border-[#6B48FF]"></div></div><div class="mb-5 mt-5"><label class="text-[11px] md:text-[13px] font-bold text-gray-400 uppercase ml-1 mb-2 block">Name</label><input type="text" id="form-name" placeholder="输入姓名" class="w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-5 py-4 text-base font-medium outline-none focus:border-[#6B48FF]"></div><div class="mb-8"><label class="text-[11px] md:text-[13px] font-bold text-gray-400 uppercase ml-1 mb-3 block">Assign Classes (多选)</label><div class="flex flex-wrap gap-2 md:gap-3" id="chip-container">' + chips + '</div></div><button data-save-student class="w-full bg-[#2D2A4A] text-white font-bold rounded-xl py-4 text-base shadow-lg active-scale" id="btn-register">直接添加至云端</button></div></div>'; }
+function studentsPanelLegacy() { return studentsPanel(); }
 function studentPetPanel() {
   const u = currentUser();
   if (!u || u.role !== 'student') return '';
@@ -1027,6 +1060,21 @@ async function addStudent() {
     await loadData();
     showAlert('账号：' + id + '\n密码：' + password + '\n\n该学生现在可以正常登录了！', '添加成功');
   });
+}
+async function saveStudentProfile(id) {
+  const root = Array.from(document.querySelectorAll('[data-student-profile]')).find(node => String(node.dataset.studentProfile) === String(id));
+  const student = state.students.find(s => String(s.id) === String(id));
+  if (!root || !student) return showAlert('没有找到这个学生档案。', '学生个人');
+  const name = (root.querySelector('[data-student-name]')?.value || '').trim();
+  const password = (root.querySelector('[data-student-password]')?.value || '').trim();
+  const classes = Array.from(root.querySelectorAll('[data-student-class-chip].selected')).map(el => el.dataset.studentClassChip);
+  if (!name || !password || !classes.length) return showAlert('请填写姓名、密码，并至少选择一个课程权限。', '提示');
+  const result = await sb.from('students').update({ name, password, classes }).eq('id', String(id));
+  if (result.error) return showAlert('保存失败：' + result.error.message, '错误');
+  state.students = state.students.map(s => String(s.id) === String(id) ? { ...s, name, password, classes } : s);
+  state.selectedStudentId = String(id);
+  render();
+  toast('学生个人设置已保存。');
 }
 async function deleteStudent(id) { showConfirm('确定要删除学生 ' + id + ' 的云端档案吗？', '删除学生', '确认删除', 'bg-red-500 shadow-red-500/30', async () => { const result = await sb.from('students').delete().eq('id', id); if (result.error) return showAlert(result.error.message, '错误'); await loadData(); }); }
 function updateHomeworkState(record) {
@@ -1621,7 +1669,7 @@ function petSwitchOptionCard(type, pet) {
   const target = { ...pet, pet_type:id, equipped_item:null };
   const asset = petAssetUrl(target, petLevelInfo(target));
   const bg = petCreationEnvironmentId(id);
-  return '<button data-confirm-pet-switch="' + esc(id) + '" class="pet-switch-modal-card relative flex min-h-[9.25rem] overflow-hidden rounded-[1.35rem] border p-4 text-left active-scale ' + (enough ? 'border-white/80 shadow-[0_16px_34px_-22px_rgba(88,39,252,.42)]' : 'border-gray-100 opacity-55') + '" style="background-image:' + petEnvironmentLayeredBackground(bg) + '" ' + (enough ? '' : 'disabled') + '><span class="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/82 via-white/48 to-white/8"></span><span class="relative z-10 flex min-w-0 flex-1 flex-col justify-center gap-2 pr-3"><span class="inline-flex w-fit items-center rounded-full bg-white/82 px-3 py-1.5 text-base font-black text-[#2c2f33] shadow-sm backdrop-blur-md">' + esc(label) + '</span><span class="inline-flex w-fit items-center gap-1.5 rounded-full bg-white/70 px-3 py-1.5 text-xs font-black text-[#6B48FF] shadow-sm backdrop-blur-md"><i class="fa-solid fa-coins text-[11px]"></i>' + cost + ' 积分</span><span class="text-[11px] font-bold text-gray-500">' + (enough ? '新宠物会从第一形态开始。' : '积分不足，暂时不能切换。') + '</span></span><span class="pet-orbit-scene relative z-10 flex h-28 w-28 shrink-0 items-center justify-center self-center" style="--pet-accent:' + meta.accent + '">' + petParticleNodes('mini') + '<span class="pet-float"><img src="' + esc(asset) + '" alt="' + esc(label) + '" loading="lazy" decoding="async" onerror="this.style.display=&quot;none&quot;" class="p-2"></span></span></button>';
+  return '<button data-confirm-pet-switch="' + esc(id) + '" class="pet-switch-modal-card relative flex min-h-[9.25rem] overflow-hidden rounded-[1.35rem] border p-4 text-left active-scale ' + (enough ? 'border-white/80 shadow-[0_16px_34px_-22px_rgba(88,39,252,.42)]' : 'border-gray-100 opacity-55') + '" style="background-image:' + petEnvironmentLayeredBackground(bg) + '" ' + (enough ? '' : 'disabled') + '><span class="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/82 via-white/48 to-white/8"></span><span class="relative z-10 flex min-w-0 flex-1 flex-col justify-center gap-2 pr-3"><span class="inline-flex w-fit items-center rounded-full bg-white/82 px-3 py-1.5 text-base font-black text-[#2c2f33] shadow-sm backdrop-blur-md">' + esc(label) + '</span><span class="inline-flex w-fit items-center gap-1.5 rounded-full bg-white/70 px-3 py-1.5 text-xs font-black text-[#6B48FF] shadow-sm backdrop-blur-md"><i class="fa-solid fa-coins text-[11px]"></i>' + cost + ' 积分</span><span class="text-[11px] font-bold text-gray-500">' + (enough ? '从小小第一形态出发。' : '小星星还不够，再攒一攒。') + '</span></span><span class="pet-orbit-scene relative z-10 flex h-28 w-28 shrink-0 items-center justify-center self-center" style="--pet-accent:' + meta.accent + '">' + petParticleNodes('mini') + '<span class="pet-float"><img src="' + esc(asset) + '" alt="' + esc(label) + '" loading="lazy" decoding="async" onerror="this.style.display=&quot;none&quot;" class="p-2"></span></span></button>';
 }
 function applyPetEnvironmentStageStyle(node, id) {
   if (!node) return;
@@ -1795,10 +1843,10 @@ function showPetSwitchModal() {
   const pet = petForStudent(u.id);
   if (!pet) return;
   const options = switchablePetTypesForStudent(u.id);
-  if (!options.length) return showAlert('暂时没有可切换的宠物。', '换宠物');
+  if (!options.length) return showAlert('新的小伙伴还在路上，再等等它们吧。', '换伙伴');
   options.forEach(type => preloadPetAsset({ ...pet, pet_type:type.pet_type || type.id, equipped_item:null }));
   const cards = options.map(type => petSwitchOptionCard(type, pet)).join('');
-  modalRoot.innerHTML = '<div class="fixed inset-0 z-[9999] flex items-center justify-center p-4"><div class="absolute inset-0 bg-black/40 backdrop-blur-sm" data-close-modal></div><div class="relative z-10 max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[32px] bg-white p-5 shadow-2xl motion-auth-panel-enter md:p-7"><div class="mb-5 flex items-start justify-between gap-4"><div><p class="text-[11px] font-black uppercase tracking-[0.22em] text-[#6B48FF]">Switch Pet</p><h3 class="mt-1 text-[24px] font-black text-[#2D2A4A]">换宠物</h3><p class="mt-2 text-sm font-bold leading-6 text-gray-400">会替换当前宠物，新宠物会从第一形态开始；宠物积分扣除消耗后保留，环境保留，已穿戴装扮会先卸下。</p></div><button data-close-modal class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#F8F8FC] text-gray-400 active-scale" aria-label="关闭"><i class="fa-solid fa-xmark"></i></button></div><div class="grid gap-3 sm:grid-cols-2">' + cards + '</div><button data-close-modal class="mt-5 w-full rounded-2xl bg-gray-100 py-4 text-base font-bold text-gray-600 active-scale">再想想</button></div></div>';
+  modalRoot.innerHTML = '<div class="fixed inset-0 z-[9999] flex items-center justify-center p-4"><div class="absolute inset-0 bg-black/40 backdrop-blur-sm" data-close-modal></div><div class="relative z-10 max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[32px] bg-white p-5 shadow-2xl motion-auth-panel-enter md:p-7"><div class="mb-5 flex items-start justify-between gap-4"><div><p class="text-[11px] font-black uppercase tracking-[0.22em] text-[#6B48FF]">New Buddy</p><h3 class="mt-1 text-[24px] font-black text-[#2D2A4A]">挑一位新伙伴</h3><p class="mt-2 text-sm font-bold leading-6 text-gray-400">选中它以后，会有一场小小的告别和登场仪式。新伙伴会从小小形态陪你重新出发。</p></div><button data-close-modal class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#F8F8FC] text-gray-400 active-scale" aria-label="关闭"><i class="fa-solid fa-xmark"></i></button></div><div class="grid gap-3 sm:grid-cols-2">' + cards + '</div><button data-close-modal class="mt-5 w-full rounded-2xl bg-gray-100 py-4 text-base font-bold text-gray-600 active-scale">再看看</button></div></div>';
 }
 function playPetFarewellAnimation() {
   const panel = document.querySelector('[data-student-pet-panel]');
@@ -1833,13 +1881,27 @@ function playPetArrivalAnimation() {
   });
   setTimeout(() => scenes.forEach(scene => scene.classList.remove('pet-arriving')), 980);
 }
+function playPetSwitchCeremony(oldPet, newPet) {
+  if (!oldPet || !newPet || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) return new Promise(resolve => setTimeout(resolve, 220));
+  const oldType = petTypeMeta(oldPet.pet_type);
+  const newType = petTypeMeta(newPet.pet_type);
+  const oldAsset = petAssetUrl(oldPet, petLevelInfo(oldPet));
+  const newAsset = petAssetUrl(newPet, petLevelInfo(newPet));
+  const oldName = oldPet.pet_name || oldType.zh;
+  const newName = newPet.pet_name || newType.zh;
+  modalRoot.innerHTML = '<div class="pet-switch-ceremony" style="--old-accent:' + oldType.accent + ';--new-accent:' + newType.accent + '"><div class="pet-switch-stage"><div class="pet-switch-title">新伙伴登场啦<div class="pet-switch-subtitle">闪亮出发</div></div><span class="pet-switch-portal"></span><span class="pet-switch-spark"></span><span class="pet-switch-spark"></span><span class="pet-switch-spark"></span><span class="pet-switch-spark"></span><span class="pet-switch-spark"></span><img class="pet-switch-pet pet-switch-pet-old" src="' + esc(oldAsset) + '" alt="' + esc(oldName) + '"><img class="pet-switch-pet pet-switch-pet-new" src="' + esc(newAsset) + '" alt="' + esc(newName) + '"><div class="pet-switch-label">' + esc(oldType.zh) + '挥挥手说再见 · ' + esc(newType.zh) + '蹦出来啦</div></div></div>';
+  return new Promise(resolve => setTimeout(() => {
+    modalRoot.innerHTML = '';
+    resolve();
+  }, 2800));
+}
 async function switchStudentPetType(typeKey) {
   const u = currentUser();
   if (!u || u.role !== 'student') return;
   const current = petForStudent(u.id);
   if (!current || !typeKey || current.pet_type === typeKey || petCfg().switchingPet) return;
   const cost = petSwitchCost(typeKey);
-  if (Number(current.pet_points || 0) < cost) return showAlert('积分还不够，换这个宠物需要 ' + cost + ' 积分。', '换宠物');
+  if (Number(current.pet_points || 0) < cost) return showAlert('小星星还差一点点，再完成几次任务就能邀请它啦。', '还差一点点');
   closeModal();
   petCfg().switchingPet = true;
   const target = { ...current, pet_type:typeKey, equipped_item:null, experience_points:0, level_mode:'auto', manual_level:null, pet_points:Math.max(0, Number(current.pet_points || 0) - cost) };
@@ -1851,13 +1913,12 @@ async function switchStudentPetType(typeKey) {
   }
   const pet = { ...target, ...(result.data || {}), pet_type:typeKey, equipped_item:null, experience_points:0, level_mode:'auto', manual_level:null };
   await preloadPetAsset(pet);
-  await playPetFarewellAnimation();
+  await playPetSwitchCeremony(current, pet);
   updateLocalPet(pet);
   if (!petCfg().typeUnlocks.some(row => String(row.student_id) === String(u.id) && row.pet_type === typeKey)) petCfg().typeUnlocks.unshift({ student_id:String(u.id), pet_type:typeKey, source:'switch', created_at:new Date().toISOString() });
   petCfg().switchingPet = false;
   refreshStudentPetPanel();
-  playPetArrivalAnimation();
-  toast('已经换成' + petTypeMeta(typeKey).zh + '。');
+  toast(petTypeMeta(typeKey).zh + '来报到啦。');
 }
 async function savePetItemRule(itemKey) {
   const item = petItems().find(i => i.item_key === itemKey);
@@ -1933,6 +1994,46 @@ document.addEventListener('click', e => {
   if (!suppressCarouselClick) playClick();
   switchTeacherTab(tab);
 }, true);
+document.addEventListener('click', e => {
+  const view = e.target.closest('[data-student-manage-view]');
+  if (view) {
+    e.stopImmediatePropagation();
+    if (!suppressCarouselClick) playClick();
+    state.studentManageView = view.dataset.studentManageView === 'personal' ? 'personal' : 'classes';
+    render();
+    return;
+  }
+  const edit = e.target.closest('[data-edit-student]');
+  if (edit) {
+    e.stopImmediatePropagation();
+    if (!suppressCarouselClick) playClick();
+    state.studentManageView = 'personal';
+    state.selectedStudentId = edit.dataset.editStudent;
+    render();
+    setTimeout(() => Array.from(document.querySelectorAll('[data-student-profile]')).find(node => String(node.dataset.studentProfile) === String(state.selectedStudentId))?.scrollIntoView({ behavior:'smooth', block:'center' }), 60);
+    return;
+  }
+  const permission = e.target.closest('[data-student-class-chip]');
+  if (permission) {
+    e.stopImmediatePropagation();
+    if (!suppressCarouselClick) playClick();
+    permission.classList.toggle('selected');
+    permission.classList.toggle('bg-[#6B48FF]');
+    permission.classList.toggle('text-white');
+    permission.classList.toggle('shadow-sm');
+    permission.classList.toggle('bg-white');
+    permission.classList.toggle('text-gray-400');
+    permission.classList.toggle('ring-1');
+    permission.classList.toggle('ring-gray-100');
+    return;
+  }
+  const saveProfile = e.target.closest('[data-save-student-profile]');
+  if (saveProfile) {
+    e.stopImmediatePropagation();
+    if (!suppressCarouselClick) playClick();
+    return saveStudentProfile(saveProfile.dataset.saveStudentProfile);
+  }
+});
 document.addEventListener('click', e => { if (e.target.closest('button,a,[data-route],[data-toast],[data-home-tab],[data-slide-index],[data-carousel-slide],[data-login],[data-logout],[data-open-lesson],[data-teacher-tab],[data-open-pet-switch]') && !suppressCarouselClick) playClick(); const route = e.target.closest('[data-route]'); if (route) return routeTo(route.dataset.route, route.dataset.level || null, true); const t = e.target.closest('[data-toast]'); if (t) return toast(t.dataset.toast); const homeTab = e.target.closest('[data-home-tab]'); if (homeTab) { state.homeTab = homeTab.dataset.homeTab; return render(); } const dot = e.target.closest('[data-slide-index]'); if (dot) return updateCarousel(Number(dot.dataset.slideIndex) || 0); const slide = e.target.closest('[data-carousel-slide]'); if (slide) return openCarouselSlide(Number(slide.dataset.carouselSlide) || 0); if (e.target.closest('[data-login]')) return showLogin(); if (e.target.closest('[data-logout]')) return logout(); const open = e.target.closest('[data-open-lesson]'); if (open) return openLesson(open.dataset.moduleId, open.dataset.file); const tab = e.target.closest('[data-teacher-tab]'); if (tab) { state.teacherTab = tab.dataset.teacherTab; render(); setTimeout(() => document.querySelector('[data-teacher-tab="' + state.teacherTab + '"]')?.scrollIntoView({ behavior:'smooth', inline:'center', block:'nearest' }), 40); return; } const chip = e.target.closest('[data-toggle-chip]'); if (chip) { chip.classList.toggle('selected'); return; } if (e.target.closest('[data-regen-pwd]')) return regenPwd(); if (e.target.closest('[data-save-student]') || e.target.closest('[data-add-student]')) return addStudent(); const studentInfo = e.target.closest('[data-student-info]'); if (studentInfo) return showStudentInfo(studentInfo.dataset.studentInfo); const delStudent = e.target.closest('[data-delete-student]'); if (delStudent) return deleteStudent(delStudent.dataset.deleteStudent); const pub = e.target.closest('[data-publish-lesson]'); if (pub) return syncLesson(pub.dataset.publishLesson, 'open'); if (e.target.closest('[data-add-homework]')) return addHomework(); if (e.target.closest('[data-migrate-lessons]')) return migrateRegistryLessonsToStorage(); const editHw = e.target.closest('[data-edit-homework]'); if (editHw) return showHomeworkEditor(editHw.dataset.editHomework); if (e.target.closest('[data-save-homework-edit]')) return saveHomeworkEdit(); if (e.target.closest('[data-close-old-hw]')) return closeAllOldHw(); const delHw = e.target.closest('[data-delete-homework]'); if (delHw) return deleteHomework(delHw.dataset.deleteHomework); if (e.target.closest('[data-generate-attendance]')) return generateAttendance(); const exempt = e.target.closest('[data-open-exempt]'); if (exempt) return openExemptModal(exempt.dataset.openExempt, exempt.dataset.studentName); const applyExemptBtn = e.target.closest('[data-apply-exempt]'); if (applyExemptBtn) return applyExempt(applyExemptBtn.dataset.applyExempt, applyExemptBtn.dataset.studentName); if (e.target.closest('[data-report-refresh]')) return loadReportData(true); const compare = e.target.closest('[data-report-compare]'); if (compare) return toggleReportCompare(compare.dataset.reportCompare); if (e.target.closest('[data-confirm-action]') && window.__xy_confirm_action) return window.__xy_confirm_action(); const previewBanner = e.target.closest('[data-preview-banner]'); if (previewBanner) return showBannerPreview(previewBanner.dataset.previewBanner); const editBanner = e.target.closest('[data-edit-banner]'); if (editBanner) return showBannerEditor(editBanner.dataset.editBanner); if (e.target.closest('[data-save-banner-edit]')) return saveBannerEdit(); if (e.target.closest('[data-add-banner]')) return addBanner(); const bannerPageStep = e.target.closest('[data-banner-page-step]'); if (bannerPageStep) return shiftBannerPage(bannerPageStep.dataset.bannerPageStep, Number(bannerPageStep.dataset.bannerPageDelta)); const delBanner = e.target.closest('[data-delete-banner]'); if (delBanner) return deleteBanner(delBanner.dataset.deleteBanner); if (e.target.closest('[data-do-login]')) return doLogin(); if (e.target.closest('[data-close-modal]')) return closeModal(); });
 document.addEventListener('touchstart', e => { const carousel = e.target.closest('[data-carousel]'); if (!carousel) return; const touch = e.touches && e.touches[0]; if (!touch) return; if (carouselSuppressTimer) clearTimeout(carouselSuppressTimer); suppressCarouselClick = false; carouselStartX = touch.clientX; carouselStartY = touch.clientY; }, { passive:true });
 document.addEventListener('touchend', e => { const carousel = e.target.closest('[data-carousel]'); if (!carousel) return; const touch = e.changedTouches && e.changedTouches[0]; if (!touch) return; const dx = touch.clientX - carouselStartX; const dy = touch.clientY - carouselStartY; const ax = Math.abs(dx); const ay = Math.abs(dy); if (ax < 56 || ax <= ay + 12) { suppressCarouselClick = false; return; } suppressCarouselClick = true; if (carouselSuppressTimer) clearTimeout(carouselSuppressTimer); carouselSuppressTimer = setTimeout(() => { suppressCarouselClick = false; carouselSuppressTimer = null; }, 260); updateCarousel(state.slide + (dx < 0 ? 1 : -1)); }, { passive:true });
