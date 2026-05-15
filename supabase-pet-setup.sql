@@ -78,10 +78,16 @@ create table if not exists public.pet_reward_rules (
   min_score integer not null check (min_score between 0 and 100),
   xp_reward integer not null default 0 check (xp_reward >= 0),
   point_reward integer not null default 0 check (point_reward >= 0),
+  daily_xp_cap integer not null default 0 check (daily_xp_cap >= 0),
+  daily_point_cap integer not null default 0 check (daily_point_cap >= 0),
   sort_order integer not null default 0,
   active boolean not null default true,
   updated_at timestamptz not null default now()
 );
+
+alter table public.pet_reward_rules
+add column if not exists daily_xp_cap integer not null default 0 check (daily_xp_cap >= 0),
+add column if not exists daily_point_cap integer not null default 0 check (daily_point_cap >= 0);
 
 create table if not exists public.pet_type_rules (
   pet_type text primary key check (pet_type in ('fox', 'owl', 'deer', 'whale', 'otter', 'dragon')),
@@ -90,13 +96,15 @@ create table if not exists public.pet_type_rules (
   unlock_points integer not null default 0 check (unlock_points >= 0),
   unlock_pet_count integer not null default 0 check (unlock_pet_count >= 0),
   switch_price integer not null default 80 check (switch_price >= 0),
+  rename_price integer not null default 30 check (rename_price >= 0),
   sort_order integer not null default 0,
   active boolean not null default true,
   updated_at timestamptz not null default now()
 );
 
 alter table public.pet_type_rules
-add column if not exists switch_price integer not null default 80 check (switch_price >= 0);
+add column if not exists switch_price integer not null default 80 check (switch_price >= 0),
+add column if not exists rename_price integer not null default 30 check (rename_price >= 0);
 
 create table if not exists public.pet_type_unlocks (
   student_id text not null references public.students(id) on delete cascade,
@@ -116,14 +124,22 @@ create table if not exists public.pet_reward_events (
   tier_key text,
   xp_delta integer not null default 0,
   point_delta integer not null default 0,
+  reward_date date,
   reason text,
   created_by text,
   created_at timestamptz not null default now()
 );
 
+alter table public.pet_reward_events
+add column if not exists reward_date date;
+
 create unique index if not exists pet_reward_events_once_idx
 on public.pet_reward_events(student_id, source_type, source_id)
 where source_id is not null;
+
+create unique index if not exists pet_reward_events_daily_best_idx
+on public.pet_reward_events(student_id, source_type, reward_date)
+where source_type = 'daily_best' and reward_date is not null;
 
 create index if not exists pet_reward_events_student_idx on public.pet_reward_events(student_id);
 create index if not exists pet_reward_events_time_idx on public.pet_reward_events(created_at desc);
@@ -166,20 +182,26 @@ set label = excluded.label,
     active = excluded.active,
     updated_at = now();
 
-insert into public.pet_type_rules (pet_type, label_zh, is_hidden, unlock_points, unlock_pet_count, switch_price, sort_order, active)
+update public.pet_reward_rules
+set daily_xp_cap = case tier_key when 'high' then 30 when 'medium' then 18 when 'low' then 8 else greatest(daily_xp_cap, xp_reward) end,
+    daily_point_cap = case tier_key when 'high' then 20 when 'medium' then 12 when 'low' then 5 else greatest(daily_point_cap, point_reward) end
+where daily_xp_cap = 0 and daily_point_cap = 0;
+
+insert into public.pet_type_rules (pet_type, label_zh, is_hidden, unlock_points, unlock_pet_count, switch_price, rename_price, sort_order, active)
 values
-  ('fox', '小狐狸', false, 0, 0, 80, 1, true),
-  ('owl', '小夜鹰', false, 0, 0, 80, 2, true),
-  ('deer', '小鹿', false, 0, 0, 80, 3, true),
-  ('otter', '小水獭', false, 0, 0, 80, 4, true),
-  ('whale', '小鲸鱼', true, 600, 0, 160, 5, true),
-  ('dragon', '小龙', true, 0, 4, 160, 6, true)
+  ('fox', '小狐狸', false, 0, 0, 80, 30, 1, true),
+  ('owl', '小夜鹰', false, 0, 0, 80, 30, 2, true),
+  ('deer', '小鹿', false, 0, 0, 80, 30, 3, true),
+  ('otter', '小水獭', false, 0, 0, 80, 30, 4, true),
+  ('whale', '小鲸鱼', true, 600, 0, 160, 40, 5, true),
+  ('dragon', '小龙', true, 0, 4, 160, 40, 6, true)
 on conflict (pet_type) do update
 set label_zh = excluded.label_zh,
     is_hidden = excluded.is_hidden,
     unlock_points = excluded.unlock_points,
     unlock_pet_count = excluded.unlock_pet_count,
     switch_price = excluded.switch_price,
+    rename_price = excluded.rename_price,
     sort_order = excluded.sort_order,
     active = excluded.active,
     updated_at = now();
@@ -252,9 +274,16 @@ set search_path = public
 as $$
 declare
   log_row public.growth_logs;
+  best_log public.growth_logs;
   reward_rule public.pet_reward_rules;
   inserted_event public.pet_reward_events;
+  existing_event public.pet_reward_events;
   next_pet public.student_pets;
+  award_day date;
+  next_xp integer := 0;
+  next_points integer := 0;
+  delta_xp integer := 0;
+  delta_points integer := 0;
 begin
   select * into log_row from public.growth_logs where id = p_log_id;
   if log_row.id is null then
@@ -270,9 +299,18 @@ begin
     return jsonb_build_object('awarded', false, 'reason', 'no_pet');
   end if;
 
+  award_day := (log_row.created_at at time zone 'Asia/Shanghai')::date;
+
+  select * into best_log
+  from public.growth_logs
+  where student_id = log_row.student_id
+    and (created_at at time zone 'Asia/Shanghai')::date = award_day
+  order by coalesce(score, 0) desc, created_at desc
+  limit 1;
+
   select * into reward_rule
   from public.pet_reward_rules
-  where active = true and min_score <= least(greatest(coalesce(log_row.score, 0), 0), 100)
+  where active = true and min_score <= least(greatest(coalesce(best_log.score, 0), 0), 100)
   order by min_score desc, sort_order asc
   limit 1;
 
@@ -280,20 +318,64 @@ begin
     return jsonb_build_object('awarded', false, 'reason', 'no_rule');
   end if;
 
+  next_xp := least(reward_rule.xp_reward, case when reward_rule.daily_xp_cap > 0 then reward_rule.daily_xp_cap else reward_rule.xp_reward end);
+  next_points := least(reward_rule.point_reward, case when reward_rule.daily_point_cap > 0 then reward_rule.daily_point_cap else reward_rule.point_reward end);
+
+  select * into existing_event
+  from public.pet_reward_events
+  where student_id = log_row.student_id
+    and source_type = 'daily_best'
+    and reward_date = award_day
+  for update;
+
+  if existing_event.id is not null then
+    if coalesce(existing_event.source_id, best_log.id) <> best_log.id
+       or coalesce(existing_event.xp_delta, 0) <> next_xp
+       or coalesce(existing_event.point_delta, 0) <> next_points then
+      delta_xp := next_xp - coalesce(existing_event.xp_delta, 0);
+      delta_points := next_points - coalesce(existing_event.point_delta, 0);
+
+      if delta_xp = 0 and delta_points = 0 then
+        return jsonb_build_object('awarded', false, 'reason', 'already_best');
+      end if;
+
+      update public.pet_reward_events
+      set source_id = best_log.id,
+          tier_key = reward_rule.tier_key,
+          xp_delta = next_xp,
+          point_delta = next_points,
+          reason = coalesce(nullif(best_log.module_title, ''), best_log.homework_id) || ' · daily best ' || round(best_log.score)::text || '%',
+          created_by = best_log.student_id
+      where id = existing_event.id
+      returning * into inserted_event;
+
+      update public.student_pets
+      set experience_points = greatest(0, experience_points + delta_xp),
+          pet_points = greatest(0, pet_points + delta_points)
+      where student_id = log_row.student_id
+      returning * into next_pet;
+
+      return jsonb_build_object('awarded', true, 'mode', 'daily_delta', 'event', to_jsonb(inserted_event), 'pet', to_jsonb(next_pet));
+    end if;
+
+    return jsonb_build_object('awarded', false, 'reason', 'already_best');
+  end if;
+
   insert into public.pet_reward_events (
-    student_id, source_type, source_id, tier_key, xp_delta, point_delta, reason, created_by
+    student_id, source_type, source_id, tier_key, xp_delta, point_delta, reward_date, reason, created_by
   )
   values (
-    log_row.student_id,
-    'growth_log',
-    log_row.id,
+    best_log.student_id,
+    'daily_best',
+    best_log.id,
     reward_rule.tier_key,
-    reward_rule.xp_reward,
-    reward_rule.point_reward,
-    coalesce(nullif(log_row.module_title, ''), log_row.homework_id) || ' · ' || round(log_row.score)::text || '%',
-    log_row.student_id
+    next_xp,
+    next_points,
+    award_day,
+    coalesce(nullif(best_log.module_title, ''), best_log.homework_id) || ' · daily best ' || round(best_log.score)::text || '%',
+    best_log.student_id
   )
-  on conflict (student_id, source_type, source_id) where source_id is not null do nothing
+  on conflict (student_id, source_type, reward_date) where source_type = 'daily_best' and reward_date is not null do nothing
   returning * into inserted_event;
 
   if inserted_event.id is null then
@@ -301,8 +383,8 @@ begin
   end if;
 
   update public.student_pets
-  set experience_points = experience_points + reward_rule.xp_reward,
-      pet_points = pet_points + reward_rule.point_reward
+  set experience_points = experience_points + next_xp,
+      pet_points = pet_points + next_points
   where student_id = log_row.student_id
   returning * into next_pet;
 
@@ -323,7 +405,7 @@ declare
 begin
   select count(*) into before_count
   from public.pet_reward_events
-  where student_id = p_student_id and source_type = 'growth_log';
+  where student_id = p_student_id and source_type = 'daily_best';
 
   for row_record in
     select id from public.growth_logs
@@ -335,7 +417,7 @@ begin
 
   select count(*) into after_count
   from public.pet_reward_events
-  where student_id = p_student_id and source_type = 'growth_log';
+  where student_id = p_student_id and source_type = 'daily_best';
 
   return greatest(after_count - before_count, 0);
 end;
@@ -644,6 +726,71 @@ begin
 end;
 $$;
 
+create or replace function public.rename_student_pet(
+  p_student_id text,
+  p_pet_name text
+)
+returns public.student_pets
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  clean_student text := trim(p_student_id);
+  clean_name text := trim(p_pet_name);
+  current_pet public.student_pets;
+  type_rule public.pet_type_rules;
+  rename_cost integer := 0;
+  next_pet public.student_pets;
+begin
+  if clean_name = '' then
+    raise exception 'Pet name is required.';
+  end if;
+
+  select * into current_pet
+  from public.student_pets
+  where student_id = clean_student
+  for update;
+
+  if current_pet.student_id is null then
+    raise exception 'Pet not found.';
+  end if;
+
+  select * into type_rule
+  from public.pet_type_rules
+  where pet_type = current_pet.pet_type;
+
+  rename_cost := greatest(0, coalesce(type_rule.rename_price, 30));
+
+  if current_pet.pet_points < rename_cost then
+    raise exception 'Not enough pet points.';
+  end if;
+
+  update public.student_pets
+  set pet_name = clean_name,
+      pet_points = greatest(0, pet_points - rename_cost)
+  where student_id = clean_student
+  returning * into next_pet;
+
+  if rename_cost > 0 then
+    insert into public.pet_reward_events (
+      student_id, source_type, tier_key, xp_delta, point_delta, reason, created_by
+    )
+    values (
+      clean_student,
+      'rename',
+      'rename',
+      0,
+      -rename_cost,
+      '更名为 ' || clean_name,
+      clean_student
+    );
+  end if;
+
+  return next_pet;
+end;
+$$;
+
 create or replace function public.purchase_pet_item(
   p_student_id text,
   p_item_key text
@@ -772,6 +919,7 @@ grant execute on function public.initialize_student_pet(text, text, text) to ano
 grant execute on function public.equip_pet_item(text, text) to anon, authenticated;
 grant execute on function public.set_pet_environment(text, text) to anon, authenticated;
 grant execute on function public.set_student_pet_type(text, text) to anon, authenticated;
+grant execute on function public.rename_student_pet(text, text) to anon, authenticated;
 grant execute on function public.purchase_pet_item(text, text) to anon, authenticated;
 grant execute on function public.admin_adjust_pet(text, integer, integer, text) to anon, authenticated;
 grant execute on function public.admin_unlock_pet_type(text, text, text) to anon, authenticated;
