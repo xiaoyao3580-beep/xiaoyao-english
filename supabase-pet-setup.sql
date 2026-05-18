@@ -131,15 +131,62 @@ create table if not exists public.pet_reward_events (
 );
 
 alter table public.pet_reward_events
-add column if not exists reward_date date;
+add column if not exists reward_date date,
+add column if not exists reward_level text;
+
+create or replace function public.pet_growth_log_reward_level(p_log public.growth_logs)
+returns text
+language plpgsql
+stable
+set search_path = public
+as $$
+declare
+  level_code text;
+begin
+  level_code := nullif(upper(trim(coalesce(
+    p_log.metadata->>'class_code',
+    p_log.metadata->>'classCode',
+    p_log.metadata->>'level_id',
+    p_log.metadata->>'levelId',
+    p_log.metadata->>'courseCode',
+    ''
+  ))), '');
+
+  if level_code is null and to_regclass('public.homework') is not null then
+    execute 'select nullif(upper(trim(class_code)), '''') from public.homework where id = $1 limit 1'
+      into level_code
+      using p_log.homework_id;
+  end if;
+
+  return coalesce(level_code, 'GENERAL');
+exception
+  when undefined_column then
+    return coalesce(level_code, 'GENERAL');
+end;
+$$;
+
+update public.pet_reward_events e
+set reward_level = public.pet_growth_log_reward_level(g)
+from public.growth_logs g
+where e.source_type = 'daily_best'
+  and e.source_id = g.id
+  and nullif(e.reward_level, '') is null;
+
+update public.pet_reward_events
+set reward_level = 'GENERAL'
+where source_type = 'daily_best'
+  and reward_date is not null
+  and nullif(reward_level, '') is null;
 
 create unique index if not exists pet_reward_events_once_idx
 on public.pet_reward_events(student_id, source_type, source_id)
 where source_id is not null;
 
+drop index if exists public.pet_reward_events_daily_best_idx;
+
 create unique index if not exists pet_reward_events_daily_best_idx
-on public.pet_reward_events(student_id, source_type, reward_date)
-where source_type = 'daily_best' and reward_date is not null;
+on public.pet_reward_events(student_id, source_type, reward_date, reward_level)
+where source_type = 'daily_best' and reward_date is not null and reward_level is not null;
 
 create index if not exists pet_reward_events_student_idx on public.pet_reward_events(student_id);
 create index if not exists pet_reward_events_time_idx on public.pet_reward_events(created_at desc);
@@ -280,6 +327,7 @@ declare
   existing_event public.pet_reward_events;
   next_pet public.student_pets;
   award_day date;
+  award_level text;
   next_xp integer := 0;
   next_points integer := 0;
   delta_xp integer := 0;
@@ -300,12 +348,14 @@ begin
   end if;
 
   award_day := (log_row.created_at at time zone 'Asia/Shanghai')::date;
+  award_level := public.pet_growth_log_reward_level(log_row);
 
   select * into best_log
-  from public.growth_logs
-  where student_id = log_row.student_id
-    and (created_at at time zone 'Asia/Shanghai')::date = award_day
-  order by coalesce(score, 0) desc, created_at desc
+  from public.growth_logs gl
+  where gl.student_id = log_row.student_id
+    and (gl.created_at at time zone 'Asia/Shanghai')::date = award_day
+    and public.pet_growth_log_reward_level(gl) = award_level
+  order by coalesce(gl.score, 0) desc, gl.created_at desc
   limit 1;
 
   select * into reward_rule
@@ -326,6 +376,7 @@ begin
   where student_id = log_row.student_id
     and source_type = 'daily_best'
     and reward_date = award_day
+    and reward_level = award_level
   for update;
 
   if existing_event.id is not null then
@@ -344,7 +395,8 @@ begin
           tier_key = reward_rule.tier_key,
           xp_delta = next_xp,
           point_delta = next_points,
-          reason = coalesce(nullif(best_log.module_title, ''), best_log.homework_id) || ' · daily best ' || round(best_log.score)::text || '%',
+          reward_level = award_level,
+          reason = award_level || ' · ' || coalesce(nullif(best_log.module_title, ''), best_log.homework_id) || ' · daily best ' || round(best_log.score)::text || '%',
           created_by = best_log.student_id
       where id = existing_event.id
       returning * into inserted_event;
@@ -362,7 +414,7 @@ begin
   end if;
 
   insert into public.pet_reward_events (
-    student_id, source_type, source_id, tier_key, xp_delta, point_delta, reward_date, reason, created_by
+    student_id, source_type, source_id, tier_key, xp_delta, point_delta, reward_date, reward_level, reason, created_by
   )
   values (
     best_log.student_id,
@@ -372,10 +424,11 @@ begin
     next_xp,
     next_points,
     award_day,
-    coalesce(nullif(best_log.module_title, ''), best_log.homework_id) || ' · daily best ' || round(best_log.score)::text || '%',
+    award_level,
+    award_level || ' · ' || coalesce(nullif(best_log.module_title, ''), best_log.homework_id) || ' · daily best ' || round(best_log.score)::text || '%',
     best_log.student_id
   )
-  on conflict (student_id, source_type, reward_date) where source_type = 'daily_best' and reward_date is not null do nothing
+  on conflict (student_id, source_type, reward_date, reward_level) where source_type = 'daily_best' and reward_date is not null and reward_level is not null do nothing
   returning * into inserted_event;
 
   if inserted_event.id is null then
@@ -914,6 +967,7 @@ grant select, insert, update, delete on public.pet_reward_events to anon, authen
 grant execute on function public.pet_type_unlock_count(text) to anon, authenticated;
 grant execute on function public.is_pet_type_unlocked(text, text) to anon, authenticated;
 grant execute on function public.award_pet_for_growth_log(uuid) to anon, authenticated;
+grant execute on function public.pet_growth_log_reward_level(public.growth_logs) to anon, authenticated;
 grant execute on function public.sync_pet_rewards_for_student(text) to anon, authenticated;
 grant execute on function public.initialize_student_pet(text, text, text) to anon, authenticated;
 grant execute on function public.equip_pet_item(text, text) to anon, authenticated;
