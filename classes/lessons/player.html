@@ -89,6 +89,7 @@
         const target = loaded.target;
         let html = loaded.html;
         const localTailwindCss = new URL('../../assets/tailwind.css?v=20260514-local-1', location.href).href;
+        const localTailwindRuntimeJs = new URL('../../assets/vendor/tailwind/tailwindcss-3.4.17.js?v=3.4.17-local-1', location.href).href;
         const localFontAwesomeCss = new URL('../../assets/vendor/fontawesome/css/all.min.css?v=6.4.0-local-1', location.href).href;
         const lessonThemeCss =
           '<style>' +
@@ -120,7 +121,7 @@
           (/tailwind\.config\s*=/i.test(html) ||
             /(?:^|[\s"'=])(?:bg|text|border|from|via|to|rounded|shadow|p|px|py|m|mx|my|w|h|min-h|max-w|bottom|top|left|right|translate|rotate|scale|animate|duration|delay|leading|tracking|grid-cols)-\[[^\]]+\]/i.test(html));
         html = needsTailwindRuntime
-          ? html.replace(tailwindRuntimeTagPattern, '<script src="https://cdn.tailwindcss.com" defer><\/script>')
+          ? html.replace(tailwindRuntimeTagPattern, '<script src="' + localTailwindRuntimeJs.replace(/"/g, '&quot;') + '" defer><\/script>')
           : html.replace(tailwindRuntimeTagPattern, '');
         html = html.replace(/<link\b[^>]*href=["']https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/font-awesome\/[^"']*\/css\/all\.min\.css["'][^>]*>\s*(?:<\/link>)?/gi, '');
         html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, localResourceTags + '</head>') : localResourceTags + html;
