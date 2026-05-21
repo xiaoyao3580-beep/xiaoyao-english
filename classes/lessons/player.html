@@ -121,7 +121,7 @@
           (/tailwind\.config\s*=/i.test(html) ||
             /(?:^|[\s"'=])(?:bg|text|border|from|via|to|rounded|shadow|p|px|py|m|mx|my|w|h|min-h|max-w|bottom|top|left|right|translate|rotate|scale|animate|duration|delay|leading|tracking|grid-cols)-\[[^\]]+\]/i.test(html));
         html = needsTailwindRuntime
-          ? html.replace(tailwindRuntimeTagPattern, '<script src="' + localTailwindRuntimeJs.replace(/"/g, '&quot;') + '" defer><\/script>')
+          ? html.replace(tailwindRuntimeTagPattern, '<script src="' + localTailwindRuntimeJs.replace(/"/g, '&quot;') + '" defer onload="document.documentElement.classList.toggle(\'xy-tailwind-kick\')"><\/script>')
           : html.replace(tailwindRuntimeTagPattern, '');
         html = html.replace(/<link\b[^>]*href=["']https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/font-awesome\/[^"']*\/css\/all\.min\.css["'][^>]*>\s*(?:<\/link>)?/gi, '');
         html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, localResourceTags + '</head>') : localResourceTags + html;
@@ -145,10 +145,20 @@
           state.classList.remove('visible');
           state.classList.add('hidden');
         }
-        iframe.addEventListener('load', showIframe, { once:true });
+        iframe.addEventListener('load', () => {
+          if (!needsTailwindRuntime) return showIframe();
+          setTimeout(() => {
+            try {
+              iframe.contentDocument?.documentElement.classList.toggle('xy-tailwind-paint');
+              iframe.contentWindow?.dispatchEvent(new Event('resize'));
+              void iframe.contentDocument?.body?.offsetHeight;
+            } catch {}
+            showIframe();
+          }, 400);
+        }, { once:true });
         iframe.srcdoc = html;
         document.body.appendChild(iframe);
-        if (needsTailwindRuntime) setTimeout(showIframe, 1200);
+        if (needsTailwindRuntime) setTimeout(showIframe, 2200);
       } catch (err) {
         fail(err && err.message ? err.message : err);
       }
