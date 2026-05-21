@@ -112,7 +112,16 @@
           '<link rel="stylesheet" href="' + localTailwindCss.replace(/"/g, '&quot;') + '">' +
           '<link rel="stylesheet" href="' + localFontAwesomeCss.replace(/"/g, '&quot;') + '">' +
           lessonThemeCss;
-        html = html.replace(/<script\b[^>]*src=["']https:\/\/cdn\.tailwindcss\.com\/?["'][^>]*>\s*<\/script>/gi, '');
+        const tailwindRuntimeTagPattern = /<script\b[^>]*src=["']https:\/\/cdn\.tailwindcss\.com\/?["'][^>]*>\s*<\/script>/gi;
+        const hasTailwindRuntime = tailwindRuntimeTagPattern.test(html);
+        tailwindRuntimeTagPattern.lastIndex = 0;
+        const needsTailwindRuntime =
+          hasTailwindRuntime &&
+          (/tailwind\.config\s*=/i.test(html) ||
+            /(?:^|[\s"'=])(?:bg|text|border|from|via|to|rounded|shadow|p|px|py|m|mx|my|w|h|min-h|max-w|bottom|top|left|right|translate|rotate|scale|animate|duration|delay|leading|tracking|grid-cols)-\[[^\]]+\]/i.test(html));
+        html = needsTailwindRuntime
+          ? html.replace(tailwindRuntimeTagPattern, '<script src="https://cdn.tailwindcss.com" defer><\/script>')
+          : html.replace(tailwindRuntimeTagPattern, '');
         html = html.replace(/<link\b[^>]*href=["']https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/font-awesome\/[^"']*\/css\/all\.min\.css["'][^>]*>\s*(?:<\/link>)?/gi, '');
         html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, localResourceTags + '</head>') : localResourceTags + html;
         html = html.replace(/lesson-standalone\.html(?:\?v=[^"'#<\s]*)?/g, 'lesson-standalone.html?v=20260511-lesson-only');
@@ -127,13 +136,18 @@
         const iframe = document.createElement('iframe');
         iframe.setAttribute('allow', 'autoplay; clipboard-read; clipboard-write; fullscreen; microphone; camera');
         iframe.setAttribute('allowfullscreen', '');
-        iframe.addEventListener('load', () => {
+        let iframeVisible = false;
+        function showIframe() {
+          if (iframeVisible) return;
+          iframeVisible = true;
           iframe.classList.add('ready');
           state.classList.remove('visible');
           state.classList.add('hidden');
-        }, { once:true });
+        }
+        iframe.addEventListener('load', showIframe, { once:true });
         iframe.srcdoc = html;
         document.body.appendChild(iframe);
+        if (needsTailwindRuntime) setTimeout(showIframe, 1200);
       } catch (err) {
         fail(err && err.message ? err.message : err);
       }
