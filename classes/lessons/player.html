@@ -81,6 +81,27 @@
         }
         throw new Error(lastError || '缺少课程文件地址。');
       }
+      function arbitraryTailwindFallbackCss(source) {
+        const values = new Set();
+        source.replace(/(?:^|[\s"'=])((?:text|shadow)-\[[^\]]+\])/g, (_, name) => values.add(name));
+        if (!values.size) return '';
+        const escapeCssClass = value => value.replace(/[^a-zA-Z0-9_-]/g, match => '\\' + match);
+        const decodeValue = value => value.replace(/_/g, ' ');
+        let css = '';
+        values.forEach(name => {
+          const match = name.match(/^(text|shadow)-\[(.+)\]$/);
+          if (!match) return;
+          const selector = '.' + escapeCssClass(name);
+          const value = decodeValue(match[2]);
+          if (match[1] === 'text' && /^-?[\d.]+(?:px|rem|em|%)$/.test(value)) {
+            css += selector + '{font-size:' + value + '}';
+          }
+          if (match[1] === 'shadow') {
+            css += selector + '{--tw-shadow:' + value + ';--tw-shadow-colored:' + value + ';box-shadow:var(--tw-ring-offset-shadow,0 0 #0000),var(--tw-ring-shadow,0 0 #0000),var(--tw-shadow)}';
+          }
+        });
+        return css ? '<style>' + css + '</style>' : '';
+      }
       try {
         await addBackendCandidate();
         if (hwId) addCandidate(new URL('./' + hwId + '.html', location.href).href);
@@ -90,6 +111,9 @@
         let html = loaded.html;
         const localTailwindCss = new URL('../../assets/tailwind.css?v=20260514-local-1', location.href).href;
         const localTailwindRuntimeJs = new URL('../../assets/vendor/tailwind/tailwindcss-3.4.17.js?v=3.4.17-local-1', location.href).href;
+        const localReactJs = new URL('../../assets/vendor/react/react-18.production.min.js?v=18-local-1', location.href).href;
+        const localReactDomJs = new URL('../../assets/vendor/react/react-dom-18.production.min.js?v=18-local-1', location.href).href;
+        const localHtml2CanvasJs = new URL('../../assets/vendor/html2canvas/html2canvas-1.4.1.min.js?v=1.4.1-local-1', location.href).href;
         const localFontAwesomeCss = new URL('../../assets/vendor/fontawesome/css/all.min.css?v=6.4.0-local-1', location.href).href;
         const lessonThemeCss =
           '<style>' +
@@ -112,18 +136,21 @@
         const localResourceTags =
           '<link rel="stylesheet" href="' + localTailwindCss.replace(/"/g, '&quot;') + '">' +
           '<link rel="stylesheet" href="' + localFontAwesomeCss.replace(/"/g, '&quot;') + '">' +
-          lessonThemeCss;
+          lessonThemeCss +
+          arbitraryTailwindFallbackCss(html);
         const tailwindRuntimeTagPattern = /<script\b[^>]*src=["']https:\/\/cdn\.tailwindcss\.com\/?["'][^>]*>\s*<\/script>/gi;
         const hasTailwindRuntime = tailwindRuntimeTagPattern.test(html);
         tailwindRuntimeTagPattern.lastIndex = 0;
         const needsTailwindRuntime =
           hasTailwindRuntime &&
-          (/tailwind\.config\s*=/i.test(html) ||
-            /(?:^|[\s"'=])(?:bg|text|border|from|via|to|rounded|shadow|p|px|py|m|mx|my|w|h|min-h|max-w|bottom|top|left|right|translate|rotate|scale|animate|duration|delay|leading|tracking|grid-cols)-\[[^\]]+\]/i.test(html));
+          /tailwind\.config\s*=/i.test(html);
         html = needsTailwindRuntime
           ? html.replace(tailwindRuntimeTagPattern, '<script src="' + localTailwindRuntimeJs.replace(/"/g, '&quot;') + '" defer onload="document.documentElement.classList.toggle(\'xy-tailwind-kick\')"><\/script>')
           : html.replace(tailwindRuntimeTagPattern, '');
         html = html.replace(/<link\b[^>]*href=["']https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/font-awesome\/[^"']*\/css\/all\.min\.css["'][^>]*>\s*(?:<\/link>)?/gi, '');
+        html = html.replace(/<script\b([^>]*)src=["']https:\/\/unpkg\.com\/react@18\/umd\/react\.production\.min\.js["']([^>]*)>\s*<\/script>/gi, '<script src="' + localReactJs.replace(/"/g, '&quot;') + '"><\/script>');
+        html = html.replace(/<script\b([^>]*)src=["']https:\/\/unpkg\.com\/react-dom@18\/umd\/react-dom\.production\.min\.js["']([^>]*)>\s*<\/script>/gi, '<script src="' + localReactDomJs.replace(/"/g, '&quot;') + '"><\/script>');
+        html = html.replace(/<script\b([^>]*)src=["']https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/html2canvas\/1\.4\.1\/html2canvas\.min\.js["']([^>]*)>\s*<\/script>/gi, '<script src="' + localHtml2CanvasJs.replace(/"/g, '&quot;') + '"><\/script>');
         html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, localResourceTags + '</head>') : localResourceTags + html;
         html = html.replace(/lesson-standalone\.html(?:\?v=[^"'#<\s]*)?/g, 'lesson-standalone.html?v=20260511-lesson-only');
         const standaloneSrc = new URL('../_yu1/lesson-standalone.html?v=20260511-lesson-only', location.href).href;
