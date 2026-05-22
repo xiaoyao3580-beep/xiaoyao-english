@@ -54,7 +54,12 @@
           const row = Array.isArray(rows) ? rows[0] : null;
           const rowClass = String(row?.class_code || '').toLowerCase();
           const requestedClass = String(classCode || '').toLowerCase();
-          if (row?.file && row.status !== 'closed' && row.status !== 'deleted' && (!requestedClass || rowClass === requestedClass)) {
+          const classMatches =
+            !requestedClass ||
+            rowClass === requestedClass ||
+            (requestedClass === 'others' && rowClass === 'adult') ||
+            (requestedClass === 'adult' && rowClass === 'others');
+          if (row?.file && row.status !== 'closed' && row.status !== 'deleted' && classMatches) {
             localStorage.setItem('xy_remote_lesson:' + hwId, row.file);
             addCandidate(row.file);
           }
@@ -114,7 +119,8 @@
         const localReactJs = new URL('../../assets/vendor/react/react-18.production.min.js?v=18-local-1', location.href).href;
         const localReactDomJs = new URL('../../assets/vendor/react/react-dom-18.production.min.js?v=18-local-1', location.href).href;
         const localHtml2CanvasJs = new URL('../../assets/vendor/html2canvas/html2canvas-1.4.1.min.js?v=1.4.1-local-1', location.href).href;
-        const localFontAwesomeCss = new URL('../../assets/vendor/fontawesome/css/all.min.css?v=6.4.0-local-1', location.href).href;
+        const localBabelJs = new URL('../../assets/vendor/babel/babel-standalone.min.js?v=7-local-1', location.href).href;
+        const localFontAwesomeCss = new URL('../../assets/vendor/fontawesome-6.5.2/css/all.min.css?v=6.5.2-local-1', location.href).href;
         const lessonThemeCss =
           '<style>' +
           '.bg-primary{--tw-bg-opacity:1;background-color:rgb(225 29 72/var(--tw-bg-opacity,1))}' +
@@ -132,6 +138,24 @@
           '.from-roseDark{--tw-gradient-from:#4c0519 var(--tw-gradient-from-position);--tw-gradient-to:rgba(76,5,25,0) var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}' +
           '.from-sunshine{--tw-gradient-from:#eab308 var(--tw-gradient-from-position);--tw-gradient-to:rgba(234,179,8,0) var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}' +
           '.to-primary{--tw-gradient-to:#e11d48 var(--tw-gradient-to-position)}' +
+          '.bg-brand-yellow{--tw-bg-opacity:1;background-color:rgb(255 200 0/var(--tw-bg-opacity,1))}' +
+          '.bg-brand-blue{--tw-bg-opacity:1;background-color:rgb(43 54 72/var(--tw-bg-opacity,1))}' +
+          '.bg-brand-lightBlue{--tw-bg-opacity:1;background-color:rgb(242 245 248/var(--tw-bg-opacity,1))}' +
+          '.bg-brand-green{--tw-bg-opacity:1;background-color:rgb(0 195 137/var(--tw-bg-opacity,1))}' +
+          '.bg-brand-coral{--tw-bg-opacity:1;background-color:rgb(255 115 115/var(--tw-bg-opacity,1))}' +
+          '.bg-brand-purple{--tw-bg-opacity:1;background-color:rgb(155 81 224/var(--tw-bg-opacity,1))}' +
+          '.text-brand-yellow{--tw-text-opacity:1;color:rgb(255 200 0/var(--tw-text-opacity,1))}' +
+          '.text-brand-blue{--tw-text-opacity:1;color:rgb(43 54 72/var(--tw-text-opacity,1))}' +
+          '.text-brand-lightBlue{--tw-text-opacity:1;color:rgb(242 245 248/var(--tw-text-opacity,1))}' +
+          '.text-brand-green{--tw-text-opacity:1;color:rgb(0 195 137/var(--tw-text-opacity,1))}' +
+          '.text-brand-coral{--tw-text-opacity:1;color:rgb(255 115 115/var(--tw-text-opacity,1))}' +
+          '.text-brand-purple{--tw-text-opacity:1;color:rgb(155 81 224/var(--tw-text-opacity,1))}' +
+          '.border-brand-yellow{--tw-border-opacity:1;border-color:rgb(255 200 0/var(--tw-border-opacity,1))}' +
+          '.border-brand-blue{--tw-border-opacity:1;border-color:rgb(43 54 72/var(--tw-border-opacity,1))}' +
+          '.border-brand-green{--tw-border-opacity:1;border-color:rgb(0 195 137/var(--tw-border-opacity,1))}' +
+          '.border-brand-coral{--tw-border-opacity:1;border-color:rgb(255 115 115/var(--tw-border-opacity,1))}' +
+          '.shadow-mem-btn{--tw-shadow:0 4px 0 0 rgba(0,0,0,.15);--tw-shadow-colored:0 4px 0 0 var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow,0 0 #0000),var(--tw-ring-shadow,0 0 #0000),var(--tw-shadow)}' +
+          '.shadow-mem-card{--tw-shadow:0 8px 24px rgba(43,54,72,.08);--tw-shadow-colored:0 8px 24px var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow,0 0 #0000),var(--tw-ring-shadow,0 0 #0000),var(--tw-shadow)}' +
           '</style>';
         const localResourceTags =
           '<link rel="stylesheet" href="' + localTailwindCss.replace(/"/g, '&quot;') + '">' +
@@ -147,10 +171,12 @@
         html = needsTailwindRuntime
           ? html.replace(tailwindRuntimeTagPattern, '<script src="' + localTailwindRuntimeJs.replace(/"/g, '&quot;') + '" defer onload="document.documentElement.classList.toggle(\'xy-tailwind-kick\')"><\/script>')
           : html.replace(tailwindRuntimeTagPattern, '');
+        html = html.replace(/<link\b[^>]*href=["']https:\/\/fonts\.(?:googleapis|gstatic)\.com[^"']*["'][^>]*>\s*/gi, '');
         html = html.replace(/<link\b[^>]*href=["']https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/font-awesome\/[^"']*\/css\/all\.min\.css["'][^>]*>\s*(?:<\/link>)?/gi, '');
         html = html.replace(/<script\b([^>]*)src=["']https:\/\/unpkg\.com\/react@18\/umd\/react\.production\.min\.js["']([^>]*)>\s*<\/script>/gi, '<script src="' + localReactJs.replace(/"/g, '&quot;') + '"><\/script>');
         html = html.replace(/<script\b([^>]*)src=["']https:\/\/unpkg\.com\/react-dom@18\/umd\/react-dom\.production\.min\.js["']([^>]*)>\s*<\/script>/gi, '<script src="' + localReactDomJs.replace(/"/g, '&quot;') + '"><\/script>');
         html = html.replace(/<script\b([^>]*)src=["']https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/html2canvas\/1\.4\.1\/html2canvas\.min\.js["']([^>]*)>\s*<\/script>/gi, '<script src="' + localHtml2CanvasJs.replace(/"/g, '&quot;') + '"><\/script>');
+        html = html.replace(/<script\b([^>]*)src=["']https:\/\/unpkg\.com\/@babel\/standalone(?:@[^\/"']+)?\/babel\.min\.js["']([^>]*)>\s*<\/script>/gi, '<script src="' + localBabelJs.replace(/"/g, '&quot;') + '"><\/script>');
         html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, localResourceTags + '</head>') : localResourceTags + html;
         html = html.replace(/lesson-standalone\.html(?:\?v=[^"'#<\s]*)?/g, 'lesson-standalone.html?v=20260511-lesson-only');
         const standaloneSrc = new URL('../_yu1/lesson-standalone.html?v=20260511-lesson-only', location.href).href;
