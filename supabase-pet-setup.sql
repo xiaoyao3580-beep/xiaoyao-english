@@ -218,8 +218,9 @@ set required_xp = excluded.required_xp,
 insert into public.pet_reward_rules (tier_key, label, min_score, xp_reward, point_reward, sort_order, active)
 values
   ('high', '优秀', 90, 30, 20, 1, true),
-  ('medium', '达标', 70, 18, 12, 2, true),
-  ('low', '完成', 0, 8, 5, 3, true)
+  ('good', '良好', 80, 24, 16, 2, true),
+  ('medium', '达标', 70, 18, 12, 3, true),
+  ('low', '完成', 0, 8, 5, 4, true)
 on conflict (tier_key) do update
 set label = excluded.label,
     min_score = excluded.min_score,
@@ -230,8 +231,8 @@ set label = excluded.label,
     updated_at = now();
 
 update public.pet_reward_rules
-set daily_xp_cap = case tier_key when 'high' then 30 when 'medium' then 18 when 'low' then 8 else greatest(daily_xp_cap, xp_reward) end,
-    daily_point_cap = case tier_key when 'high' then 20 when 'medium' then 12 when 'low' then 5 else greatest(daily_point_cap, point_reward) end
+set daily_xp_cap = case tier_key when 'high' then 30 when 'good' then 24 when 'medium' then 18 when 'low' then 8 else greatest(daily_xp_cap, xp_reward) end,
+    daily_point_cap = case tier_key when 'high' then 20 when 'good' then 16 when 'medium' then 12 when 'low' then 5 else greatest(daily_point_cap, point_reward) end
 where daily_xp_cap = 0 and daily_point_cap = 0;
 
 insert into public.pet_type_rules (pet_type, label_zh, is_hidden, unlock_points, unlock_pet_count, switch_price, rename_price, sort_order, active)

@@ -88,8 +88,9 @@ const DEFAULT_PET_LEVELS = [
 ];
 const DEFAULT_PET_REWARDS = [
   { tier_key:'high', label:'优秀', min_score:90, xp_reward:30, point_reward:20, daily_xp_cap:30, daily_point_cap:20, sort_order:1, active:true },
-  { tier_key:'medium', label:'达标', min_score:70, xp_reward:18, point_reward:12, daily_xp_cap:18, daily_point_cap:12, sort_order:2, active:true },
-  { tier_key:'low', label:'完成', min_score:0, xp_reward:8, point_reward:5, daily_xp_cap:8, daily_point_cap:5, sort_order:3, active:true }
+  { tier_key:'good', label:'良好', min_score:80, xp_reward:24, point_reward:16, daily_xp_cap:24, daily_point_cap:16, sort_order:2, active:true },
+  { tier_key:'medium', label:'达标', min_score:70, xp_reward:18, point_reward:12, daily_xp_cap:18, daily_point_cap:12, sort_order:3, active:true },
+  { tier_key:'low', label:'完成', min_score:0, xp_reward:8, point_reward:5, daily_xp_cap:8, daily_point_cap:5, sort_order:4, active:true }
 ];
 let carouselStartX = 0;
 let carouselStartY = 0;
@@ -166,7 +167,12 @@ function switchablePetTypesForStudent(studentId) {
 function petEnvMeta(id) { return PET_ENVIRONMENTS.find(e => e.id === id) || PET_ENVIRONMENTS[0]; }
 function petItems() { return (petCfg().itemRules.length ? petCfg().itemRules : DEFAULT_PET_ITEMS).slice().sort((a,b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0)); }
 function petLevels() { return (petCfg().levelRules.length ? petCfg().levelRules : DEFAULT_PET_LEVELS).slice().sort((a,b) => Number(a.required_xp || 0) - Number(b.required_xp || 0)); }
-function petRewards() { return (petCfg().rewardRules.length ? petCfg().rewardRules : DEFAULT_PET_REWARDS).slice().sort((a,b) => (Number(b.min_score) || 0) - (Number(a.min_score) || 0)); }
+function petRewards() {
+  const rows = petCfg().rewardRules || [];
+  const merged = DEFAULT_PET_REWARDS.map(base => ({ ...base, ...(rows.find(row => row.tier_key === base.tier_key) || {}) }));
+  rows.forEach(row => { if (!merged.some(rule => rule.tier_key === row.tier_key)) merged.push(row); });
+  return merged.slice().sort((a,b) => (Number(b.min_score) || 0) - (Number(a.min_score) || 0));
+}
 function petLevelInfo(pet) {
   const levels = petLevels();
   const xp = Math.max(0, Number(pet?.experience_points || 0));
