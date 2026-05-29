@@ -656,13 +656,13 @@ function studentManagerMode() { return state.studentManageView === 'personal' ? 
 function studentManagerNav() {
   const mode = studentManagerMode();
   const item = (id, icon, title, note) => '<button data-student-manage-view="' + id + '" class="motion-card rounded-[1.35rem] border p-4 text-left active-scale ' + (mode === id ? 'border-[#6B48FF] bg-[#F4F2FF] text-[#2D2A4A] shadow-[0_16px_34px_-22px_rgba(88,39,252,.42)]' : 'border-gray-100 bg-white text-gray-500 shadow-sm') + '"><span class="mb-3 flex h-10 w-10 items-center justify-center rounded-full ' + (mode === id ? 'bg-white text-[#6B48FF]' : 'bg-[#F8F8FC] text-gray-400') + '"><i class="fa-solid ' + icon + ' text-sm"></i></span><span class="block text-base font-black">' + title + '</span><span class="mt-1 block text-xs font-bold leading-5 text-gray-400">' + note + '</span></button>';
-  return '<div class="mb-5 grid gap-3 md:grid-cols-2">' + item('classes', 'fa-layer-group', '班级', '查看每个班的名单和人数。') + item('personal', 'fa-id-card-clip', '学生个人', '修改密码和课程权限。') + '</div>';
+  return '<div data-student-manager-nav class="mb-5 grid gap-3 md:grid-cols-2">' + item('classes', 'fa-layer-group', '班级', '查看每个班的名单和人数。') + item('personal', 'fa-id-card-clip', '学生个人', '修改密码和课程权限。') + '</div>';
 }
 function petManagerMode() { return petCfg().manageView === 'personal' ? 'personal' : 'classes'; }
 function petManagerNav() {
   const mode = petManagerMode();
   const item = (id, icon, title, note) => '<button data-pet-manage-view="' + id + '" class="motion-card rounded-[1.35rem] border p-4 text-left active-scale ' + (mode === id ? 'border-[#6B48FF] bg-[#F4F2FF] text-[#2D2A4A] shadow-[0_16px_34px_-22px_rgba(88,39,252,.42)]' : 'border-gray-100 bg-white text-gray-500 shadow-sm') + '"><span class="mb-3 flex h-10 w-10 items-center justify-center rounded-full ' + (mode === id ? 'bg-white text-[#6B48FF]' : 'bg-[#F8F8FC] text-gray-400') + '"><i class="fa-solid ' + icon + ' text-sm"></i></span><span class="block text-base font-black">' + title + '</span><span class="mt-1 block text-xs font-bold leading-5 text-gray-400">' + note + '</span></button>';
-  return '<div class="mb-5 grid gap-3 md:grid-cols-2">' + item('classes', 'fa-layer-group', '班级', '按班级查看宠物成长。') + item('personal', 'fa-id-card-clip', '学生个人', '编辑单个学生宠物。') + '</div>';
+  return '<div data-pet-manager-nav class="mb-5 grid gap-3 md:grid-cols-2">' + item('classes', 'fa-layer-group', '班级', '按班级查看宠物成长。') + item('personal', 'fa-id-card-clip', '学生个人', '编辑单个学生宠物。') + '</div>';
 }
 function studentClassPermissionChip(code, label, active) {
   return '<button type="button" data-student-class-chip="' + esc(code) + '" class="rounded-xl px-3 py-2 text-xs font-black active-scale ' + (active ? 'selected bg-[#6B48FF] text-white shadow-sm' : 'bg-white text-gray-400 ring-1 ring-gray-100') + '">' + esc(label) + '</button>';
@@ -686,10 +686,26 @@ function studentPersonalPanel() {
   const cards = students.map(studentPersonalCard).join('');
   return '<section class="space-y-5"><div class="card-solid overflow-hidden"><div class="border-b border-gray-100 bg-gradient-to-r from-[#F8F8FC] via-white to-[#F4F2FF] px-5 py-5 md:px-6"><h2 class="text-xl font-black text-[#2D2A4A] md:text-2xl">学生个人</h2><p class="mt-1 text-xs font-bold text-gray-400">在这里修改学生密码和课程权限。</p></div><div class="space-y-3 p-4 md:p-5">' + (cards || '<p class="rounded-[1.25rem] bg-[#F8F8FC] p-5 text-center text-sm font-bold text-gray-400">暂无学生数据</p>') + '</div></div><div class="card-solid p-6 pb-10 md:p-8"><h2 class="mb-4 text-xl font-black text-[#2D2A4A] md:text-2xl">添加新学生</h2><div class="grid gap-5 md:grid-cols-2"><label class="block"><span class="mb-2 ml-1 block text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">ID</span><input type="text" id="form-id" class="w-full rounded-xl border border-gray-200 bg-[#F8F8FC] px-5 py-4 text-base font-bold text-[#6B48FF] outline-none focus:border-[#6B48FF]"></label><label class="block"><span class="mb-2 ml-1 flex justify-between text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">PWD <button type="button" data-regen-pwd class="fa-solid fa-rotate text-[#6B48FF] active-scale" aria-label="刷新密码"></button></span><input type="text" id="form-pwd" class="w-full rounded-xl border border-gray-200 bg-[#F8F8FC] px-5 py-4 text-base font-bold text-[#6B48FF] outline-none focus:border-[#6B48FF]"></label></div><label class="mt-5 block"><span class="mb-2 ml-1 block text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">Name</span><input type="text" id="form-name" placeholder="输入姓名" class="w-full rounded-xl border border-gray-200 bg-[#F8F8FC] px-5 py-4 text-base font-medium outline-none focus:border-[#6B48FF]"></label><div class="mb-8 mt-5"><p class="mb-3 ml-1 text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">课程权限</p><div class="flex flex-wrap gap-2 md:gap-3" id="chip-container">' + chips + '</div></div><button data-save-student class="w-full rounded-xl bg-[#2D2A4A] py-4 text-base font-bold text-white shadow-lg active-scale" id="btn-register">添加学生</button></div></section>';
 }
+function studentManagerPanelHtml() {
+  return studentManagerMode() === 'personal' ? studentPersonalPanel() : studentClassPanel();
+}
+function refreshStudentManageDom(focusStudentId = '') {
+  if (state.page !== 'teacher' || state.teacherTab !== 'students') return render();
+  const root = document.querySelector('[data-student-manager-root]');
+  if (!root) return render();
+  root.innerHTML = studentManagerNav() + '<div data-student-manager-panel>' + (teacherStudentsLoaded ? studentManagerPanelHtml() : '<section class="card-solid p-8 text-center"><i class="fa-solid fa-spinner fa-spin text-2xl text-[#6B48FF]"></i><p class="mt-3 text-sm font-black text-gray-400">正在读取学生名单...</p></section>') + '</div>';
+  normalizeInteractiveDefaults(root);
+  initTeacherForm();
+  if (focusStudentId) {
+    requestAnimationFrame(() => {
+      const profile = Array.from(root.querySelectorAll('[data-student-profile]')).find(node => String(node.dataset.studentProfile) === String(focusStudentId));
+      if (profile) profile.scrollIntoView({ behavior:'smooth', block:'center' });
+    });
+  }
+}
 function studentsPanel() {
-  const mode = studentManagerMode();
-  if (!teacherStudentsLoaded) return '<div class="tab-content active space-y-5 md:space-y-6">' + studentManagerNav() + '<section class="card-solid p-8 text-center"><i class="fa-solid fa-spinner fa-spin text-2xl text-[#6B48FF]"></i><p class="mt-3 text-sm font-black text-gray-400">正在读取学生名单...</p></section></div>';
-  return '<div class="tab-content active space-y-5 md:space-y-6">' + studentManagerNav() + (mode === 'personal' ? studentPersonalPanel() : studentClassPanel()) + '</div>';
+  if (!teacherStudentsLoaded) return '<div data-student-manager-root class="tab-content active space-y-5 md:space-y-6">' + studentManagerNav() + '<div data-student-manager-panel><section class="card-solid p-8 text-center"><i class="fa-solid fa-spinner fa-spin text-2xl text-[#6B48FF]"></i><p class="mt-3 text-sm font-black text-gray-400">正在读取学生名单...</p></section></div></div>';
+  return '<div data-student-manager-root class="tab-content active space-y-5 md:space-y-6">' + studentManagerNav() + '<div data-student-manager-panel>' + studentManagerPanelHtml() + '</div></div>';
 }
 function moduleWithLevel(id) { for (const levelId of Object.keys(window.XY_CONTENT_MODULES)) { const m = modulesByLevel(levelId).find(x => x.id === id); if (m) return { module:m, levelId }; } return null; }
 function lessonLevelId(id) { const found = moduleWithLevel(id); if (found) return normalizeClass(found.levelId); const hw = homeworkById(id); return hw ? normalizeClass(hw.classCode) : ''; }
@@ -815,7 +831,51 @@ function petsPanel() {
   const classGrowthSection = '<details open class="group card-solid overflow-hidden"><summary class="flex min-h-[64px] cursor-pointer list-none items-center justify-between gap-4 bg-white px-5 py-4 md:px-6"><h3 class="text-lg font-black text-[#2D2A4A]">班级宠物成长</h3><i class="fa-solid fa-chevron-down text-xs text-[#6B48FF] transition-transform group-open:rotate-180"></i></summary><div class="border-t border-gray-100"><div class="space-y-3 p-4 md:p-5">' + (classGrowthRows || '<p class="rounded-[1.25rem] bg-[#F8F8FC] p-5 text-center text-sm font-bold text-gray-400">暂无班级学生</p>') + '</div></div></details>';
   const personalPetSection = '<section class="card-solid overflow-hidden"><div class="flex justify-end border-b border-gray-100 bg-white px-5 py-4 md:px-6"><input data-pet-search value="' + esc(cfg.search || '') + '" placeholder="搜索学生" class="min-h-[42px] rounded-full border border-gray-200 bg-[#F8F8FC] px-4 py-2 text-sm font-black outline-none md:w-64"></div><div class="space-y-3 p-4 md:p-5">' + (studentCards || '<p class="rounded-[1.25rem] bg-[#F8F8FC] p-5 text-center text-sm font-bold text-gray-400">暂无学生</p>') + '</div></section>';
   const managementSection = petManagerMode() === 'personal' ? personalPetSection : classGrowthSection;
-  return '<div class="tab-content active space-y-5 md:space-y-6"><section class="card-solid overflow-hidden"><div class="flex flex-col gap-4 border-b border-gray-100 bg-gradient-to-r from-[#F8F8FC] via-white to-[#F4F2FF] px-5 py-5 md:flex-row md:items-end md:justify-between md:px-6"><div><p class="text-xs font-black uppercase tracking-[0.3em] text-gray-400">Pet Center</p><h2 class="mt-3 text-2xl font-black text-[#2D2A4A] md:text-3xl">宠物管理</h2></div><div class="flex flex-wrap gap-2"><button data-toggle-all-pets="' + petMasterAction + '" class="inline-flex min-h-[40px] items-center justify-center rounded-full bg-white px-4 py-2 text-sm font-black text-[#6B48FF] shadow-sm active-scale ' + (pets.length ? '' : 'opacity-50') + '" ' + (pets.length ? '' : 'disabled') + '><i class="fa-solid ' + petMasterIcon + ' mr-2"></i>' + petMasterLabel + '</button><button data-pet-refresh class="inline-flex min-h-[40px] items-center justify-center rounded-full bg-white px-4 py-2 text-sm font-black text-[#6B48FF] shadow-sm active-scale"><i class="fa-solid fa-rotate mr-2"></i>刷新</button></div></div>' + (cfg.error ? '<div class="mx-5 mt-5 rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-500 md:mx-6">' + esc(cfg.error) + '</div>' : '') + '<div class="grid gap-3 px-5 py-5 md:grid-cols-4 md:px-6">' + stats + '</div></section>' + petManagerNav() + managementSection + rulesSection + '<details class="group card-solid overflow-hidden"><summary class="flex min-h-[64px] cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 md:px-6"><h3 class="text-lg font-black text-[#2D2A4A]">最近奖励</h3><i class="fa-solid fa-chevron-down text-xs text-[#6B48FF] transition-transform group-open:rotate-180"></i></summary><div class="grid gap-3 p-5 pt-0 md:grid-cols-2">' + (eventRows || '<p class="rounded-[1.25rem] bg-[#F8F8FC] p-5 text-center text-sm font-bold text-gray-400 md:col-span-2">暂无宠物奖励记录。</p>') + '</div></details></div>';
+  return '<div class="tab-content active space-y-5 md:space-y-6"><section class="card-solid overflow-hidden"><div class="flex flex-col gap-4 border-b border-gray-100 bg-gradient-to-r from-[#F8F8FC] via-white to-[#F4F2FF] px-5 py-5 md:flex-row md:items-end md:justify-between md:px-6"><div><p class="text-xs font-black uppercase tracking-[0.3em] text-gray-400">Pet Center</p><h2 class="mt-3 text-2xl font-black text-[#2D2A4A] md:text-3xl">宠物管理</h2></div><div class="flex flex-wrap gap-2"><button data-toggle-all-pets="' + petMasterAction + '" class="inline-flex min-h-[40px] items-center justify-center rounded-full bg-white px-4 py-2 text-sm font-black text-[#6B48FF] shadow-sm active-scale ' + (pets.length ? '' : 'opacity-50') + '" ' + (pets.length ? '' : 'disabled') + '><i class="fa-solid ' + petMasterIcon + ' mr-2"></i>' + petMasterLabel + '</button><button data-pet-refresh class="inline-flex min-h-[40px] items-center justify-center rounded-full bg-white px-4 py-2 text-sm font-black text-[#6B48FF] shadow-sm active-scale"><i class="fa-solid fa-rotate mr-2"></i>刷新</button></div></div>' + (cfg.error ? '<div class="mx-5 mt-5 rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-500 md:mx-6">' + esc(cfg.error) + '</div>' : '') + '<div class="grid gap-3 px-5 py-5 md:grid-cols-4 md:px-6">' + stats + '</div></section>' + petManagerNav() + '<div data-pet-manager-panel>' + managementSection + '</div>' + rulesSection + '<details class="group card-solid overflow-hidden"><summary class="flex min-h-[64px] cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 md:px-6"><h3 class="text-lg font-black text-[#2D2A4A]">最近奖励</h3><i class="fa-solid fa-chevron-down text-xs text-[#6B48FF] transition-transform group-open:rotate-180"></i></summary><div class="grid gap-3 p-5 pt-0 md:grid-cols-2">' + (eventRows || '<p class="rounded-[1.25rem] bg-[#F8F8FC] p-5 text-center text-sm font-bold text-gray-400 md:col-span-2">暂无宠物奖励记录。</p>') + '</div></details></div>';
+}
+function petManagementPanelHtml() {
+  const cfg = petCfg();
+  const students = state.students.slice().sort((a,b) => String(a.name || a.id).localeCompare(String(b.name || b.id), 'zh-Hans'));
+  const q = String(cfg.search || '').trim().toLowerCase();
+  const filtered = students.filter(s => !q || String(s.name || '').toLowerCase().includes(q) || String(s.id || '').toLowerCase().includes(q));
+  const classGrowthRows = teacherClasses().map(cls => {
+    const classStudents = students.filter(s => classesOf(s).includes(cls.code));
+    if (!classStudents.length) return '';
+    const classPets = classStudents.map(s => petForStudent(s.id)).filter(Boolean);
+    const createdCount = classPets.length;
+    const rows = classStudents.map(s => {
+      const p = petForStudent(s.id);
+      if (!p) return '<article class="rounded-[1rem] border border-dashed border-gray-200 bg-[#F8F8FC] px-4 py-3"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><p class="truncate text-sm font-black text-[#2D2A4A]">' + esc(s.name || s.id) + '</p><p class="mt-0.5 truncate text-[11px] font-bold text-gray-400">' + esc(s.id) + '</p></div><span class="shrink-0 rounded-full bg-white px-2.5 py-1 text-[10px] font-black text-gray-400">未创建</span></div><div class="mt-3 grid grid-cols-3 gap-2 text-center"><div class="rounded-xl bg-white px-2 py-2"><p class="text-[9px] font-black text-gray-400">种类</p><p class="mt-1 truncate text-xs font-black text-gray-400">--</p></div><div class="rounded-xl bg-white px-2 py-2"><p class="text-[9px] font-black text-gray-400">等级</p><p class="mt-1 text-xs font-black text-gray-400">--</p></div><div class="rounded-xl bg-white px-2 py-2"><p class="text-[9px] font-black text-gray-400">积分</p><p class="mt-1 text-xs font-black text-gray-400">--</p></div></div></article>';
+      const info = petLevelInfo(p);
+      const type = petTypeMeta(p.pet_type);
+      return '<article class="rounded-[1rem] border border-gray-100 bg-white px-4 py-3 shadow-sm"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><p class="truncate text-sm font-black text-[#2D2A4A]">' + esc(s.name || s.id) + '</p><p class="mt-0.5 truncate text-[11px] font-bold text-gray-400">' + esc(p.pet_name || s.id) + '</p></div><span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F4F2FF]"><span class="material-symbols-outlined text-[18px]" style="color:' + type.accent + '">' + type.icon + '</span></span></div><div class="mt-3 grid grid-cols-3 gap-2 text-center"><div class="rounded-xl bg-[#F8F8FC] px-2 py-2"><p class="text-[9px] font-black text-gray-400">种类</p><p class="mt-1 truncate text-xs font-black text-[#2D2A4A]">' + esc(petTypeLabel(p.pet_type, false)) + '</p></div><div class="rounded-xl bg-[#F4F2FF] px-2 py-2"><p class="text-[9px] font-black text-[#6B48FF]/60">等级</p><p class="mt-1 text-xs font-black text-[#6B48FF]">Lv.' + info.level + '</p></div><div class="rounded-xl bg-[#F8F8FC] px-2 py-2"><p class="text-[9px] font-black text-gray-400">积分</p><p class="mt-1 text-xs font-black text-[#2D2A4A]">' + Number(p.pet_points || 0) + '</p></div></div></article>';
+    }).join('');
+    return '<details class="group overflow-hidden rounded-[1rem] border border-gray-100 bg-white shadow-sm"><summary class="flex min-h-[56px] cursor-pointer list-none items-center justify-between gap-4 px-4 py-3"><span class="flex min-w-0 items-center gap-3"><span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F4F2FF] text-[#6B48FF]"><i class="fa-solid ' + cls.icon + ' text-xs"></i></span><span class="min-w-0"><span class="block truncate text-sm font-extrabold text-[#2D2A4A]">' + esc(cls.name) + '</span><span class="mt-0.5 block text-xs font-bold text-[#6B48FF]/70">' + classStudents.length + ' 名学生 · ' + createdCount + ' 只宠物</span></span></span><i class="fa-solid fa-chevron-down shrink-0 text-xs text-[#6B48FF] transition-transform group-open:rotate-180"></i></summary><div class="grid gap-3 bg-[#F8F8FC] p-3 sm:grid-cols-2 xl:grid-cols-3">' + rows + '</div></details>';
+  }).join('');
+  const typeOpts = petTypeRules().map(t => '<option value="' + (t.pet_type || t.id) + '">' + esc(t.label_zh || petTypeMeta(t.pet_type || t.id).zh) + ((t.hidden || t.is_hidden) ? ' · 彩蛋' : '') + '</option>').join('');
+  const studentCards = filtered.map(s => {
+    const p = petForStudent(s.id);
+    const info = p ? petLevelInfo(p) : null;
+    const levelOpts = petLevels().map(l => '<option value="' + l.level + '" ' + (p && Number(p.manual_level) === Number(l.level) ? 'selected' : '') + '>Lv.' + l.level + '</option>').join('');
+    const status = p ? 'Lv.' + info.level + ' · ' + Number(p.pet_points || 0) + ' 积分' : '未创建';
+    const adminTypeOpts = petTypeRules().map(t => { const id = t.pet_type || t.id; return '<option value="' + esc(id) + '" ' + (p && p.pet_type === id ? 'selected' : '') + '>' + esc(t.label_zh || petTypeMeta(id).zh) + ((t.hidden || t.is_hidden) ? ' · 彩蛋' : '') + '</option>'; }).join('');
+    const body = p ? '<div class="space-y-4 p-4 md:p-5"><div class="grid gap-4 md:grid-cols-2"><label class="block"><span class="mb-2 ml-1 block text-xs font-black uppercase text-gray-400">宠物名</span><input data-pet-admin-name value="' + esc(p.pet_name) + '" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-black outline-none"></label><label class="block"><span class="mb-2 ml-1 block text-xs font-black uppercase text-gray-400">宠物类型</span><select data-pet-admin-type class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-black outline-none">' + adminTypeOpts + '</select></label><label class="block"><span class="mb-2 ml-1 block text-xs font-black uppercase text-gray-400">经验</span><input data-pet-admin-xp type="number" min="0" value="' + Number(p.experience_points || 0) + '" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-black outline-none"></label><label class="block"><span class="mb-2 ml-1 block text-xs font-black uppercase text-gray-400">积分</span><input data-pet-admin-points type="number" min="0" value="' + Number(p.pet_points || 0) + '" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-black outline-none"></label><label class="block"><span class="mb-2 ml-1 block text-xs font-black uppercase text-gray-400">等级模式</span><select data-pet-admin-level-mode class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-black outline-none"><option value="auto" ' + (p.level_mode !== 'manual' ? 'selected' : '') + '>自动</option><option value="manual" ' + (p.level_mode === 'manual' ? 'selected' : '') + '>手动</option></select></label><label class="block"><span class="mb-2 ml-1 block text-xs font-black uppercase text-gray-400">手动等级</span><select data-pet-admin-manual-level class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-black outline-none">' + levelOpts + '</select></label></div><button data-admin-save-pet="' + esc(s.id) + '" class="w-full rounded-xl bg-[#2D2A4A] py-4 text-sm font-black text-white active-scale">保存宠物档案</button><div class="rounded-[1.25rem] bg-[#F8F8FC] p-4"><p class="mb-3 text-sm font-black text-[#2D2A4A]">手动补偿</p><div class="grid gap-3 md:grid-cols-3"><input data-pet-adjust-xp type="number" placeholder="EXP +/-" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-black outline-none"><input data-pet-adjust-points type="number" placeholder="积分 +/-" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-black outline-none"><input data-pet-adjust-reason placeholder="原因" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-black outline-none"></div><button data-admin-adjust-pet="' + esc(s.id) + '" class="mt-3 w-full rounded-xl bg-[#6B48FF] py-3 text-sm font-black text-white active-scale">应用补偿</button></div><div class="rounded-[1.25rem] bg-[#F8F8FC] p-4"><p class="mb-3 text-sm font-black text-[#2D2A4A]">手动发放彩蛋宠物</p><div class="grid gap-3 md:grid-cols-[1fr_auto]"><select data-pet-unlock-type class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-black outline-none">' + typeOpts + '</select><button data-admin-unlock-pet-type="' + esc(s.id) + '" class="rounded-xl bg-[#6B48FF] px-5 py-3 text-sm font-black text-white active-scale">发放解锁</button></div></div><p class="text-xs font-bold text-gray-400">当前 Lv.' + info.level + ' · Stage ' + info.stage + ' · 进度 ' + info.progress + '%</p></div>' : '<div class="p-4 md:p-5"><div class="rounded-[1.35rem] bg-[#F8F8FC] p-5"><p class="text-sm font-black text-[#2D2A4A]">' + esc(s.name || s.id) + ' 还没有宠物。</p><div class="mt-4 grid gap-3 md:grid-cols-[1fr_1fr_auto]"><input data-pet-create-name value="' + esc((s.name || 'Student') + ' Pet') + '" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-black outline-none"><select data-pet-create-type class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-black outline-none">' + typeOpts + '</select><button data-admin-create-pet="' + esc(s.id) + '" class="rounded-xl bg-[#6B48FF] px-5 py-3 text-sm font-black text-white active-scale">创建</button></div></div></div>';
+    return '<details data-pet-student-panel="' + esc(s.id) + '" class="group overflow-hidden rounded-[1.35rem] border border-gray-100 bg-white shadow-sm"><summary class="flex min-h-[64px] cursor-pointer list-none items-center justify-between gap-4 bg-[#F8F8FC] px-5 py-4"><span class="flex min-w-0 items-center gap-3"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#6B48FF] shadow-sm"><i class="fa-solid fa-user-graduate text-sm"></i></span><span class="min-w-0"><span class="block truncate text-sm font-extrabold text-[#2D2A4A] md:text-base">' + esc(s.name || s.id) + '</span><span class="mt-0.5 block text-xs font-bold text-gray-400">' + esc(s.id) + '</span></span></span><span class="flex shrink-0 items-center gap-3"><span class="rounded-full bg-white px-3 py-1.5 text-[10px] font-black text-[#6B48FF] shadow-sm md:text-xs">' + status + '</span><i class="fa-solid fa-chevron-down text-xs text-[#6B48FF] transition-transform group-open:rotate-180"></i></span></summary>' + body + '</details>';
+  }).join('');
+  const classGrowthSection = '<details open class="group card-solid overflow-hidden"><summary class="flex min-h-[64px] cursor-pointer list-none items-center justify-between gap-4 bg-white px-5 py-4 md:px-6"><h3 class="text-lg font-black text-[#2D2A4A]">班级宠物成长</h3><i class="fa-solid fa-chevron-down text-xs text-[#6B48FF] transition-transform group-open:rotate-180"></i></summary><div class="border-t border-gray-100"><div class="space-y-3 p-4 md:p-5">' + (classGrowthRows || '<p class="rounded-[1.25rem] bg-[#F8F8FC] p-5 text-center text-sm font-bold text-gray-400">暂无班级学生</p>') + '</div></div></details>';
+  const personalPetSection = '<section class="card-solid overflow-hidden"><div class="flex justify-end border-b border-gray-100 bg-white px-5 py-4 md:px-6"><input data-pet-search value="' + esc(cfg.search || '') + '" placeholder="搜索学生" class="min-h-[42px] rounded-full border border-gray-200 bg-[#F8F8FC] px-4 py-2 text-sm font-black outline-none md:w-64"></div><div class="space-y-3 p-4 md:p-5">' + (studentCards || '<p class="rounded-[1.25rem] bg-[#F8F8FC] p-5 text-center text-sm font-bold text-gray-400">暂无学生</p>') + '</div></section>';
+  return petManagerMode() === 'personal' ? personalPetSection : classGrowthSection;
+}
+function refreshPetManageDom() {
+  if (state.page !== 'teacher' || state.teacherTab !== 'pets') return render();
+  const nav = document.querySelector('[data-pet-manager-nav]');
+  const panel = document.querySelector('[data-pet-manager-panel]');
+  if (!nav || !panel) return render();
+  nav.outerHTML = petManagerNav();
+  panel.innerHTML = petManagementPanelHtml();
+  normalizeInteractiveDefaults(panel);
+  const nextNav = document.querySelector('[data-pet-manager-nav]');
+  if (nextNav) normalizeInteractiveDefaults(nextNav);
 }
 function homeworkPanel() { return homeworkUploadPanel(); }
 function homeworkUploadPanel() {
@@ -1006,7 +1066,7 @@ function reportsPanelV2() {
   const inputClass = 'w-full bg-[#F8F8FC] border border-gray-200 rounded-xl px-5 py-4 text-base font-bold text-[#6B48FF] outline-none focus:border-[#6B48FF]';
   const field = (label, control) => '<label class="block min-w-0"><span class="' + labelClass + '">' + label + '</span>' + control + '</label>';
   const stat = (label, value, icon) => '<div class="card-solid p-4 md:p-6"><div class="flex items-start justify-between gap-3 md:gap-4"><div class="min-w-0"><p class="text-[10px] font-black uppercase tracking-[0.12em] text-gray-400 md:text-[11px] md:tracking-[0.2em]">' + label + '</p><p class="mt-2 text-2xl font-black tracking-tight text-[#2D2A4A] md:mt-3 md:text-3xl">' + value + '</p></div><span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#F4F2FF] text-sm text-[#6B48FF] md:h-12 md:w-12 md:text-lg"><i class="fa-solid ' + icon + '"></i></span></div></div>';
-  const chips = data.comparisonOptions.map(o => '<button data-report-compare="' + esc(o.id) + '" class="min-h-[40px] rounded-full px-4 py-2 text-xs font-black transition active-scale ' + (data.selected.includes(o.id) ? 'bg-[#6B48FF] text-white shadow-md shadow-[#6B48FF]/20' : 'bg-[#F8F8FC] text-gray-500 border border-gray-100') + '">' + esc(o.label) + '</button>').join('');
+  const chips = reportCompareChipsHtml(data);
   const summaryRows = data.summaryRows.map(r => '<tr class="bg-[#F8F8FC] text-sm font-semibold text-gray-600 shadow-sm"><td class="rounded-l-[1.1rem] px-4 py-4 font-black text-[#2D2A4A]">' + esc(r.label) + '</td><td class="px-4 py-4"><span class="rounded-full bg-white px-3 py-1.5 font-black text-[#2D2A4A] shadow-sm">' + r.averageScore + '%</span></td><td class="px-4 py-4">' + r.submitCount + '</td><td class="px-4 py-4">' + r.unitCount + '</td>' + (cfg.viewMode === 'class' ? '<td class="px-4 py-4">' + r.studentCount + '</td>' : '') + '<td class="rounded-r-[1.1rem] px-4 py-4">' + reportDateTime(r.latestSubmittedAt) + '</td></tr>').join('');
   const summaryCards = data.summaryRows.map(r => '<article class="rounded-[1.15rem] border border-gray-100 bg-[#F8F8FC] p-4 shadow-sm"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><p class="truncate text-base font-black text-[#2D2A4A]">' + esc(r.label) + '</p><p class="mt-1 text-xs font-bold text-gray-400">最近 ' + reportDateTime(r.latestSubmittedAt) + '</p></div><span class="shrink-0 rounded-full bg-white px-3 py-1.5 text-sm font-black text-[#6B48FF] shadow-sm">' + r.averageScore + '%</span></div><div class="mt-4 grid gap-2 text-center" style="grid-template-columns:repeat(' + (cfg.viewMode === 'class' ? '3' : '2') + ',minmax(0,1fr))"><div class="rounded-xl bg-white px-2 py-2 shadow-sm"><p class="text-[10px] font-black text-gray-400">提交</p><p class="mt-1 text-sm font-black text-[#2D2A4A]">' + r.submitCount + '</p></div><div class="rounded-xl bg-white px-2 py-2 shadow-sm"><p class="text-[10px] font-black text-gray-400">单元</p><p class="mt-1 text-sm font-black text-[#2D2A4A]">' + r.unitCount + '</p></div>' + (cfg.viewMode === 'class' ? '<div class="rounded-xl bg-white px-2 py-2 shadow-sm"><p class="text-[10px] font-black text-gray-400">学生</p><p class="mt-1 text-sm font-black text-[#2D2A4A]">' + r.studentCount + '</p></div>' : '') + '</div></article>').join('');
   const detailRows = data.latestRows.map(r => '<tr class="bg-[#F8F8FC] text-sm font-semibold text-gray-600 shadow-sm"><td class="rounded-l-[1.1rem] px-4 py-4 font-black text-[#2D2A4A]">' + esc(reportEntityLabel(r,cfg.viewMode)) + '</td><td class="px-4 py-4"><div class="font-black text-[#2D2A4A]">' + esc(r.moduleTitle) + '</div><div class="mt-1 text-xs font-bold text-gray-400">' + esc(r.levelCode) + '</div></td><td class="px-4 py-4"><span class="rounded-full bg-white px-3 py-1.5 text-xs font-black text-gray-600 shadow-sm">' + esc(r.sourceLabel) + '</span></td><td class="px-4 py-4"><span class="rounded-full bg-white px-3 py-1.5 text-xs font-black text-gray-600 shadow-sm">第 ' + (Number(r.attemptNumber) || 1) + ' 次</span></td><td class="px-4 py-4"><span class="rounded-full bg-[#F4F2FF] px-3 py-1.5 font-black text-[#6B48FF]">' + r.scorePercent + '%</span></td><td class="rounded-r-[1.1rem] px-4 py-4">' + reportDateTime(r.submittedAt) + '</td></tr>').join('');
@@ -1047,7 +1107,7 @@ function reportsPanelV2() {
       stat('平均正确率', cfg.loading ? '--' : data.stats.averageScore + '%', 'fa-chart-simple') +
     '</section>' +
     '<section class="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.55fr)]">' +
-      '<div class="card-solid overflow-hidden"><div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-5 md:flex-row md:items-center md:justify-between md:px-6"><div><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Trend</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">成绩趋势对比</h3></div><span class="rounded-full bg-[#F8F8FC] px-3 py-1 text-xs font-black text-gray-500">最多 5 条线</span></div><div class="space-y-4 px-5 py-5 md:px-6"><div class="flex flex-wrap gap-2">' + (chips || '<span class="text-sm font-bold text-gray-400">暂无可对比对象</span>') + '</div>' + reportTrendSvg(data) + '</div></div>' +
+      '<div class="card-solid overflow-hidden"><div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-5 md:flex-row md:items-center md:justify-between md:px-6"><div><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Trend</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">成绩趋势对比</h3></div><span class="rounded-full bg-[#F8F8FC] px-3 py-1 text-xs font-black text-gray-500">最多 5 条线</span></div><div class="space-y-4 px-5 py-5 md:px-6"><div data-report-compare-list class="flex flex-wrap gap-2">' + (chips || '<span class="text-sm font-bold text-gray-400">暂无可对比对象</span>') + '</div><div data-report-trend-chart>' + reportTrendSvg(data) + '</div></div></div>' +
       '<div class="card-solid overflow-hidden"><div class="border-b border-gray-100 px-5 py-5 md:px-6"><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Distribution</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">分数段分布</h3></div><div class="space-y-5 px-5 py-5 md:px-6"><div class="mx-auto flex h-44 w-44 items-center justify-center rounded-full bg-[#F8F8FC] shadow-inner"><div class="relative flex h-40 w-40 items-center justify-center rounded-full" style="background-image:' + reportPieBackground(data.buckets) + '"><div class="absolute inset-[28px] rounded-full bg-white shadow-inner"></div><div class="relative text-center"><p class="text-xs font-black text-gray-400">单元成绩</p><p class="mt-1 text-3xl font-black text-[#2D2A4A]">' + data.latestRows.length + '</p></div></div></div><div class="space-y-3">' + bucketRows + '</div></div></div>' +
     '</section>' +
     reportTableSection(cfg.viewMode === 'class' ? '班级成绩查看' : '学生成绩查看', cfg.viewMode === 'class' ? '班级' : '学生', summaryRows, cfg.viewMode === 'class', summaryCards) +
@@ -1096,7 +1156,7 @@ function attendancePanel() {
         '<label><span class="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-gray-400">豁免原因</span><select data-att-field="note" class="' + attendanceInputClass() + '"><option value="事假" ' + ((cfg.note || '事假') === '事假' ? 'selected' : '') + '>事假</option><option value="病假" ' + (cfg.note === '病假' ? 'selected' : '') + '>病假</option></select></label>' +
         '<div><span class="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-gray-400">豁免学生</span><button data-open-att-picker class="flex min-h-[48px] w-full items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-[#F8F8FC] px-4 py-3 text-left active-scale"><span class="min-w-0"><span class="block text-sm font-black text-[#2D2A4A]">已选择 ' + selected.size + ' 人</span></span><i class="fa-solid fa-chevron-right text-[#6B48FF]"></i></button></div>' +
       '</div>' +
-      '<div class="px-5 pb-6 md:px-6"><div class="mb-4 rounded-[1.4rem] border border-gray-100 bg-[#F8F8FC] p-4"><div class="mb-2 flex items-center justify-between gap-3"><p class="text-sm font-black text-[#2D2A4A]">本次豁免学生</p><button data-att-clear class="rounded-full bg-white px-3 py-1.5 text-xs font-black text-gray-500 shadow-sm active-scale">清空</button></div><div class="flex flex-wrap gap-2">' + (selectedPreview || '<span class="text-sm font-bold text-gray-400">还没有选择学生</span>') + (selectedStudents.length > 6 ? '<span class="rounded-full bg-white px-3 py-1.5 text-xs font-black text-gray-400 shadow-sm">+' + (selectedStudents.length - 6) + '</span>' : '') + '</div></div><button data-save-attendance id="btn-att-save" class="w-full rounded-xl bg-[#2D2A4A] py-4 text-base font-bold text-white shadow-lg shadow-[#2D2A4A]/20 active-scale"><i class="fa-solid fa-shield-heart mr-2"></i> 应用豁免</button></div>' +
+      '<div class="px-5 pb-6 md:px-6"><div class="mb-4 rounded-[1.4rem] border border-gray-100 bg-[#F8F8FC] p-4"><div class="mb-2 flex items-center justify-between gap-3"><p class="text-sm font-black text-[#2D2A4A]">本次豁免学生</p><button data-att-clear class="rounded-full bg-white px-3 py-1.5 text-xs font-black text-gray-500 shadow-sm active-scale">清空</button></div><div data-att-selected-preview class="flex flex-wrap gap-2">' + (selectedPreview || '<span class="text-sm font-bold text-gray-400">还没有选择学生</span>') + (selectedStudents.length > 6 ? '<span class="rounded-full bg-white px-3 py-1.5 text-xs font-black text-gray-400 shadow-sm">+' + (selectedStudents.length - 6) + '</span>' : '') + '</div></div><button data-save-attendance id="btn-att-save" class="w-full rounded-xl bg-[#2D2A4A] py-4 text-base font-bold text-white shadow-lg shadow-[#2D2A4A]/20 active-scale"><i class="fa-solid fa-shield-heart mr-2"></i> 应用豁免</button></div>' +
     '</section>' +
     '<details class="card-solid overflow-hidden"><summary class="flex cursor-pointer list-none flex-col gap-3 border-b border-gray-100 px-5 py-5 md:flex-row md:items-center md:justify-between md:px-6"><div><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Records</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">打卡记录</h3></div><div class="flex flex-col gap-3 sm:flex-row sm:items-center">' + recordSummary + '<button data-refresh-attendance class="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-full bg-[#6B48FF] px-4 py-2 text-xs font-black text-white shadow-lg shadow-[#6B48FF]/25 active-scale">' + (cfg.loading ? '<i class="fa-solid fa-spinner fa-spin"></i>刷新中' : '<i class="fa-solid fa-rotate"></i>刷新') + '</button></div></summary><div class="overflow-x-auto px-5 py-5 md:px-6">' + (recordRows ? '<table class="w-full min-w-[680px] border-separate border-spacing-y-2"><thead><tr class="text-left text-xs font-black uppercase tracking-[0.16em] text-gray-400"><th class="px-4 py-2">学生</th><th class="px-4 py-2">状态</th><th class="px-4 py-2">依据</th><th class="px-4 py-2">时间</th></tr></thead><tbody>' + recordRows + '</tbody></table>' : '<div class="rounded-[1.4rem] border border-dashed border-gray-200 bg-[#F8F8FC] px-5 py-8 text-center text-sm font-bold text-gray-400">' + (cfg.loading ? '正在读取打卡记录...' : '该班级暂无学生。') + '</div>') + '</div></details>' +
     '</div>';
@@ -1208,7 +1268,9 @@ async function deleteVoteSubmission(id) {
 }
 function render() {
   const nextScope = renderScopeKey();
-  const scrollSnapshot = state.page === 'teacher' && lastRenderScope === nextScope ? takeScrollSnapshot() : null;
+  const isSoftRender = state.page === 'teacher' && lastRenderScope === nextScope;
+  const scrollSnapshot = isSoftRender ? takeScrollSnapshot() : null;
+  if (app) app.dataset.softRender = isSoftRender ? '1' : '0';
   if (state.page === 'level') app.innerHTML = levelPage();
   else if (state.page === 'teacher') app.innerHTML = teacherPage();
   else if (state.page === 'vote') app.innerHTML = votePage();
@@ -1219,6 +1281,7 @@ function render() {
   scheduleCarouselAuto();
   lastRenderScope = nextScope;
   restoreScrollSnapshot(scrollSnapshot);
+  if (isSoftRender) setTimeout(() => { if (app.dataset.softRender === '1') app.dataset.softRender = '0'; }, 120);
 }
 function initTeacherForm() {
   if (state.page !== 'teacher') return;
@@ -1637,22 +1700,44 @@ function updateAttendanceField(field, value) {
   const cfg = attendanceCfg();
   cfg[field] = value;
   if (field === 'classCode') cfg.selectedIds = [];
-  if (['classCode','startDate','endDate'].includes(field)) cfg.loaded = false;
-  render();
-  if (['classCode','startDate','endDate'].includes(field)) loadAttendanceRecords(false);
+  if (field === 'note') return;
+  if (['classCode','startDate','endDate'].includes(field)) {
+    cfg.loaded = false;
+    loadAttendanceRecords(false);
+  }
 }
 function toggleAttendanceStudent(id, checked) {
   const cfg = attendanceCfg();
   const textId = String(id);
   cfg.selectedIds = checked ? Array.from(new Set([...(cfg.selectedIds || []), textId])) : (cfg.selectedIds || []).filter(item => String(item) !== textId);
-  render();
+  refreshAttendanceSelectionDom();
 }
 function selectAllAttendanceStudents() {
   const cfg = attendanceCfg();
   cfg.selectedIds = attendanceClassStudents(cfg.classCode).map(s => String(s.id));
-  render();
+  refreshAttendanceSelectionDom();
 }
-function clearAttendanceStudents() { attendanceCfg().selectedIds = []; render(); }
+function clearAttendanceStudents() { attendanceCfg().selectedIds = []; refreshAttendanceSelectionDom(); }
+function refreshAttendanceSelectionDom() {
+  const cfg = attendanceCfg();
+  const selected = new Set(cfg.selectedIds || []);
+  const selectedStudents = attendancePayloadStudentRows();
+  document.querySelectorAll('[data-att-student]').forEach(input => {
+    input.checked = selected.has(String(input.dataset.attStudent));
+  });
+  const trigger = document.querySelector('[data-open-att-picker]');
+  const countText = trigger?.querySelector('span span');
+  if (countText) countText.textContent = '已选择 ' + selected.size + ' 人';
+  const preview = document.querySelector('[data-att-selected-preview]');
+  if (preview) {
+    preview.innerHTML = selectedStudents.slice(0, 6).map(s => '<span class="rounded-full bg-white px-3 py-1.5 text-xs font-black text-[#2D2A4A] shadow-sm">' + esc(s.name || s.id) + '</span>').join('') + (selectedStudents.length > 6 ? '<span class="rounded-full bg-white px-3 py-1.5 text-xs font-black text-gray-400 shadow-sm">+' + (selectedStudents.length - 6) + '</span>' : '') || '<span class="text-sm font-bold text-gray-400">还没有选择学生</span>';
+  }
+  const pickerCount = document.getElementById('att-picker-count');
+  if (pickerCount) pickerCount.textContent = selected.size;
+  const pickerList = document.getElementById('att-picker-list');
+  if (pickerList) pickerList.innerHTML = attendancePickerRows();
+  normalizeInteractiveDefaults(pickerList || document);
+}
 function attendancePickerRows() {
   const cfg = attendanceCfg();
   const students = attendanceClassStudents(cfg.classCode);
@@ -1799,7 +1884,24 @@ function toggleReportCompare(entityId) {
   if (current.includes(entityId)) cfg.selectedComparisonIds = current.filter(id => id !== entityId);
   else if (current.length >= 5) return showAlert('为了图表清晰，最多支持同时对比 5 个对象。', '提示');
   else cfg.selectedComparisonIds = current.concat(entityId);
-  render();
+  refreshReportTrendDom();
+}
+function reportCompareChipClass(active) {
+  return 'min-h-[40px] rounded-full px-4 py-2 text-xs font-black transition active-scale ' + (active ? 'bg-[#6B48FF] text-white shadow-md shadow-[#6B48FF]/20' : 'bg-[#F8F8FC] text-gray-500 border border-gray-100');
+}
+function reportCompareChipsHtml(data) {
+  return data.comparisonOptions.map(o => '<button data-report-compare="' + esc(o.id) + '" class="' + reportCompareChipClass(data.selected.includes(o.id)) + '">' + esc(o.label) + '</button>').join('');
+}
+function refreshReportTrendDom() {
+  if (state.page !== 'teacher' || state.teacherTab !== 'reports') return render();
+  const data = computeReports();
+  const chips = document.querySelector('[data-report-compare-list]');
+  if (chips) {
+    chips.innerHTML = reportCompareChipsHtml(data) || '<span class="text-sm font-bold text-gray-400">暂无可对比对象</span>';
+    normalizeInteractiveDefaults(chips);
+  }
+  const chart = document.querySelector('[data-report-trend-chart]');
+  if (chart) chart.innerHTML = reportTrendSvg(data);
 }
 async function createPetForStudent(studentId, type, name) {
   const cleanName = String(name || '').trim();
@@ -2288,7 +2390,7 @@ document.addEventListener('click', e => {
     e.stopImmediatePropagation();
     if (!suppressCarouselClick) playClick();
     state.studentManageView = view.dataset.studentManageView === 'personal' ? 'personal' : 'classes';
-    render();
+    refreshStudentManageDom();
     return;
   }
   const petView = e.target.closest('[data-pet-manage-view]');
@@ -2296,7 +2398,7 @@ document.addEventListener('click', e => {
     e.stopImmediatePropagation();
     if (!suppressCarouselClick) playClick();
     petCfg().manageView = petView.dataset.petManageView === 'personal' ? 'personal' : 'classes';
-    render();
+    refreshPetManageDom();
     return;
   }
   const edit = e.target.closest('[data-edit-student]');
@@ -2305,8 +2407,7 @@ document.addEventListener('click', e => {
     if (!suppressCarouselClick) playClick();
     state.studentManageView = 'personal';
     state.selectedStudentId = edit.dataset.editStudent;
-    render();
-    setTimeout(() => Array.from(document.querySelectorAll('[data-student-profile]')).find(node => String(node.dataset.studentProfile) === String(state.selectedStudentId))?.scrollIntoView({ behavior:'smooth', block:'center' }), 60);
+    refreshStudentManageDom(state.selectedStudentId);
     return;
   }
   const permission = e.target.closest('[data-student-class-chip]');

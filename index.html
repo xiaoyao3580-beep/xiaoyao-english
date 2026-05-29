@@ -56,6 +56,7 @@
     .motion-icon{transition:transform .2s ease}
     .motion-card:active .motion-icon{transform:scale(.95)}
     .motion-hero-symbol{animation:motionHeroSymbol 5s ease-in-out infinite}
+    #app[data-soft-render="1"] .motion-nav-enter,#app[data-soft-render="1"] .motion-dock-enter,#app[data-soft-render="1"] .motion-page-enter,#app[data-soft-render="1"] .motion-hero-enter,#app[data-soft-render="1"] .motion-list-item,#app[data-soft-render="1"] .motion-panel-enter{animation:none!important}
     @keyframes motionNavEnter{from{opacity:0;transform:translateY(-16px)}to{opacity:1;transform:translateY(0)}}
     @keyframes motionDockEnter{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
     @keyframes motionPageEnter{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
