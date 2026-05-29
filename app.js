@@ -10,6 +10,61 @@ const HOME_LEVEL_ORDER = window.XY_HOME_LEVEL_ORDER || ['f2','a1','a1-plus','a2'
 const state = { page: 'home', level: null, homeTab: 'courses', slide: 0, teacherTab: 'students', studentManageView: 'classes', selectedStudentId: '', students: [], homework: [], banners: [], bannerError: '', logs: [], attendance: null, report: null, vote: null, pet: null, loading: true };
 const app = document.getElementById('app');
 const modalRoot = document.getElementById('modal-root');
+let lastRenderScope = '';
+function normalizeInteractiveDefaults(root = document) {
+  root.querySelectorAll?.('button:not([type])').forEach(button => button.setAttribute('type', 'button'));
+}
+function scrollKeyFor(el) {
+  return el.dataset?.preserveScroll || (el.id ? '#' + el.id : '');
+}
+function cssEscape(value) {
+  return window.CSS?.escape ? CSS.escape(value) : String(value).replace(/["\\]/g, '\\$&');
+}
+function scrollablePreserveNodes(root = document) {
+  return Array.from(root.querySelectorAll?.('[data-preserve-scroll], [id]') || []).filter(el => scrollKeyFor(el) && (el.scrollHeight > el.clientHeight || el.scrollWidth > el.clientWidth));
+}
+function takeScrollSnapshot() {
+  return {
+    x: window.scrollX || window.pageXOffset || 0,
+    y: window.scrollY || window.pageYOffset || 0,
+    nodes: scrollablePreserveNodes(document).map(el => ({ key:scrollKeyFor(el), left:el.scrollLeft, top:el.scrollTop }))
+  };
+}
+function restoreScrollSnapshot(snapshot) {
+  if (!snapshot) return;
+  const restore = () => {
+    const maxY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    window.scrollTo(snapshot.x, Math.min(snapshot.y, maxY));
+    snapshot.nodes.forEach(item => {
+      const selector = item.key.startsWith('#') ? item.key : '[data-preserve-scroll="' + cssEscape(item.key) + '"]';
+      const el = document.querySelector(selector);
+      if (el) {
+        el.scrollLeft = item.left;
+        el.scrollTop = item.top;
+      }
+    });
+  };
+  restore();
+  requestAnimationFrame(restore);
+}
+function renderScopeKey() {
+  return state.page + ':' + (state.page === 'teacher' ? state.teacherTab : (state.level || state.homeTab || ''));
+}
+function scrollToTeacherAnchor(id) {
+  const target = document.getElementById(id);
+  if (target) target.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+if (window.MutationObserver) {
+  const interactiveObserver = new MutationObserver(mutations => {
+    mutations.forEach(mutation => mutation.addedNodes.forEach(node => {
+      if (node.nodeType !== 1) return;
+      if (node.matches?.('button:not([type])')) node.setAttribute('type', 'button');
+      normalizeInteractiveDefaults(node);
+    }));
+  });
+  if (app) interactiveObserver.observe(app, { childList:true, subtree:true });
+  if (modalRoot) interactiveObserver.observe(modalRoot, { childList:true, subtree:true });
+}
 const clickAudio = new Audio('click.mp3');
 clickAudio.preload = 'none';
 clickAudio.volume = 0.4;
@@ -584,7 +639,7 @@ function teacherPage() {
     const active = state.teacherTab === t[0];
     return '<button data-teacher-tab="' + t[0] + '" class="shrink-0 rounded-full px-5 py-3.5 text-[14px] font-extrabold transition-all duration-200 shadow-sm flex items-center gap-2 active-scale md:shrink md:px-5 md:text-[14px] lg:px-6 ' + (active ? 'scale-[1.02] bg-[#6B48FF] text-white shadow-lg shadow-[#6B48FF]/30 ring-4 ring-[#6B48FF]/10' : 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50') + '"><i class="fa-solid ' + t[2] + '"></i><span class="whitespace-nowrap">' + t[1] + '</span>' + (active ? '<span class="ml-0.5 h-2 w-2 rounded-full bg-white/90 shadow-sm"></span>' : '') + '</button>';
   }).join('');
-  return '<div class="min-h-screen bg-[#F8F8FC] pb-40 md:pb-44 text-[#1C1C28]">' + teacherHeader(false) + '<section class="px-4 sm:px-6 md:px-10 pt-4 mb-8 max-w-6xl mx-auto"><h1 class="text-[30px] md:text-[36px] font-extrabold text-[#2D2A4A] mb-2 tracking-tight">Teacher Admin</h1><p class="text-sm md:text-base text-gray-500 mb-6">工作室数据管理中心</p><div data-teacher-tabs class="flex gap-2.5 overflow-x-auto hide-scrollbar pb-5 mb-5 -mx-4 px-4 sm:-mx-6 sm:px-6 md:mx-0 md:flex-wrap md:overflow-visible md:px-0 md:pb-2 md:touch-auto lg:gap-3 touch-pan-x">' + tabBtns + '</div><div class="motion-panel-enter">' + teacherPanel() + '</div></section>' + teacherBottomNav() + '</div>';
+  return '<div class="min-h-screen bg-[#F8F8FC] pb-40 md:pb-44 text-[#1C1C28]">' + teacherHeader(false) + '<section class="px-4 sm:px-6 md:px-10 pt-4 mb-8 max-w-6xl mx-auto"><h1 class="text-[30px] md:text-[36px] font-extrabold text-[#2D2A4A] mb-2 tracking-tight">Teacher Admin</h1><p class="text-sm md:text-base text-gray-500 mb-6">工作室数据管理中心</p><div data-teacher-tabs data-preserve-scroll="teacher-tabs" class="flex gap-2.5 overflow-x-auto hide-scrollbar pb-5 mb-5 -mx-4 px-4 sm:-mx-6 sm:px-6 md:mx-0 md:flex-wrap md:overflow-visible md:px-0 md:pb-2 md:touch-auto lg:gap-3 touch-pan-x">' + tabBtns + '</div><div class="motion-panel-enter">' + teacherPanel() + '</div></section>' + teacherBottomNav() + '</div>';
 }
 function teacherHeader(showBack = false) {
   const u = currentUser();
@@ -623,7 +678,7 @@ function studentClassPanel() {
     const rows = list.map(s => '<div class="flex items-center justify-between gap-4 border-b border-gray-50 bg-white p-4 last:border-0"><div class="min-w-0"><p class="truncate text-[15px] font-bold text-[#2D2A4A] md:text-[16px]">' + esc(s.name || s.id) + '</p><p class="mt-1 truncate text-xs font-bold text-gray-400">' + esc(s.id) + '</p></div><button data-edit-student="' + esc(s.id) + '" class="shrink-0 rounded-full bg-[#F4F2FF] px-4 py-2 text-xs font-black text-[#6B48FF] active-scale">个人设置</button></div>').join('');
     return '<details class="mb-3 overflow-hidden rounded-[1.35rem] border border-gray-100 bg-white shadow-sm"><summary class="flex cursor-pointer list-none items-center justify-between gap-4 bg-[#F4F2FF] px-5 py-4"><span class="flex min-w-0 items-center gap-3"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#6B48FF] shadow-sm"><i class="fa-solid ' + cls.icon + ' text-sm"></i></span><span class="min-w-0"><span class="block truncate text-sm font-extrabold text-[#2D2A4A]">' + esc(cls.name) + '</span><span class="mt-0.5 block text-xs font-bold text-[#6B48FF]/70">' + list.length + ' 名学生</span></span></span><i class="fa-solid fa-chevron-down text-xs text-[#6B48FF]"></i></summary><div>' + (rows || '<p class="p-4 text-sm font-bold text-gray-400">这个班级还没有学生。</p>') + '</div></details>';
   }).join('');
-  return '<section class="card-solid p-5 md:p-6"><h2 class="mb-4 text-xl font-black text-[#2D2A4A] md:text-2xl">班级名单</h2><div class="max-h-[540px] overflow-y-auto hide-scrollbar pb-2">' + groups + '</div></section>';
+  return '<section class="card-solid p-5 md:p-6"><h2 class="mb-4 text-xl font-black text-[#2D2A4A] md:text-2xl">班级名单</h2><div data-preserve-scroll="student-class-list" class="max-h-[540px] overflow-y-auto hide-scrollbar pb-2">' + groups + '</div></section>';
 }
 function studentPersonalPanel() {
   const chips = teacherClasses().map(c => '<button type="button" data-toggle-chip="' + esc(c.code) + '" class="chip rounded-xl bg-[#F8F8FC] px-4 py-2.5 text-[13px] text-gray-500 active-scale md:text-[14px]">' + esc(c.name) + '</button>').join('');
@@ -780,7 +835,7 @@ function homeworkUploadPanel() {
     return '<details class="group mb-4 overflow-hidden rounded-[1.35rem] border border-gray-100 bg-white shadow-sm"><summary class="flex min-h-[64px] cursor-pointer list-none items-center justify-between gap-4 bg-[#F4F2FF] px-5 py-4"><span class="flex min-w-0 items-center gap-3"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#6B48FF] shadow-sm"><i class="fa-solid ' + cls.icon + ' text-sm"></i></span><span class="min-w-0"><span class="block truncate text-sm font-extrabold text-[#2D2A4A] md:text-base">' + esc(cls.name) + '</span><span class="mt-0.5 block text-xs font-bold text-[#6B48FF]/70">' + classHw.length + ' 个课程 · ' + classOpenCount + ' 个开放 · ' + units.length + ' 个单元</span></span></span><i class="fa-solid fa-chevron-down shrink-0 text-xs text-[#6B48FF] transition-transform group-open:rotate-180"></i></summary><div class="bg-white p-3 pb-1">' + unitHtml + '</div></details>';
   }).join('');
   const classOptions = teacherClasses().map(c => '<option value="' + esc(c.code) + '">' + esc(c.name) + '</option>').join('');
-  return '<div class="tab-content active"><div class="mb-4 flex flex-col gap-3 px-1 sm:flex-row sm:items-end sm:justify-between"><h2 class="text-xl font-extrabold text-[#2D2A4A] md:text-2xl">在线大纲 (<span id="ui-hw-count" class="text-[#00BFA5]">' + openCount + '</span>)</h2><div class="flex flex-wrap gap-2"><button id="btn-migrate-lessons" data-migrate-lessons class="rounded-lg bg-[#F4F2FF] px-4 py-2 text-sm font-bold text-[#6B48FF] active-scale">同步内置课程到后端</button><button data-close-old-hw class="rounded-lg bg-red-50 px-4 py-2 text-sm font-bold text-red-500 active-scale">一键关闭旧作业</button></div></div><div id="homework-list-scroll" class="mb-10 max-h-[500px] overflow-y-auto overflow-x-hidden hide-scrollbar">' + (byClass || '<div class="card-solid p-6 text-center text-sm text-gray-400">暂无作业</div>') + '</div><h2 class="mb-4 pl-1 text-xl font-extrabold text-[#2D2A4A] md:text-2xl">上传课程文件</h2><div class="card-solid p-6 pb-10 md:p-8"><div class="mb-5"><label class="mb-2 ml-1 block text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">班级 (Class Code)</label><select id="hw-class" class="w-full rounded-xl border border-gray-200 bg-[#F8F8FC] px-5 py-4 text-base font-bold text-[#6B48FF] outline-none">' + classOptions + '</select></div><div class="mb-5 grid gap-5 md:grid-cols-2"><div><label class="mb-2 ml-1 block text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">单元 (Unit)</label><input type="text" id="hw-unit" placeholder="U1" class="w-full rounded-xl border border-gray-200 bg-[#F8F8FC] px-5 py-4 text-base font-medium outline-none"></div><div><label class="mb-2 ml-1 block text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">标题 (Title)</label><input type="text" id="hw-title" placeholder="Food & Drink" class="w-full rounded-xl border border-gray-200 bg-[#F8F8FC] px-5 py-4 text-base font-medium outline-none"></div></div><div class="mb-8"><label class="mb-2 ml-1 block text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">上传 HTML 文件</label><input type="file" id="hw-upload" accept=".html,text/html" class="w-full rounded-xl border border-dashed border-[#C9C3FF] bg-[#F8F8FC] px-5 py-4 text-sm font-bold text-[#2D2A4A] file:mr-4 file:rounded-full file:border-0 file:bg-[#6B48FF] file:px-4 file:py-2 file:text-sm file:font-bold file:text-white"><p class="mt-2 px-1 text-[12px] font-medium leading-5 text-gray-400">选择 HTML 文件后会上传到 Supabase Storage：' + LESSON_UPLOAD_BUCKET + '。</p></div><button id="btn-add-hw" data-add-homework class="w-full rounded-xl bg-[#00BFA5] py-4 text-base font-bold text-white shadow-lg active-scale">上传并发布课程</button></div></div>';
+  return '<div class="tab-content active"><div class="mb-4 flex flex-col gap-3 px-1 sm:flex-row sm:items-end sm:justify-between"><h2 class="text-xl font-extrabold text-[#2D2A4A] md:text-2xl">在线大纲 (<span id="ui-hw-count" class="text-[#00BFA5]">' + openCount + '</span>)</h2><div class="flex flex-wrap gap-2"><button id="btn-migrate-lessons" data-migrate-lessons class="rounded-lg bg-[#F4F2FF] px-4 py-2 text-sm font-bold text-[#6B48FF] active-scale">同步内置课程到后端</button><button data-close-old-hw class="rounded-lg bg-red-50 px-4 py-2 text-sm font-bold text-red-500 active-scale">一键关闭旧作业</button></div></div><div id="homework-list-scroll" data-preserve-scroll="homework-list" class="mb-10 max-h-[500px] overflow-y-auto overflow-x-hidden hide-scrollbar">' + (byClass || '<div class="card-solid p-6 text-center text-sm text-gray-400">暂无作业</div>') + '</div><h2 class="mb-4 pl-1 text-xl font-extrabold text-[#2D2A4A] md:text-2xl">上传课程文件</h2><div class="card-solid p-6 pb-10 md:p-8"><div class="mb-5"><label class="mb-2 ml-1 block text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">班级 (Class Code)</label><select id="hw-class" class="w-full rounded-xl border border-gray-200 bg-[#F8F8FC] px-5 py-4 text-base font-bold text-[#6B48FF] outline-none">' + classOptions + '</select></div><div class="mb-5 grid gap-5 md:grid-cols-2"><div><label class="mb-2 ml-1 block text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">单元 (Unit)</label><input type="text" id="hw-unit" placeholder="U1" class="w-full rounded-xl border border-gray-200 bg-[#F8F8FC] px-5 py-4 text-base font-medium outline-none"></div><div><label class="mb-2 ml-1 block text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">标题 (Title)</label><input type="text" id="hw-title" placeholder="Food & Drink" class="w-full rounded-xl border border-gray-200 bg-[#F8F8FC] px-5 py-4 text-base font-medium outline-none"></div></div><div class="mb-8"><label class="mb-2 ml-1 block text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">上传 HTML 文件</label><input type="file" id="hw-upload" accept=".html,text/html" class="w-full rounded-xl border border-dashed border-[#C9C3FF] bg-[#F8F8FC] px-5 py-4 text-sm font-bold text-[#2D2A4A] file:mr-4 file:rounded-full file:border-0 file:bg-[#6B48FF] file:px-4 file:py-2 file:text-sm file:font-bold file:text-white"><p class="mt-2 px-1 text-[12px] font-medium leading-5 text-gray-400">选择 HTML 文件后会上传到 Supabase Storage：' + LESSON_UPLOAD_BUCKET + '。</p></div><button id="btn-add-hw" data-add-homework class="w-full rounded-xl bg-[#00BFA5] py-4 text-base font-bold text-white shadow-lg active-scale">上传并发布课程</button></div></div>';
 }
 function defaultBannerList() { return SLIDES.map(s => '<div class="card-solid mb-4 flex items-center gap-4 p-4"><button data-preview-banner="' + esc(s[6]) + '" class="h-16 w-28 shrink-0 overflow-hidden rounded-xl bg-gray-100 shadow-sm active-scale" aria-label="预览应急宣传图"><img src="' + esc(slideImageUrl(s)) + '" loading="lazy" decoding="async" class="h-full w-full object-cover"></button><div class="min-w-0 flex-1"><p class="truncate text-[15px] font-bold text-[#2D2A4A] md:text-[16px]">' + esc(s[1].join(' ')) + '</p><p class="mt-1 truncate text-[11px] text-gray-400 md:text-[13px]">Tag: ' + esc(s[0]) + '</p><p class="mt-1 truncate text-[11px] font-bold text-[#6B48FF] md:text-[13px]">应急 fallback，仅在后端无可用卡片时显示</p></div><button data-preview-banner="' + esc(s[6]) + '" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#F4F2FF] text-[#6B48FF] shadow-sm transition-colors active-scale hover:bg-[#6B48FF] hover:text-white" aria-label="预览"><i class="fa-solid fa-eye text-sm"></i></button></div>').join(''); }
 function bannerPositionOptions(value) {
@@ -813,7 +868,7 @@ function bannersPanel() {
   const rows = (state.banners || []).slice().sort((a,b) => (Number(a.sort_order) || 999) - (Number(b.sort_order) || 999)).map(bannerRow).join('');
   const setup = state.bannerError ? '<div class="mb-3 rounded-2xl bg-red-50 px-4 py-3 text-[12px] font-bold leading-5 text-red-500">后端宣传图加载失败：' + esc(state.bannerError) + '。如果提示表不存在，请先在 Supabase SQL Editor 执行 xiaoyao1/supabase-banner-setup.sql。当前首页会继续使用前端应急 fallback。</div>' : '';
   const fallback = !rows ? '<div class="mb-3 rounded-2xl bg-[#F4F2FF] px-4 py-3 text-[12px] font-bold leading-5 text-[#6B48FF]">后端暂无主页宣传卡片。首页当前使用应急 fallback；完成 seed 后会自动改用后端内容。</div>' + defaultBannerList() : '';
-  return '<div class="tab-content active space-y-5 md:space-y-6"><section class="card-solid overflow-hidden"><div class="flex flex-col gap-4 border-b border-gray-100 bg-gradient-to-r from-[#F8F8FC] via-white to-[#F4F2FF] px-5 py-5 md:flex-row md:items-end md:justify-between md:px-6"><div class="min-w-0"><p class="text-xs font-black uppercase tracking-[0.3em] text-gray-400">Homepage Banners</p><h2 class="mt-3 text-2xl font-black text-[#2D2A4A] md:text-3xl">主页宣传</h2></div><a href="#banner-create-form" class="inline-flex min-h-[40px] items-center justify-center rounded-full bg-white px-4 py-2 text-[12px] font-black text-[#6B48FF] shadow-sm active-scale">新增卡片</a></div><div class="px-5 py-5 md:px-6"><p class="mb-4 text-[12px] font-bold text-gray-400">用每行的页数胶囊调整轮播顺序，首页会按页数从小到大展示</p><div class="max-h-[430px] overflow-y-auto hide-scrollbar">' + setup + (rows || fallback) + '</div></div></section><section id="banner-create-form" class="card-solid overflow-hidden bg-gradient-to-b from-white to-[#F8F8FC]"><div class="border-b border-gray-100 px-5 py-5 md:px-6"><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Create</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">新增主页卡片</h3></div><div class="p-6 pb-10 md:p-8">' + bannerForm('ban') + '<button id="btn-add-ban" data-add-banner class="w-full rounded-xl bg-[#6B48FF] py-4 text-base font-bold text-white shadow-lg shadow-[#6B48FF]/30 active-scale">新增并发布到主页轮播</button></div></section></div>';
+  return '<div class="tab-content active space-y-5 md:space-y-6"><section class="card-solid overflow-hidden"><div class="flex flex-col gap-4 border-b border-gray-100 bg-gradient-to-r from-[#F8F8FC] via-white to-[#F4F2FF] px-5 py-5 md:flex-row md:items-end md:justify-between md:px-6"><div class="min-w-0"><p class="text-xs font-black uppercase tracking-[0.3em] text-gray-400">Homepage Banners</p><h2 class="mt-3 text-2xl font-black text-[#2D2A4A] md:text-3xl">主页宣传</h2></div><button data-scroll-banner-form="banner-create-form" class="inline-flex min-h-[40px] items-center justify-center rounded-full bg-white px-4 py-2 text-[12px] font-black text-[#6B48FF] shadow-sm active-scale">新增卡片</button></div><div class="px-5 py-5 md:px-6"><p class="mb-4 text-[12px] font-bold text-gray-400">用每行的页数胶囊调整轮播顺序，首页会按页数从小到大展示</p><div data-preserve-scroll="banner-list" class="max-h-[430px] overflow-y-auto hide-scrollbar">' + setup + (rows || fallback) + '</div></div></section><section id="banner-create-form" class="card-solid overflow-hidden bg-gradient-to-b from-white to-[#F8F8FC]"><div class="border-b border-gray-100 px-5 py-5 md:px-6"><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Create</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">新增主页卡片</h3></div><div class="p-6 pb-10 md:p-8">' + bannerForm('ban') + '<button id="btn-add-ban" data-add-banner class="w-full rounded-xl bg-[#6B48FF] py-4 text-base font-bold text-white shadow-lg shadow-[#6B48FF]/30 active-scale">新增并发布到主页轮播</button></div></section></div>';
 }
 const REPORT_COLORS = ['#6B48FF','#00BFA5','#FF4B72','#FFB800','#3949AB'];
 const REPORT_BUCKETS = [{ label:'90-100', min:90, max:100, color:'#059669' },{ label:'80-89', min:80, max:89, color:'#0284c7' },{ label:'60-79', min:60, max:79, color:'#d97706' },{ label:'<60', min:0, max:59, color:'#e11d48' }];
@@ -1152,13 +1207,18 @@ async function deleteVoteSubmission(id) {
   });
 }
 function render() {
+  const nextScope = renderScopeKey();
+  const scrollSnapshot = state.page === 'teacher' && lastRenderScope === nextScope ? takeScrollSnapshot() : null;
   if (state.page === 'level') app.innerHTML = levelPage();
   else if (state.page === 'teacher') app.innerHTML = teacherPage();
   else if (state.page === 'vote') app.innerHTML = votePage();
   else app.innerHTML = homePage();
+  normalizeInteractiveDefaults(app);
   initTeacherForm();
   hydrateStudentPetCollapse();
   scheduleCarouselAuto();
+  lastRenderScope = nextScope;
+  restoreScrollSnapshot(scrollSnapshot);
 }
 function initTeacherForm() {
   if (state.page !== 'teacher') return;
@@ -2216,6 +2276,12 @@ document.addEventListener('click', e => {
   if (!suppressCarouselClick) playClick();
   switchTeacherTab(tab);
 }, true);
+document.addEventListener('click', e => {
+  const target = e.target.closest('[data-scroll-banner-form]');
+  if (!target) return;
+  e.preventDefault();
+  scrollToTeacherAnchor(target.dataset.scrollBannerForm || 'banner-create-form');
+});
 document.addEventListener('click', e => {
   const view = e.target.closest('[data-student-manage-view]');
   if (view) {
