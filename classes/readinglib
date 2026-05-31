@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>积木英语 · 综合闯关</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700;900&family=Baloo+2:wght@600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- 新增：引入 Supabase 官方 JS 库 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <style>
+    :root{
+      --paper:#FBF6EC; --paper2:#FFFDF8; --ink:#2E2A26; --ink-soft:#6B6258;
+      --main:#E8552B;  --main-bg:#FBE2D8;
+      --clause:#2D7DD2; --clause-bg:#DCEAFA;
+      --verb:#1F9D57; --verb-bg:#D9F0E2;
+      --prep:#D69412; --prep-bg:#F7E9C8;
+      --sign:#7C4DD6; --sign-bg:#EADFFB;
+      --shadow:0 6px 0 rgba(0,0,0,.06), 0 14px 30px rgba(46,42,38,.10);
+    }
+
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{
+      margin:0;
+      background: radial-gradient(circle at 12% 8%, #fff5dd 0, transparent 40%), radial-gradient(circle at 88% 4%, #ffe6dd 0, transparent 38%), var(--paper);
+      color:var(--ink);
+      font-family:"Noto Sans SC","Nunito",sans-serif;
+      line-height:1.75; -webkit-font-smoothing:antialiased;
+      overscroll-behavior-y: none;
+      padding-bottom: 80px;
+    }
+
+    /* Layout & Utilities */
+    .wrap{max-width:880px;margin:0 auto;padding:20px 20px 90px}
+    .desktop-card{max-width:640px;margin:0 auto}
+    .app-view { display: none; }
+    .app-view.active { display: block; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
+
+    /* Navigation */
+    .nav-bar {
+      position: sticky; top: 0; z-index: 40; 
+      background: rgba(251, 246, 236, 0.9); backdrop-filter: blur(10px);
+      border-bottom: 2px solid var(--ink);
+      padding: 10px 20px; display: flex; justify-content: center; gap: 8px;
+    }
+    .nav-btn {
+      font-family: "Baloo 2", "Noto Sans SC"; font-weight: 700; font-size: 15px;
+      padding: 8px 16px; border: 2px solid transparent; border-radius: 999px;
+      color: var(--ink-soft); transition: all 0.2s; cursor: pointer;
+    }
+    .nav-btn.active {
+      background: var(--ink); color: #fff; border-color: var(--ink);
+      box-shadow: 0 4px 0 rgba(0,0,0,0.1); transform: translateY(-2px);
+    }
+
+    /* Cards */
+    .guide-card{ background:var(--paper2);border:2px solid var(--ink);border-radius:20px; padding:22px 22px;box-shadow:var(--shadow); margin-bottom: 18px; position:relative; overflow:hidden;}
+    .guide-card p{margin:.6em 0}
+    .guide-card b, .guide-card strong{font-weight:800}
+    
+    .cover{
+      position:relative; background:linear-gradient(135deg,#fff 0,#FFF7E9 100%);
+      border:3px solid var(--ink); border-radius:28px; padding:38px 32px 34px;
+      box-shadow:var(--shadow); overflow:hidden; margin-bottom: 24px;
+    }
+    .cover .blob{position:absolute;border-radius:50%;filter:blur(2px);opacity:.5}
+    .cover .b1{width:120px;height:120px;background:var(--main-bg);right:-30px;top:-30px}
+    .cover .b2{width:90px;height:90px;background:var(--clause-bg);left:-26px;bottom:-26px}
+    .kicker{font-family:"Nunito";font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--main);font-size:13px}
+    .cover h1{ font-family:"ZCOOL KuaiLe","Baloo 2",cursive; font-size:clamp(30px,6vw,46px); line-height:1.2;margin:.25em 0 .15em;color:var(--ink); position:relative;z-index:1; }
+
+    .blocks-demo{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;margin:12px 0}
+    .blk{ border-radius:12px;padding:10px 14px;font-family:"Baloo 2";font-weight:700;font-size:15px; border:2px solid;display:flex;flex-direction:column;gap:2px;min-width:0 }
+    .blk small{font-family:"Noto Sans SC";font-weight:500;font-size:12px;opacity:.85}
+    .blk.main{background:var(--main-bg);border-color:var(--main);color:#9c3414}
+    .blk.clause{background:var(--clause-bg);border-color:var(--clause);color:#1a4f86}
+    .blk.verb{background:var(--verb-bg);border-color:var(--verb);color:#136b3b}
+    .blk.prep{background:var(--prep-bg);border-color:var(--prep);color:#8a5e08}
+    .blk.sign{background:var(--sign-bg);border-color:var(--sign);color:#5a32a8}
+
+    .action-btn-large {
+      display: block; width: 100%; background: var(--ink); color: #fff;
+      font-family: "ZCOOL KuaiLe", cursive; font-size: 22px; padding: 14px;
+      border-radius: 18px; border: 2px solid var(--ink); text-align: center;
+      box-shadow: 0 6px 0 var(--ink-soft); transition: all 0.1s; cursor: pointer;
+    }
+    .action-btn-large:active { transform: translateY(4px); box-shadow: 0 2px 0 var(--ink-soft); }
+
+    /* Vocab Drill */
+    .vocab-title { font-family: "Baloo 2"; font-weight: 800; font-size: 42px; line-height: 1; text-align: center; margin-bottom: 4px; }
+    .vocab-phon { text-align: center; color: var(--ink-soft); font-family: "Nunito"; font-size: 15px; margin-bottom: 12px; }
+    .vocab-ans { border-top: 2px dashed var(--line); padding-top: 20px; margin-top: 10px; }
+    
+    .action-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px; margin-top:20px}
+    .v-btn{ border:2px solid var(--ink); border-radius:16px; padding:12px 8px; font-weight:800; text-align:center; box-shadow:0 4px 0 rgba(0,0,0,.15); transition:.1s; background:#fff; cursor:pointer;}
+    .v-btn:active{ transform:translateY(2px); box-shadow:0 2px 0 rgba(0,0,0,.15); }
+    .v-btn i { font-size: 24px; margin-bottom: 6px; display: block; }
+    .v-no { background: #FFE8E8; color: var(--red-deep); border-color: var(--red-deep); }
+    .v-meh { background: #FFF4E0; color: #A66B05; border-color: #A66B05; }
+    .v-know { background: #E8F5E9; color: #1B5E20; border-color: #1B5E20; }
+
+    .prog-track { height: 12px; background: #EEE; border: 2px solid var(--ink); border-radius: 999px; overflow: hidden; margin-bottom: 15px; }
+    .prog-fill { height: 100%; background: var(--main); transition: width 0.3s; }
+
+    /* Syntax Drill */
+    .sentence-container { font-family: "Nunito"; font-size: 18px; font-weight: 700; line-height: 2.2; color: var(--ink); }
+    .chunk-container{display:inline-flex;flex-direction:column;align-items:center;margin:4px 3px;vertical-align:top}
+    .chunk-text{border-bottom:2px solid #ddd;padding-bottom:2px;}
+    
+    .dropzone{min-height:38px;width:100%;min-width:60px;border:2px dashed #a8a29e;background:#f5f5f4;border-radius:8px;margin-top:6px;display:flex;align-items:center;justify-content:center;transition:all .2s;padding:2px}
+    .dropzone.drag-over{background:var(--main-bg);border-color:var(--main);transform:scale(1.05)}
+    .dropzone.filled{border-style:solid; cursor:pointer;}
+
+    .draggable-tag{cursor:grab;touch-action:none;user-select:none;display:flex;flex-direction:column;align-items:center;padding:6px 12px;border:2px solid;border-radius:12px;font-weight:800;font-size:14px;box-shadow:0 3px 0 rgba(0,0,0,.12);background:#fff}
+    .draggable-tag:active{cursor:grabbing;transform:scale(.95)}
+    .draggable-tag span:last-child{font-size:10px;font-weight:500;opacity:.8}
+
+    #drag-ghost {position:fixed;pointer-events:none;z-index:9999;opacity:.9;transform:translate(-50%,-50%) scale(1.1);box-shadow:0 10px 25px rgba(0,0,0,.2)}
+
+    .tag-bank-wrapper{position:fixed;bottom:0;left:0;right:0;background:rgba(251,246,236,.95);backdrop-filter:blur(10px);border-top:2px solid var(--ink);padding:12px 10px calc(12px + env(safe-area-inset-bottom));z-index:40;box-shadow:0 -10px 30px rgba(0,0,0,.06)}
+
+    .mode-signpost-active .chunk-container { opacity: 0.5; pointer-events: none; }
+    .mode-signpost-active .tag-bank-wrapper { opacity: 0.3; pointer-events: none; }
+    .clickable-word { display: inline-block; padding: 2px 4px; margin: 0 1px; border-radius: 6px; border: 2px solid transparent; transition: all 0.2s; cursor: pointer; }
+    .mode-signpost-active .clickable-word { border-color: #d6d3d1; background: #fff; }
+    .mode-signpost-active .clickable-word.selected { background: var(--sign); color: white; border-color: var(--sign); box-shadow: 0 3px 0 rgba(0,0,0,0.2); transform: translateY(-2px); }
+
+    .p-main{background:var(--main-bg);box-shadow:0 0 0 2px var(--main) inset;border-radius:5px;padding:0 4px}
+    .p-clause{background:var(--clause-bg);box-shadow:0 0 0 2px var(--clause) inset;border-radius:5px;padding:0 4px}
+    .p-verb{background:var(--verb-bg);box-shadow:0 0 0 2px var(--verb) inset;border-radius:5px;padding:0 4px}
+    .p-prep{background:var(--prep-bg);box-shadow:0 0 0 2px var(--prep) inset;border-radius:5px;padding:0 4px}
+    .p-sign{color:var(--sign);font-weight:800;text-decoration:underline;text-decoration-color:var(--sign);text-underline-offset:3px}
+
+    /* Modal */
+    .modal-overlay { fixed inset-0 bg-black/60 z-50 hidden items-center justify-center backdrop-blur-sm p-4 }
+    .modal-card { background: var(--paper2); border: 3px solid var(--ink); border-radius: 24px; box-shadow: var(--shadow); width: 100%; max-width: 500px; max-height: 80vh; overflow-y: auto; padding: 24px; position: relative; }
+    
+    /* Report Styles */
+    .report-table-row { display: grid; grid-template-columns: 3fr 2fr 3fr 2fr; gap: 8px; align-items: center; padding: 12px 0; border-bottom: 1px dashed var(--line); font-size: 13px; font-weight: bold;}
+    .report-table-row:last-child { border-bottom: none; }
+    @media(max-width: 500px) {
+        .report-table-row { grid-template-columns: 1fr; gap: 4px; padding: 10px 0; }
+        .report-table-row > div:first-child { font-size: 15px; margin-bottom: 4px;}
+    }
+  </style>
+</head>
+<body>
+
+<!-- ============================================================
+     登录锁（Eugene 专属）—— 由 Claude 添加
+     ★ 想换账号或密码，只改下面 script 里那两行 ACCOUNT / PASSWORD 即可，其它别动。
+     ============================================================ -->
+<style>
+  #xy-gate{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;
+    padding:24px;background:radial-gradient(circle at 12% 8%,#fff5dd 0,transparent 40%),
+    radial-gradient(circle at 88% 4%,#ffe6dd 0,transparent 38%),#FBF6EC;
+    font-family:"Noto Sans SC","Nunito",sans-serif;}
+  #xy-gate .xy-card{width:100%;max-width:380px;background:#FFFDF8;border-radius:26px;padding:32px 26px;
+    box-shadow:0 6px 0 rgba(0,0,0,.06),0 18px 44px rgba(46,42,38,.16);text-align:center;}
+  #xy-gate .xy-emoji{font-size:36px;line-height:1}
+  #xy-gate .xy-kicker{font-size:12px;font-weight:800;letter-spacing:1px;color:#E8552B;margin-top:10px}
+  #xy-gate .xy-course{font-size:23px;font-weight:900;color:#2E2A26;margin:4px 0 2px}
+  #xy-gate .xy-sub{font-size:13.5px;color:#6B6258;margin:0 0 22px}
+  #xy-gate label{display:block;text-align:left;font-size:12.5px;font-weight:800;color:#6B6258;margin:0 0 6px 2px}
+  #xy-gate input{width:100%;height:50px;border-radius:14px;border:2px solid #efe6d6;background:#fff;
+    padding:0 16px;font-size:16px;color:#2E2A26;outline:none;margin-bottom:14px;transition:border-color .15s ease;}
+  #xy-gate input:focus{border-color:#E8552B}
+  #xy-gate button{width:100%;height:52px;border:none;border-radius:14px;cursor:pointer;margin-top:4px;
+    background:#E8552B;color:#fff;font-size:16px;font-weight:800;letter-spacing:2px;
+    box-shadow:0 5px 0 #c8431f;transition:transform .12s ease,box-shadow .12s ease;}
+  #xy-gate button:active{transform:translateY(3px);box-shadow:0 2px 0 #c8431f}
+  #xy-gate .xy-err{color:#d23b1f;font-size:13px;font-weight:700;min-height:18px;margin-top:12px}
+  body.xy-locked{overflow:hidden!important}
+</style>
+
+<div id="xy-gate">
+  <div class="xy-card">
+    <div class="xy-emoji">📖</div>
+    <div class="xy-kicker">EUGENE 的专属练习</div>
+    <div class="xy-course">阅读博物馆</div>
+    <p class="xy-sub">第 3–4 课 · 课后练习</p>
+    <label for="xy-acc">账号</label>
+    <input id="xy-acc" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="请输入账号">
+    <label for="xy-pwd">密码</label>
+    <input id="xy-pwd" type="password" autocomplete="off" placeholder="请输入密码">
+    <button id="xy-btn">进　入</button>
+    <div class="xy-err" id="xy-err"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  /* ===== 账号密码：要改就改这两行 ===== */
+  var ACCOUNT  = "eugene";
+  var PASSWORD = "0987";
+  /* ==================================== */
+  document.body.classList.add('xy-locked');
+  var gate = document.getElementById('xy-gate');
+  var acc  = document.getElementById('xy-acc');
+  var pwd  = document.getElementById('xy-pwd');
+  var err  = document.getElementById('xy-err');
+  function enter(){
+    if(acc.value.trim() === ACCOUNT && pwd.value === PASSWORD){
+      gate.style.display = 'none';
+      document.body.classList.remove('xy-locked');
+    } else {
+      err.textContent = '账号或密码不对，请检查后再试。';
+      pwd.value = '';
+      pwd.focus();
+    }
+  }
+  document.getElementById('xy-btn').addEventListener('click', enter);
+  pwd.addEventListener('keydown', function(e){ if(e.key === 'Enter') enter(); });
+  acc.addEventListener('keydown', function(e){ if(e.key === 'Enter') pwd.focus(); });
+})();
+</script>
+<!-- ============== 登录锁 结束 ============== -->
+
+<!-- Navigation -->
+<nav class="nav-bar">
+  <button class="nav-btn active" onclick="switchTab('guide')" id="tab-guide"><i class="fas fa-home mr-1"></i> 指南</button>
+  <button class="nav-btn" onclick="switchTab('vocab')" id="tab-vocab"><i class="fas fa-bolt mr-1"></i> 词汇</button>
+  <button class="nav-btn" onclick="switchTab('syntax')" id="tab-syntax"><i class="fas fa-layer-group mr-1"></i> 句法</button>
+  <button class="nav-btn" onclick="switchTab('report')" id="tab-report"><i class="fas fa-chart-pie mr-1"></i> 报告</button>
+</nav>
+
+<!-- ==================== VIEW: GUIDE ==================== -->
+<div id="view-guide" class="app-view active wrap">
+  <header class="cover">
+    <span class="blob b1"></span><span class="blob b2"></span>
+    <div class="kicker">Grammar & Vocab</div>
+    <h1>句子，是用积木搭起来的</h1>
+    <p>——快速掌握长难句与核心词汇的终极训练营。懂了积木原理，阅读就像玩拼图！</p>
+  </header>
+
+  <div class="guide-card">
+    <h2 class="font-zcool text-2xl mb-2">1. 核心积木理论</h2>
+    <p>一句话不管多长，本质上只有三种积木：</p>
+    <div class="blocks-demo">
+      <div class="blk main">主菜<small>句子的核心，必不可少</small></div>
+      <div class="blk clause">配菜 (从句)<small>补充说明：谁、什么</small></div>
+      <div class="blk verb">配菜 (非谓语)<small>补充动作：怎么做、目的</small></div>
+      <div class="blk prep">配菜 (介词)<small>补充细节：在哪里、何时</small></div>
+      <div class="blk sign">路标词<small>连接词(and/so/when)</small></div>
+    </div>
+    <p class="text-sm text-[#6B6258] mt-3"><b>玩法：</b>找主菜，挑出配菜，圈出路标词。骨架一清二楚！</p>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
+    <div class="guide-card text-center" style="margin-bottom:0;">
+      <i class="fas fa-bolt text-4xl text-[#E8552B] mb-3"></i>
+      <h3 class="font-zcool text-xl">词汇扫雷</h3>
+      <p class="text-sm text-gray-600 mb-5">包含文章中A2级别以上的核心生词，不认识的词汇将自动高频回炉。</p>
+      <button onclick="switchTab('vocab')" class="action-btn-large" style="font-size:18px; padding:10px;">开始过单词</button>
+    </div>
+    <div class="guide-card text-center" style="margin-bottom:0;">
+      <i class="fas fa-layer-group text-4xl text-[#2D7DD2] mb-3"></i>
+      <h3 class="font-zcool text-xl">长难句拆解</h3>
+      <p class="text-sm text-gray-600 mb-5">每天自动解锁新关卡，达到 <b>85%以上</b> 准确率也可提前解锁下一套。</p>
+      <button onclick="navToSyntax()" class="action-btn-large" style="font-size:18px; padding:10px; background:#2D7DD2; border-color:#2D7DD2;">挑战拆句子</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== VIEW: VOCAB ==================== -->
+<div id="view-vocab" class="app-view wrap">
+  <div class="desktop-card">
+    <div class="flex justify-between items-end mb-2 px-2">
+      <div class="font-bold text-gray-500">词汇扫雷挑战 <span id="v-timer" class="ml-2 font-normal text-xs bg-gray-200 px-2 rounded">00:00</span></div>
+      <div class="text-sm font-bold text-[var(--main)]"><span id="v-mastered">0</span> / <span id="v-total">0</span> 已掌握</div>
+    </div>
+    <div class="prog-track"><div id="v-progress" class="prog-fill" style="width:0%"></div></div>
+
+    <div id="vocab-play-area">
+      <div class="guide-card text-center pt-8 pb-6" id="v-card">
+        <div id="v-en" class="vocab-title">superstition</div>
+        <div id="v-phon" class="vocab-phon">/ˌsuːpərˈstɪʃn/</div>
+        
+        <button id="v-reveal-btn" onclick="revealVocab()" class="mb-4 mx-auto block bg-gray-100 border-2 border-gray-300 rounded-full px-5 py-1.5 font-bold text-sm text-gray-600 active:bg-gray-200">
+          <i class="fas fa-eye"></i> 看释义
+        </button>
+
+        <div id="v-ans-area" class="vocab-ans hidden text-left">
+          <div class="font-bold text-[var(--main)] text-sm uppercase tracking-wider mb-1">Meaning</div>
+          <div id="v-cn" class="font-bold text-xl mb-3">n. 迷信</div>
+          <div class="bg-[#FFF9EC] border border-[#CDBFA8] rounded-xl p-3 text-sm text-[#695F54] italic font-serif">
+            "<span id="v-ex">emphasizing superstitions of these furry creatures</span>"
+          </div>
+        </div>
+
+        <div id="v-action-dock" class="action-grid">
+          <button onclick="markVocab('no')" class="v-btn v-no"><i class="fas fa-xmark"></i> 不会<br><span class="text-[10px] opacity-80">高频重现</span></button>
+          <button onclick="markVocab('meh')" class="v-btn v-meh"><i class="fas fa-circle-half-stroke"></i> 模糊<br><span class="text-[10px] opacity-80">稍后复习</span></button>
+          <button onclick="markVocab('know')" class="v-btn v-know"><i class="fas fa-check"></i> 认识<br><span class="text-[10px] opacity-80">直接通过</span></button>
+        </div>
+      </div>
+    </div>
+
+    <div id="vocab-done-area" class="guide-card text-center py-12 hidden">
+      <i class="fas fa-crown text-6xl text-yellow-400 mb-4 drop-shadow-md"></i>
+      <h2 class="font-zcool text-3xl mb-2">词汇库已清空！</h2>
+      <p class="text-gray-600 mb-6">太棒了，文章核心词汇已全部掌握。</p>
+      <button onclick="switchTab('report')" class="action-btn-large">查看学习报告</button>
+      <button onclick="resetVocab()" class="mt-4 font-bold text-gray-500 underline">再测一次</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== VIEW: SYNTAX ==================== -->
+<div id="view-syntax" class="app-view wrap pb-40">
+  <div class="desktop-card">
+    <div class="flex justify-between items-center mb-4">
+      <div>
+        <h1 class="font-zcool text-2xl font-bold">长难句挑战 <span id="set-indicator" class="text-[var(--main)] ml-1">Level 1</span></h1>
+        <div class="text-[11px] font-bold text-red-500 bg-red-50 inline-block px-2 py-0.5 rounded mt-1">🎯 目标：85%合格</div>
+      </div>
+      <div class="bg-white border-2 border-[var(--ink)] rounded-full px-4 py-1 font-bold text-sm flex items-center gap-2 h-fit">
+        <i class="fas fa-clock text-gray-400"></i> <span id="s-timer" class="text-gray-600">00:00</span>
+      </div>
+    </div>
+
+    <div class="guide-card !p-3 mb-6 flex items-center justify-between" style="background:#FFF9EC;">
+      <div>
+        <div class="font-bold text-[var(--sign)]"><i class="fas fa-map-signs"></i> 路标选择模式</div>
+        <div class="text-[11px] text-gray-600">开启后点击句子中的连接词/介词</div>
+      </div>
+      <div class="relative inline-block w-12 align-middle select-none">
+        <input type="checkbox" id="signpost-toggle" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-2 border-gray-400 appearance-none cursor-pointer z-10 transition-transform duration-300 left-0 top-0"/>
+        <label for="signpost-toggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer transition-colors duration-300 border-2 border-gray-400"></label>
+      </div>
+    </div>
+
+    <!-- Syntax Questions Container -->
+    <div id="syntax-container" class="space-y-4"></div>
+
+    <button onclick="submitSyntax()" class="action-btn-large mt-6 mb-10"><i class="fas fa-paper-plane"></i> 提交当前关卡</button>
+  </div>
+
+  <!-- Sticky Tag Bank -->
+  <div id="tag-bank" class="tag-bank-wrapper">
+    <div class="desktop-card flex justify-around items-center">
+      <div class="draggable-tag" style="border-color:var(--main); color:#9c3414; background:var(--main-bg)" data-type="main"><span>主菜</span><span>主句</span></div>
+      <div class="draggable-tag" style="border-color:var(--clause); color:#1a4f86; background:var(--clause-bg)" data-type="clause"><span>配菜</span><span>从句</span></div>
+      <div class="draggable-tag" style="border-color:var(--verb); color:#136b3b; background:var(--verb-bg)" data-type="verb"><span>配菜</span><span>非谓语</span></div>
+      <div class="draggable-tag" style="border-color:var(--prep); color:#8a5e08; background:var(--prep-bg)" data-type="prep"><span>配菜</span><span>介词短语</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== VIEW: REPORT ==================== -->
+<div id="view-report" class="app-view wrap">
+  <div class="desktop-card">
+    <h1 class="font-zcool text-3xl font-black text-center mb-6">我的个性化学习报告</h1>
+    
+    <div id="r-warning-banner" class="hidden mb-5 bg-red-50 border-2 border-red-200 rounded-xl p-4 flex items-start gap-3">
+      <i class="fas fa-exclamation-triangle text-red-500 text-xl mt-0.5"></i>
+      <div>
+        <div class="font-bold text-red-700 text-sm mb-1">学习预警</div>
+        <div class="text-xs text-red-600 font-bold leading-relaxed">你的长难句测试正确率普遍偏低，基础不够牢固！建议每天控制进度，多看解析，不要盲目往后刷。</div>
+      </div>
+    </div>
+
+    <!-- Vocab Report -->
+    <div class="guide-card !p-5 mb-5">
+      <h3 class="font-zcool text-xl mb-3 flex items-center gap-2"><i class="fas fa-bolt text-[var(--main)]"></i> 词汇扫雷</h3>
+      <div class="grid grid-cols-2 gap-4 mb-4">
+        <div>
+          <div class="text-xs text-gray-500 font-bold uppercase">最后打卡时间</div>
+          <div class="font-bold text-sm" id="r-vocab-date">尚未进行</div>
+        </div>
+        <div>
+          <div class="text-xs text-gray-500 font-bold uppercase">测试总用时</div>
+          <div class="font-bold text-sm" id="r-vocab-time">--:--</div>
+        </div>
+      </div>
+      
+      <div class="bg-white border-2 border-gray-200 rounded-xl p-3 flex flex-col gap-2 font-bold text-sm">
+        <div class="flex justify-between">
+          <span class="text-gray-500">总计挑战单词数</span>
+          <span id="r-v-total" class="text-gray-800">0</span>
+        </div>
+        <div class="flex justify-between border-t border-gray-100 pt-2">
+          <span class="text-green-600"><i class="fas fa-check mr-1"></i> 首次直接认识</span>
+          <span id="r-v-first" class="text-green-700">0</span>
+        </div>
+        <div class="flex justify-between border-t border-gray-100 pt-2">
+          <span class="text-indigo-600"><i class="fas fa-eye mr-1"></i> 看过释义后认识</span>
+          <span id="r-v-peeked" class="text-indigo-700">0</span>
+        </div>
+        <div class="flex justify-between border-t border-gray-100 pt-2">
+          <span class="text-red-500"><i class="fas fa-xmark mr-1"></i> 模糊或不认识</span>
+          <span id="r-v-struggle" class="text-red-600">0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Syntax Report -->
+    <div class="guide-card !p-5 mb-5">
+      <div class="flex justify-between items-end mb-4">
+        <h3 class="font-zcool text-xl flex items-center gap-2"><i class="fas fa-layer-group text-[var(--clause)]"></i> 句法拆解（共 7 关）</h3>
+      </div>
+      
+      <div id="r-syntax-list" class="flex flex-col gap-2">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+
+    <div class="guide-card">
+      <h3 class="font-zcool text-xl border-b-2 border-gray-200 pb-2 mb-3">个性化机制说明</h3>
+      <ul class="text-sm text-gray-600 space-y-2 font-bold">
+        <li><i class="fas fa-check-circle text-green-500 mr-1"></i> <b>词汇库：</b>提取自长难句原素材中 CEFR >A2 级别的进阶生词。不会的单词将高频重现，直到全部“认识”。</li>
+        <li><i class="fas fa-calendar-check text-blue-500 mr-1"></i> <b>每日解锁：</b>系统每天自动为你解锁新关卡。</li>
+        <li><i class="fas fa-lock text-yellow-500 mr-1"></i> <b>长难句关卡：</b>必须达到 <b>85%以上</b> 准确率才能标记为合格并提前解锁下一套。点击“再测一测”将生成全新的随机考卷。</li>
+      </ul>
+      <button onclick="resetAllProgress()" class="mt-6 w-full py-2 bg-red-100 text-red-600 rounded-xl font-bold border-2 border-red-200 active:bg-red-200">
+        清除所有本地存档
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Overlay for Syntax Results -->
+<div id="syntax-modal" class="fixed inset-0 bg-black/70 z-50 hidden items-center justify-center backdrop-blur-sm px-4">
+  <div class="modal-card">
+    <div class="text-center mb-6">
+      <h2 id="modal-title" class="font-zcool text-3xl mb-1"></h2>
+      <div id="modal-subtitle" class="font-bold text-gray-600"></div>
+    </div>
+    <div id="modal-content" class="space-y-4 mb-6"></div>
+    <button id="modal-btn" class="action-btn-large"></button>
+  </div>
+</div>
+
+<script>
+const VOCAB_DATA = [
+  // CEFR B1 - C2 words extracted from the texts
+  { en: "transform", phon: "/trænsˈfɔːrm/", cn: "v. 改变形态，变形 (B2)", ex: "witches could transform into a black cat" },
+  { en: "emphasize", phon: "/ˈemfəsaɪz/", cn: "v. 强调 (B2)", ex: "emphasizing superstitions of these furry creatures" },
+  { en: "superstition", phon: "/ˌsuːpərˈstɪʃn/", cn: "n. 迷信 (C1)", ex: "emphasizing superstitions of these furry creatures" },
+  { en: "furry", phon: "/ˈfɜːri/", cn: "adj. 毛茸茸的 (B2)", ex: "furry creatures" },
+  { en: "re-incarnate", phon: "/riːɪnˈkɑːrneɪt/", cn: "v. 转世，化身 (C2)", ex: "witches could re-incarnate into black cats" },
+  { en: "stealthy", phon: "/ˈstelθi/", cn: "adj. 鬼鬼祟祟的，隐秘的 (C1)", ex: "stealthy attitude of cats" },
+  { en: "feline", phon: "/ˈfiːlaɪn/", cn: "n./adj. 猫科动物(的) (C2)", ex: "didn't help these felines, either" },
+  { en: "witchcraft", phon: "/ˈwɪtʃkræft/", cn: "n. 巫术，魔法 (C1)", ex: "literature about witchcraft" },
+  { en: "widespread", phon: "/ˈwaɪdspred/", cn: "adj. 广泛的，普遍的 (C1)", ex: "became more widespread" },
+  { en: "hysteria", phon: "/hɪˈstɪriə/", cn: "n. 歇斯底里，狂热 (C1)", ex: "witchcraft hysteria reigned" },
+  { en: "portray", phon: "/pɔːrˈtreɪ/", cn: "v. 描绘，扮演 (B2)", ex: "portrayed in a spooky environment" },
+  { en: "onlooker", phon: "/ˈɑːnlʊkər/", cn: "n. 旁观者 (C1)", ex: "for onlookers free of charge" },
+  { en: "literally", phon: "/ˈlɪtərəli/", cn: "adv. 确实地，字面上 (B2)", ex: "Literally one of the best sauces" },
+  { en: "customizable", phon: "/ˈkʌstəmaɪzəbl/", cn: "adj. 可定制的 (C1)", ex: "completely customizable, slick" },
+  { en: "slick", phon: "/slɪk/", cn: "adj. 熟练的，流畅精美的 (C1)", ex: "completely customizable, slick" },
+  { en: "consecutive", phon: "/kənˈsekjətɪv/", cn: "adj. 连续的 (C1)", ex: "down for the third consecutive year" },
+  { en: "perception", phon: "/pərˈsepʃn/", cn: "n. 观念，看法 (C1)", ex: "due to the perception that dogs require greater care" },
+  { en: "oblige", phon: "/əˈblaɪdʒ/", cn: "v. 强迫，使负有义务 (C1)", ex: "are legally obliged to get them vaccinated" },
+  { en: "vaccinate", phon: "/ˈvæksɪneɪt/", cn: "v. 给...接种疫苗 (C1)", ex: "get them vaccinated" },
+  { en: "canine", phon: "/ˈkeɪnaɪn/", cn: "n. 犬，狗 (C2)", ex: "pet canines in the country" }
+];
+
+const BASE_SENTENCES = [
+  {
+    en: "Legend had it that witches could transform into a black cat and back, emphasizing superstitions of these furry creatures.",
+    cn: "相传女巫能变成黑猫再变回来，这加深了人们对这些毛茸茸生物的迷信。",
+    segments: [
+      { t: 'chunk', v: 'Legend had it', ans: 'main' }, { t: 'text', v: ' ' },
+      { t: 'word', v: 'that', sign: true }, { t: 'text', v: ' ' },
+      { t: 'chunk', v: 'witches could transform into a black cat and back', ans: 'clause' }, { t: 'text', v: ', ' },
+      { t: 'chunk', v: 'emphasizing superstitions', ans: 'verb' }, { t: 'text', v: ' ' },
+      { t: 'chunk', v: 'of these furry creatures', ans: 'prep' }, { t: 'text', v: '.' }
+    ]
+  },
+  {
+    en: "Additionally, there was the Middle Age legend that the devil often gifted black cats to witches to act as their servants.",
+    cn: "此外，中世纪还有个传说，说魔鬼经常把黑猫作为礼物送给女巫，让它们充当仆人。",
+    segments: [
+      { t: 'word', v: 'Additionally', sign: true }, { t: 'text', v: ', ' },
+      { t: 'chunk', v: 'there was the Middle Age legend', ans: 'main' }, { t: 'text', v: ' ' },
+      { t: 'word', v: 'that', sign: true }, { t: 'text', v: ' ' },
+      { t: 'chunk', v: 'the devil often gifted black cats', ans: 'clause' }, { t: 'text', v: ' ' },
+      { t: 'chunk', v: 'to witches', ans: 'prep' }, { t: 'text', v: ' ' },
+      { t: 'chunk', v: 'to act as their servants', ans: 'verb' }, { t: 'text', v: '.' }
+    ]
+  },
+  {
+    en: "The Dairy Queen made an ice cream cake weighing 10,115kg, setting the Guinness World Record for the biggest ice cream cake ever made in the world in Toronto on Tuesday.",
+    cn: "Dairy Queen制作了一个重达10,115公斤的冰淇淋蛋糕，于周二在多伦多创下了制作最大冰淇淋蛋糕的吉尼斯纪录。",
+    segments: [
+      { t: 'chunk', v: 'The Dairy Queen made an ice cream cake', ans: 'main' }, { t: 'text', v: ' ' },
+      { t: 'chunk', v: 'weighing 10,115kg', ans: 'verb' }, { t: 'text', v: ', ' },
+      { t: 'chunk', v: 'setting the Guinness World Record', ans: 'verb' }, { t: 'text', v: ' ' },
+      { t: 'chunk', v: 'for the biggest ice cream cake', ans: 'prep' }, { t: 'text', v: ' ' },
+      { t: 'chunk', v: 'ever made', ans: 'verb' }, { t: 'text', v: ' ' },
+      { t: 'chunk', v: 'in the world', ans: 'prep' }, { t: 'text', v: ' ' },
+      { t: 'chunk', v: 'in Toronto', ans: 'prep' }, { t: 'text', v: ' ' },
+      { t: 'chunk', v: 'on Tuesday', ans: 'prep' }, { t: 'text', v: '.' }
+    ]
+  },
+  {
+    en: "All people who have known what I felt are not surprised when they saw me eating three piece of bread with a bottle of Lao Gan Ma.",
+    cn: "所有了解我感受的人，在看到我拿一瓶老干妈吃三片面包时都不会感到惊讶。",
+    segments: [
+      { t: 'chunk', v: 'All people', ans: 'main' }, { t: 'text', v: ' ' },
+      { t: 'chunk', v: 'who have known', ans: 'clause' }, { t: 'text', v: ' ' },
+      { t: 'chunk', v: 'what I felt', ans: 'clause' }, { t: 'text', v: ' ' },
+      { t: 'chunk', v: 'are not surprised', ans: 'main' }, { t: 'text', v: ' ' },
+      { t: 'word', v: 'when', sign: true }, { t: 'text', v: ' ' },
+      { t: 'chunk', v: 'they saw me eating three piece of bread', ans: 'clause' }, { t: 'text', v: ' ' },
+      { t: 'chunk', v: 'with a bottle of Lao Gan Ma', ans: 'prep' }, { t: 'text', v: '.' }
+    ]
+  },
+  {
+    en: "Japan's aging population and the higher cost of keeping dogs has likely contributed to the sliding number of pet canines in the country, with cats overtaking them last year.",
+    cn: "日本人口老龄化和养狗成本的增加可能是导致该国宠物狗数量下降的原因，去年猫的数量超过了狗。",
+    segments: [
+      { t: 'chunk', v: "Japan's aging population and the higher cost", ans: 'main' }, { t: 'text', v: ' ' },
+      { t: 'chunk', v: 'of keeping dogs', ans: 'prep' }, { t: 'text', v: ' ' },
+      { t: 'chunk', v: 'has likely contributed', ans: 'main' }, { t: 'text', v: ' ' },
+      { t: 'chunk', v: 'to the sliding number', ans: 'prep' }, { t: 'text', v: ' ' },
+      { t: 'chunk', v: 'of pet canines', ans: 'prep' }, { t: 'text', v: ' ' },
+      { t: 'chunk', v: 'in the country', ans: 'prep' }, { t: 'text', v: ', ' },
+      { t: 'chunk', v: 'with cats overtaking them last year', ans: 'prep' }, { t: 'text', v: '.' }
+    ]
+  },
+  {
+    en: "She says more elderly people are giving up on dogs and keeping cats instead due to the perception that dogs require greater care.",
+    cn: "她说，越来越多的老年人放弃养狗转而养猫，因为他们认为狗需要更多的照顾。",
+    segments: [
+      { t: 'chunk', v: 'She says', ans: 'main' }, { t: 'text', v: ' ' },
+      { t: 'chunk', v: 'more elderly people are giving up on dogs and keeping cats instead', ans: 'clause' }, { t: 'text', v: ' ' },
+      { t: 'chunk', v: 'due to the perception', ans: 'prep' }, { t: 'text', v: ' ' },
+      { t: 'word', v: 'that', sign: true }, { t: 'text', v: ' ' },
+      { t: 'chunk', v: 'dogs require greater care', ans: 'clause' }, { t: 'text', v: '.' }
+    ]
+  },
+  {
+    en: "By analyzing the data collected from various sensors, the engineering team managed to identify the core issue causing the engine failure.",
+    cn: "通过分析从各种传感器收集的数据，工程团队设法找出了导致发动机故障的核心问题。",
+    segments: [
+      { t: 'word', v: 'By', sign: true }, { t: 'text', v: ' ' },
+      { t: 'chunk', v: 'analyzing the data', ans: 'verb' }, { t: 'text', v: ' ' },
+      { t: 'chunk', v: 'collected', ans: 'verb' }, { t: 'text', v: ' ' },
+      { t: 'chunk', v: 'from various sensors', ans: 'prep' }, { t: 'text', v: ', ' },
+      { t: 'chunk', v: 'the engineering team managed to identify the core issue', ans: 'main' }, { t: 'text', v: ' ' },
+      { t: 'chunk', v: 'causing the engine failure', ans: 'verb' }, { t: 'text', v: '.' }
+    ]
+  }
+];
+
+// Generate exactly 80 Syntax Questions Pool
+const TOTAL_SYNTAX_Q = 80;
+const SYNTAX_POOL = [];
+for (let i = 0; i < TOTAL_SYNTAX_Q; i++) {
+  // Rotate through base sentences to fulfill the pool requirement
+  const base = BASE_SENTENCES[i % BASE_SENTENCES.length];
+  SYNTAX_POOL.push({ id: `q_${i}`, en: base.en, cn: base.cn, segments: JSON.parse(JSON.stringify(base.segments)) });
+}
+
+let state = {
+  vocab: { 
+    words: VOCAB_DATA.map((w,i)=>({ ...w, id:i, firstRes: null, peeked: false })), 
+    queue: [], 
+    mastered: 0, 
+    done: false, 
+    startTime: null, 
+    timeSpent: 0, 
+    lastDate: null 
+  },
+  syntax: { 
+    firstPlayDate: null,
+    levels: [
+      { id: 1, status: 'unlocked', bestAcc: null, lastAcc: null, timeSpent: 0, lastDate: null, questions: [] },
+      { id: 2, status: 'locked', bestAcc: null, lastAcc: null, timeSpent: 0, lastDate: null, questions: [] },
+      { id: 3, status: 'locked', bestAcc: null, lastAcc: null, timeSpent: 0, lastDate: null, questions: [] },
+      { id: 4, status: 'locked', bestAcc: null, lastAcc: null, timeSpent: 0, lastDate: null, questions: [] },
+      { id: 5, status: 'locked', bestAcc: null, lastAcc: null, timeSpent: 0, lastDate: null, questions: [] },
+      { id: 6, status: 'locked', bestAcc: null, lastAcc: null, timeSpent: 0, lastDate: null, questions: [] },
+      { id: 7, status: 'locked', bestAcc: null, lastAcc: null, timeSpent: 0, lastDate: null, questions: [] }
+    ],
+    activeLevelIdx: 0, 
+    isSignpostMode: false, 
+    answers: {},
+    startTime: null
+  }
+};
+
+let timerIntervals = { vocab: null, syntax: null };
+
+const typeLabels = {
+  'main': {name: '主菜', sub: '主句', bg: 'var(--main-bg)', border: 'var(--main)', color: '#9c3414'}, 
+  'clause': {name: '配菜', sub: '从句', bg: 'var(--clause-bg)', border: 'var(--clause)', color: '#1a4f86'}, 
+  'verb': {name: '配菜', sub: '非谓语', bg: 'var(--verb-bg)', border: 'var(--verb)', color: '#136b3b'}, 
+  'prep': {name: '配菜', sub: '介词短语', bg: 'var(--prep-bg)', border: 'var(--prep)', color: '#8a5e08'}
+};
+
+function initApp() {
+  loadData();
+  
+  if(state.vocab.queue.length === 0 && !state.vocab.done) {
+    state.vocab.queue = state.vocab.words.map((w) => w.id).sort(() => Math.random() - 0.5);
+  }
+  
+  renderVocab();
+  updateReport();
+}
+
+function loadData() {
+  const saved = localStorage.getItem('block_english_pro_data');
+  if(saved) {
+    try {
+        const data = JSON.parse(saved);
+        if(data.vocab && data.vocab.words) {
+            state.vocab = data.vocab;
+            // 新增：如果刷新或退出页面时词汇没做完，进度和计时自动清零
+            if(!state.vocab.done) {
+                state.vocab.words.forEach(w => { w.firstRes = null; w.peeked = false; });
+                state.vocab.queue = state.vocab.words.map(w => w.id).sort(() => Math.random() - 0.5);
+                state.vocab.mastered = 0;
+                state.vocab.timeSpent = 0;
+                state.vocab.startTime = null;
+            }
+        }
+        if(data.syntax && data.syntax.levels) state.syntax = data.syntax;
+    } catch(e) { console.error("Error loading data", e); }
+  }
+}
+
+function checkDailyUnlock() {
+  if (!state.syntax.firstPlayDate) {
+    state.syntax.firstPlayDate = new Date().toISOString();
+    saveData();
+    return;
+  }
+  const firstPlay = new Date(state.syntax.firstPlayDate);
+  const today = new Date();
+  
+  firstPlay.setHours(0,0,0,0);
+  today.setHours(0,0,0,0);
+  
+  const diffDays = Math.floor((today - firstPlay) / (1000 * 60 * 60 * 24));
+  if (diffDays > 0) {
+    for(let i = 1; i <= Math.min(6, diffDays); i++) {
+      if (state.syntax.levels[i].status === 'locked') {
+        state.syntax.levels[i].status = 'unlocked';
+      }
+    }
+    saveData();
+  }
+}
+
+function initApp() {
+  loadData();
+  checkDailyUnlock();
+  
+  if(state.vocab.queue.length === 0 && !state.vocab.done) {
+    state.vocab.queue = state.vocab.words.map((w) => w.id).sort(() => Math.random() - 0.5);
+  }
+  
+  renderVocab();
+  updateReport();
+  
+  navToSyntax(false);
+}
+
+function saveData() {
+  localStorage.setItem('block_english_pro_data', JSON.stringify({ vocab: state.vocab, syntax: state.syntax }));
+  updateReport();
+}
+
+// === 新增：与后端交互的数据同步机制 ===
+// 获取学生身份：假设通过网址链接传递，例如 ?studentId=001&name=张三
+const urlParams = new URLSearchParams(window.location.search);
+const studentInfo = {
+  id: urlParams.get('studentId') || 'guest_' + Math.floor(Math.random()*10000),
+  name: urlParams.get('name') || '匿名游客'
+};
+
+// 【重要】请将这里替换为你 Supabase 项目的真实 URL 和 anon key
+const SUPABASE_URL = 'https://xxxxxxxxxxxxxxxxxxxx.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; 
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+async function syncDataToBackend(testType, levelId, accuracy, timeSpent, logDetails) {
+  const payload = {
+    student_id: studentInfo.id,
+    student_name: studentInfo.name,
+    test_type: testType, 
+    level: levelId,
+    score: Math.round(accuracy * 100),
+    time_spent_ms: timeSpent,
+    details: logDetails // jsonb 格式，包含每一题的具体对错和渲染HTML
+  };
+
+  try {
+    // 调用 Supabase SDK 将数据插入 student_scores 表
+    const { data, error } = await supabaseClient
+      .from('student_scores')
+      .insert([payload]);
+      
+    if (error) {
+      console.error("数据保存至 Supabase 失败:", error);
+    } else {
+      console.log("✅ 成功同步成绩至 Supabase 后台");
+    }
+  } catch (err) {
+    console.error("网络请求错误:", err);
+  }
+}
+// =====================================
+
+function resetAllProgress() {
+  if(confirm("确定要清除所有进度吗？此操作不可恢复。")) {
+    localStorage.removeItem('block_english_pro_data');
+    location.reload();
+  }
+}
+
+function formatTime(seconds) {
+  const m = Math.floor(seconds / 60); const s = seconds % 60;
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+}
+function formatDate(isoString) {
+  if(!isoString) return '尚未进行';
+  const d = new Date(isoString);
+  return `${d.getMonth()+1}月${d.getDate()}日 ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+}
+
+function switchTab(tab) {
+  const activeView = document.querySelector('.app-view.active');
+  const leavingTab = activeView ? activeView.id.replace('view-', '') : null;
+
+  ['guide', 'vocab', 'syntax', 'report'].forEach(t => {
+    document.getElementById('view-' + t).classList.remove('active');
+    document.getElementById('tab-' + t).classList.remove('active');
+  });
+  document.getElementById('view-' + tab).classList.add('active');
+  document.getElementById('tab-' + tab).classList.add('active');
+  window.scrollTo(0,0);
+  
+  clearInterval(timerIntervals.vocab); 
+  clearInterval(timerIntervals.syntax);
+
+  // 处理离开测试标签页：进度和计时自动清零
+  if (leavingTab === 'vocab' && tab !== 'vocab') {
+    if (!state.vocab.done) {
+      state.vocab.words.forEach(w => { w.firstRes = null; w.peeked = false; });
+      state.vocab.queue = state.vocab.words.map(w => w.id).sort(() => Math.random() - 0.5);
+      state.vocab.mastered = 0;
+      state.vocab.timeSpent = 0;
+      state.vocab.startTime = null;
+      saveData();
+      renderVocab();
+    }
+  }
+
+  if (leavingTab === 'syntax' && tab !== 'syntax') {
+    state.syntax.startTime = null;
+    state.syntax.answers = {};
+    if (document.getElementById('syntax-container').children.length > 0) {
+        renderSyntaxSet(); // 清空当前做了一半的选项
+    }
+    document.getElementById('s-timer').textContent = "00:00";
+  }
+  
+  // 处理进入测试标签页：开始/重置计时
+  if (tab === 'vocab' && !state.vocab.done) {
+    state.vocab.timeSpent = 0; // 确保计时从0开始
+    state.vocab.startTime = Date.now();
+    document.getElementById('v-timer').textContent = "00:00";
+    timerIntervals.vocab = setInterval(() => {
+      const ms = Date.now() - state.vocab.startTime;
+      document.getElementById('v-timer').textContent = formatTime(Math.floor(ms/1000));
+    }, 1000);
+  } else if (tab === 'syntax') {
+    if (document.getElementById('syntax-container').children.length === 0) {
+        navToSyntax(false);
+    }
+    state.syntax.startTime = Date.now(); // 确保计时从0开始
+    document.getElementById('s-timer').textContent = "00:00";
+    timerIntervals.syntax = setInterval(() => {
+      const ms = Date.now() - state.syntax.startTime;
+      document.getElementById('s-timer').textContent = formatTime(Math.floor(ms/1000));
+    }, 1000);
+  }
+}
+
+function renderVocab() {
+  if(state.vocab.done || state.vocab.mastered >= state.vocab.words.length) {
+    document.getElementById('vocab-play-area').classList.add('hidden');
+    document.getElementById('vocab-done-area').classList.remove('hidden');
+    state.vocab.done = true;
+    if(state.vocab.startTime) {
+       state.vocab.timeSpent += (Date.now() - state.vocab.startTime);
+       state.vocab.startTime = null;
+       state.vocab.lastDate = new Date().toISOString();
+       saveData();
+    }
+  } else {
+    document.getElementById('vocab-play-area').classList.remove('hidden');
+    document.getElementById('vocab-done-area').classList.add('hidden');
+    
+    const wordIdx = state.vocab.queue[0];
+    const w = state.vocab.words[wordIdx];
+    
+    document.getElementById('v-en').textContent = w.en;
+    document.getElementById('v-phon').textContent = w.phon;
+    document.getElementById('v-cn').textContent = w.cn;
+    document.getElementById('v-ex').textContent = w.ex;
+    
+    document.getElementById('v-ans-area').classList.add('hidden');
+    document.getElementById('v-reveal-btn').classList.remove('hidden');
+    // Action buttons are always visible as requested
+  }
+  
+  document.getElementById('v-mastered').textContent = state.vocab.mastered;
+  document.getElementById('v-total').textContent = state.vocab.words.length;
+  document.getElementById('v-progress').style.width = (state.vocab.mastered / state.vocab.words.length * 100) + '%';
+}
+
+function revealVocab() {
+  const currentIdx = state.vocab.queue[0];
+  state.vocab.words[currentIdx].peeked = true;
+  document.getElementById('v-reveal-btn').classList.add('hidden');
+  document.getElementById('v-ans-area').classList.remove('hidden');
+}
+
+function markVocab(result) {
+  const currentIdx = state.vocab.queue.shift();
+  const w = state.vocab.words[currentIdx];
+  
+  if(!w.firstRes) {
+      w.firstRes = result;
+      // if they mark 'know' without ever clicking reveal, peeked remains false.
+  }
+  
+  if(result === 'know') {
+    state.vocab.mastered++;
+  } else if (result === 'meh') {
+    const pos = Math.min(state.vocab.queue.length, 3);
+    state.vocab.queue.splice(pos, 0, currentIdx);
+  } else {
+    const pos = Math.min(state.vocab.queue.length, 1);
+    state.vocab.queue.splice(pos, 0, currentIdx);
+  }
+  
+  saveData();
+  renderVocab();
+}
+
+function resetVocab() {
+  state.vocab.words.forEach(w => { w.firstRes = null; w.peeked = false; });
+  state.vocab.queue = state.vocab.words.map(w => w.id).sort(() => Math.random() - 0.5);
+  state.vocab.mastered = 0; state.vocab.done = false; state.vocab.timeSpent = 0; state.vocab.startTime = Date.now();
+  saveData();
+  renderVocab();
+  switchTab('vocab');
+}
+
+function navToSyntax(doSwitch = true) {
+  // Find highest unlocked level
+  let targetIdx = 0;
+  for(let i=0; i<7; i++) {
+    if(state.syntax.levels[i].status === 'unlocked' || state.syntax.levels[i].status === 'passed') targetIdx = i;
+    if(state.syntax.levels[i].status === 'locked') break;
+  }
+  
+  if (state.syntax.levels[targetIdx].questions.length === 0) {
+    startSyntaxLevel(targetIdx);
+  } else {
+    state.syntax.activeLevelIdx = targetIdx;
+    renderSyntaxSet();
+  }
+  
+  if(doSwitch) switchTab('syntax');
+}
+
+function startSyntaxLevel(idx) {
+  state.syntax.activeLevelIdx = idx;
+  const level = state.syntax.levels[idx];
+  
+  // Feature: Randomly draw 6 questions from the 80 question pool
+  const shuffledPool = [...SYNTAX_POOL].sort(() => Math.random() - 0.5);
+  level.questions = shuffledPool.slice(0, 6);
+  
+  state.syntax.startTime = Date.now();
+  renderSyntaxSet();
+}
+
+function renderSyntaxSet() {
+  const idx = state.syntax.activeLevelIdx;
+  const level = state.syntax.levels[idx];
+  
+  document.getElementById('set-indicator').textContent = `Level ${idx + 1}`;
+  
+  const container = document.getElementById('syntax-container');
+  container.innerHTML = '';
+  state.syntax.answers = {};
+  
+  level.questions.forEach((q, index) => {
+    state.syntax.answers[q.id] = { chunks: {}, signposts: [] };
+    
+    const card = document.createElement('div');
+    card.className = 'sentence-card bg-white border border-gray-200 rounded-2xl p-5 shadow-sm mb-4';
+    card.innerHTML = `<div class="text-xs font-bold text-gray-400 tracking-wider mb-4 border-b border-gray-100 pb-2"><span class="bg-indigo-50 text-[var(--clause)] px-2 py-1 rounded">Q${index + 1}</span></div>`;
+
+    const sentenceBody = document.createElement('div');
+    sentenceBody.className = 'sentence-container';
+
+    let chunkCounter = 0; let wordCounter = 0;
+
+    q.segments.forEach(seg => {
+      if (seg.t === 'text') { sentenceBody.appendChild(document.createTextNode(seg.v)); } 
+      else if (seg.t === 'word') {
+        const span = document.createElement('span');
+        span.className = 'clickable-word';
+        span.dataset.qid = q.id; span.dataset.widx = wordCounter;
+        span.textContent = seg.v;
+        span.onclick = () => handleSignpostClick(q.id, span.dataset.widx, span);
+        sentenceBody.appendChild(span);
+        wordCounter++;
+      }
+      else if (seg.t === 'chunk') {
+        const wrapper = document.createElement('span');
+        wrapper.className = 'chunk-container';
+        
+        const textSpan = document.createElement('span');
+        textSpan.className = 'chunk-text'; textSpan.textContent = seg.v;
+        
+        const dropzone = document.createElement('div');
+        dropzone.className = 'dropzone'; dropzone.dataset.qid = q.id; dropzone.dataset.cidx = chunkCounter;
+        dropzone.onclick = () => {
+          if(!state.syntax.isSignpostMode && dropzone.classList.contains('filled')) {
+            delete state.syntax.answers[q.id].chunks[dropzone.dataset.cidx];
+            dropzone.className = 'dropzone'; dropzone.style = ''; dropzone.innerHTML = '';
+          }
+        };
+
+        wrapper.appendChild(textSpan); wrapper.appendChild(dropzone);
+        sentenceBody.appendChild(wrapper);
+        chunkCounter++;
+      }
+    });
+    card.appendChild(sentenceBody); container.appendChild(card);
+  });
+}
+
+// Signpost Mode Toggle
+document.getElementById('signpost-toggle').addEventListener('change', (e) => {
+  state.syntax.isSignpostMode = e.target.checked;
+  const view = document.getElementById('view-syntax');
+  if(state.syntax.isSignpostMode) view.classList.add('mode-signpost-active');
+  else view.classList.remove('mode-signpost-active');
+});
+
+function handleSignpostClick(qId, wIdxStr, el) {
+  if (!state.syntax.isSignpostMode) return;
+  const wIdx = parseInt(wIdxStr);
+  const arr = state.syntax.answers[qId].signposts;
+  const pos = arr.indexOf(wIdx);
+  if (pos === -1) { arr.push(wIdx); el.classList.add('selected'); }
+  else { arr.splice(pos, 1); el.classList.remove('selected'); }
+}
+
+let dragInfo = { isDragging: false, ghost: null, type: null, target: null };
+document.querySelectorAll('.draggable-tag').forEach(tag => {
+  tag.addEventListener('touchstart', startDrag, {passive: false});
+  tag.addEventListener('mousedown', startDrag);
+});
+
+function startDrag(e) {
+  if (state.syntax.isSignpostMode) return;
+  if (e.type === 'touchstart') e.preventDefault(); 
+  
+  dragInfo.type = e.currentTarget.dataset.type;
+  dragInfo.isDragging = true;
+  
+  dragInfo.ghost = document.createElement('div');
+  dragInfo.ghost.id = 'drag-ghost';
+  dragInfo.ghost.className = e.currentTarget.className;
+  dragInfo.ghost.style.cssText = e.currentTarget.style.cssText;
+  dragInfo.ghost.innerHTML = e.currentTarget.innerHTML;
+  document.body.appendChild(dragInfo.ghost);
+
+  const x = e.touches ? e.touches[0].clientX : e.clientX;
+  const y = e.touches ? e.touches[0].clientY : e.clientY;
+  moveDragGhost(x, y);
+  
+  if (e.type === 'touchstart') {
+    document.addEventListener('touchmove', handleDragMove, {passive: false});
+    document.addEventListener('touchend', handleDragEnd);
+  } else {
+    document.addEventListener('mousemove', handleDragMove);
+    document.addEventListener('mouseup', handleDragEnd);
+  }
+}
+
+function moveDragGhost(x, y) { if(dragInfo.ghost){ dragInfo.ghost.style.left = x+'px'; dragInfo.ghost.style.top = y+'px'; } }
+
+function handleDragMove(e) {
+  if (!dragInfo.isDragging) return;
+  e.preventDefault();
+  const x = e.touches ? e.touches[0].clientX : e.clientX;
+  const y = e.touches ? e.touches[0].clientY : e.clientY;
+  moveDragGhost(x, y);
+
+  dragInfo.ghost.style.visibility = 'hidden';
+  const elBelow = document.elementFromPoint(x, y);
+  dragInfo.ghost.style.visibility = 'visible';
+
+  const dz = elBelow?.closest('.dropzone');
+  if (dragInfo.target && dragInfo.target !== dz) dragInfo.target.classList.remove('drag-over');
+  if (dz && !dz.closest('.mode-signpost-active')) { dz.classList.add('drag-over'); dragInfo.target = dz; } 
+  else { dragInfo.target = null; }
+}
+
+function handleDragEnd(e) {
+  if (!dragInfo.isDragging) return;
+  document.removeEventListener('mousemove', handleDragMove);
+  document.removeEventListener('mouseup', handleDragEnd);
+  document.removeEventListener('touchmove', handleDragMove);
+  document.removeEventListener('touchend', handleDragEnd);
+
+  if (dragInfo.ghost) { dragInfo.ghost.remove(); dragInfo.ghost = null; }
+  if (dragInfo.target) {
+    dragInfo.target.classList.remove('drag-over');
+    const qId = dragInfo.target.dataset.qid;
+    const cIdx = parseInt(dragInfo.target.dataset.cidx);
+    const type = dragInfo.type;
+    
+    state.syntax.answers[qId].chunks[cIdx] = type;
+    dragInfo.target.className = 'dropzone filled cursor-pointer';
+    dragInfo.target.style.background = typeLabels[type].bg;
+    dragInfo.target.style.borderColor = typeLabels[type].border;
+    dragInfo.target.style.color = typeLabels[type].color;
+    dragInfo.target.innerHTML = `<div class="text-[13px] font-bold text-center leading-tight"><span>${typeLabels[type].name}</span><br><span style="font-size:9px;opacity:0.8">${typeLabels[type].sub}</span></div>`;
+  }
+  dragInfo.isDragging = false; dragInfo.type = null; dragInfo.target = null;
+}
+
+function submitSyntax() {
+  const idx = state.syntax.activeLevelIdx;
+  const level = state.syntax.levels[idx];
+  const questions = level.questions;
+  
+  let correctScore = 0; let totalScore = 0; let log = [];
+
+  questions.forEach(q => {
+    let cIdx = 0; let wIdx = 0; let hasErr = false;
+    let visualHtml = [];
+
+    q.segments.forEach(seg => {
+      if (seg.t === 'text') { visualHtml.push(`<span>${seg.v}</span>`); } 
+      else if (seg.t === 'word') {
+        totalScore++;
+        const isSel = state.syntax.answers[q.id].signposts.includes(wIdx);
+        if (seg.sign) {
+          if (isSel) { correctScore++; visualHtml.push(`<span class="p-sign mx-1">${seg.v}</span>`); }
+          else { hasErr=true; visualHtml.push(`<span class="p-sign mx-1" style="border:2px dashed red">${seg.v}</span>`); }
+        } else {
+          if (isSel) { correctScore = Math.max(0, correctScore-1); hasErr=true; visualHtml.push(`<span class="bg-red-100 text-red-600 line-through decoration-2 px-1 rounded mx-1">${seg.v}</span>`); }
+          else { correctScore++; visualHtml.push(`<span>${seg.v}</span>`); }
+        }
+        wIdx++;
+      } 
+      else if (seg.t === 'chunk') {
+        totalScore++;
+        const uAns = state.syntax.answers[q.id].chunks[cIdx];
+        if (uAns === seg.ans) { correctScore++; visualHtml.push(`<span class="p-${seg.ans} mx-1 whitespace-nowrap">${seg.v}</span>`); }
+        else { hasErr=true; visualHtml.push(`<span class="p-${seg.ans} mx-1 whitespace-nowrap" style="border:2px dashed red">${seg.v}</span>`); }
+        cIdx++;
+      }
+    });
+    log.push({ html: visualHtml.join(''), cn: q.cn, hasErr });
+  });
+
+  const accuracy = correctScore / totalScore;
+  const isPass = accuracy >= 0.85; // 85% requirement to unlock
+
+  // Update level stats
+  level.lastAcc = accuracy;
+  if(level.bestAcc === null || accuracy > level.bestAcc) level.bestAcc = accuracy;
+  level.timeSpent += (Date.now() - state.syntax.startTime);
+  level.lastDate = new Date().toISOString();
+  state.syntax.startTime = null; // stop timer
+
+  if (isPass) {
+    level.status = 'passed';
+    if (idx < 6 && state.syntax.levels[idx+1].status === 'locked') {
+      state.syntax.levels[idx+1].status = 'unlocked';
+    }
+  }
+  
+  saveData();
+  clearInterval(timerIntervals.syntax);
+  
+  // 新增：向老师的后台发送本次成绩！
+  syncDataToBackend('syntax', idx + 1, accuracy, level.timeSpent, log);
+
+  showSyntaxModal(accuracy, isPass, log, idx);
+}
+
+function showSyntaxModal(acc, isPass, log, idx) {
+  const modal = document.getElementById('syntax-modal');
+  const title = document.getElementById('modal-title');
+  const sub = document.getElementById('modal-subtitle');
+  const content = document.getElementById('modal-content');
+  const btn = document.getElementById('modal-btn');
+
+  modal.classList.remove('hidden'); modal.classList.add('flex');
+  content.innerHTML = '';
+  
+  const pct = Math.round(acc * 100);
+
+  if(isPass) {
+    title.innerHTML = '<i class="fas fa-check-circle text-green-500"></i> 挑战成功！';
+    sub.innerHTML = `本关准确率：<span class="text-green-600 font-black text-xl ml-1">${pct}%</span>`;
+    btn.textContent = (idx < 6) ? "进入下一关" : "查看学习报告";
+    btn.onclick = () => { 
+      closeSyntaxModal(); 
+      if(idx < 6) { 
+        if(state.syntax.levels[idx+1].status === 'locked') state.syntax.levels[idx+1].status = 'unlocked';
+        startSyntaxLevel(idx+1); switchTab('syntax'); 
+      }
+      else { switchTab('report'); }
+    };
+  } else {
+    title.innerHTML = '<i class="fas fa-exclamation-triangle text-[var(--main)]"></i> 未达标！';
+    sub.innerHTML = `本关准确率：<span class="text-[var(--main)] font-black text-xl ml-1">${pct}%</span> (需85%合格)`;
+    btn.textContent = "再测一套";
+    btn.onclick = () => { closeSyntaxModal(); startSyntaxLevel(idx); switchTab('syntax'); };
+  }
+
+  log.forEach((l, i) => {
+    content.innerHTML += `
+      <div class="bg-white border-2 border-gray-200 rounded-xl p-4 text-left">
+        <div class="flex justify-between items-center mb-2 border-b border-gray-100 pb-2">
+          <span class="font-bold text-gray-400">Q${i+1}</span>
+          ${l.hasErr ? '<span class="text-xs font-bold text-red-500">发现错误</span>' : '<span class="text-xs font-bold text-green-500">完全正确</span>'}
+        </div>
+        <div class="font-nunito font-bold text-lg leading-[2.2] text-gray-800 mb-2">${l.html}</div>
+        <div class="bg-[var(--paper)] p-2 rounded text-sm text-gray-600 font-bold">参考：${l.cn}</div>
+      </div>
+    `;
+  });
+}
+
+function closeSyntaxModal() {
+  document.getElementById('syntax-modal').classList.add('hidden');
+  document.getElementById('syntax-modal').classList.remove('flex');
+  window.scrollTo(0,0);
+}
+
+function updateReport() {
+  // Vocab Breakdown
+  let firstKnow = 0; let peeked = 0; let struggle = 0;
+  state.vocab.words.forEach(w => {
+    if(w.firstRes === 'know' && !w.peeked) firstKnow++;
+    else if(w.peeked && w.firstRes === 'know') peeked++;
+    else if(w.firstRes === 'meh' || w.firstRes === 'no') struggle++;
+  });
+  
+  const vTotal = state.vocab.words.length;
+  document.getElementById('r-v-total').textContent = vTotal;
+  document.getElementById('r-v-first').textContent = firstKnow;
+  document.getElementById('r-v-peeked').textContent = peeked;
+  document.getElementById('r-v-struggle').textContent = struggle;
+  
+  let currentSessionVocabTime = 0;
+  if(state.vocab.startTime) currentSessionVocabTime = Date.now() - state.vocab.startTime;
+  document.getElementById('r-vocab-time').textContent = formatTime(Math.floor((state.vocab.timeSpent + currentSessionVocabTime)/1000));
+  document.getElementById('r-vocab-date').textContent = formatDate(state.vocab.lastDate);
+
+  // Syntax Warning Logic
+  let completedCount = 0;
+  let sumAcc = 0;
+  state.syntax.levels.forEach(lvl => {
+    if(lvl.lastAcc !== null) {
+      completedCount++;
+      sumAcc += lvl.lastAcc;
+    }
+  });
+  
+  const banner = document.getElementById('r-warning-banner');
+  if (completedCount >= 2 && (sumAcc / completedCount) < 0.85) {
+     banner.classList.remove('hidden');
+  } else {
+     banner.classList.add('hidden');
+  }
+
+  // Syntax Progress
+  const sList = document.getElementById('r-syntax-list');
+  sList.innerHTML = '';
+  
+  state.syntax.levels.forEach(lvl => {
+    let statusHtml = ''; let accHtml = '--'; let timeStr = '--:--'; let actionHtml = '';
+    
+    if(lvl.lastAcc !== null) {
+      const pct = Math.round(lvl.lastAcc * 100);
+      accHtml = `${pct}%`;
+      timeStr = formatTime(Math.floor(lvl.timeSpent/1000));
+      
+      if(lvl.status === 'passed') {
+        statusHtml = `<span class="text-green-600 bg-green-50 px-2 py-1 rounded"><i class="fas fa-check"></i> 已通关</span>`;
+        actionHtml = `<button onclick="startSyntaxLevel(${lvl.id-1}); switchTab('syntax')" class="text-[var(--clause)] underline text-xs">刷满分</button>`;
+      } else {
+        statusHtml = `<span class="text-red-600 bg-red-50 px-2 py-1 rounded"><i class="fas fa-xmark"></i> 不合格</span>`;
+        actionHtml = `<button onclick="startSyntaxLevel(${lvl.id-1}); switchTab('syntax')" class="bg-[var(--clause)] text-white px-3 py-1 rounded-full shadow-sm active:scale-95 transition">再测一测</button>`;
+      }
+    } else {
+      if(lvl.status === 'locked') {
+        statusHtml = `<span class="text-gray-400 bg-gray-100 px-2 py-1 rounded"><i class="fas fa-lock"></i> 待解锁</span>`;
+      } else {
+        statusHtml = `<span class="text-blue-600 bg-blue-50 px-2 py-1 rounded">可挑战</span>`;
+        actionHtml = `<button onclick="startSyntaxLevel(${lvl.id-1}); switchTab('syntax')" class="bg-[var(--ink)] text-white px-3 py-1 rounded-full shadow-sm active:scale-95 transition">开始</button>`;
+      }
+    }
+
+    sList.innerHTML += `
+      <div class="bg-white border-2 border-gray-200 rounded-xl px-4 py-3 report-table-row">
+        <div class="text-[var(--ink)] font-black text-sm">Level ${lvl.id}</div>
+        <div>${statusHtml}</div>
+        <div class="text-gray-500 text-xs">最近 ${accHtml}<br><span class="font-normal opacity-70">用时 ${timeStr}</span><br><span class="font-normal opacity-70">${formatDate(lvl.lastDate)}</span></div>
+        <div class="text-right">${actionHtml}</div>
+      </div>
+    `;
+  });
+}
+
+// Bootstrap
+initApp();
+</script>
+</body>
+</html>
