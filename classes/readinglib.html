@@ -10,7 +10,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
-  <!-- 新增：引入 Supabase 官方 JS 库 -->
+  <!-- 引入 Supabase 官方 JS 库 -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   
   <style>
@@ -96,13 +96,13 @@
     /* Vocab Drill */
     .vocab-title { font-family: "Baloo 2"; font-weight: 800; font-size: 42px; line-height: 1; text-align: center; margin-bottom: 4px; }
     .vocab-phon { text-align: center; color: var(--ink-soft); font-family: "Nunito"; font-size: 15px; margin-bottom: 12px; }
-    .vocab-ans { border-top: 2px dashed var(--line); padding-top: 20px; margin-top: 10px; }
+    .vocab-ans { border-top: 2px dashed var(--ink-soft); padding-top: 20px; margin-top: 10px; }
     
     .action-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px; margin-top:20px}
     .v-btn{ border:2px solid var(--ink); border-radius:16px; padding:12px 8px; font-weight:800; text-align:center; box-shadow:0 4px 0 rgba(0,0,0,.15); transition:.1s; background:#fff; cursor:pointer;}
     .v-btn:active{ transform:translateY(2px); box-shadow:0 2px 0 rgba(0,0,0,.15); }
     .v-btn i { font-size: 24px; margin-bottom: 6px; display: block; }
-    .v-no { background: #FFE8E8; color: var(--red-deep); border-color: var(--red-deep); }
+    .v-no { background: #FFE8E8; color: #D32F2F; border-color: #D32F2F; }
     .v-meh { background: #FFF4E0; color: #A66B05; border-color: #A66B05; }
     .v-know { background: #E8F5E9; color: #1B5E20; border-color: #1B5E20; }
 
@@ -143,7 +143,7 @@
     .modal-card { background: var(--paper2); border: 3px solid var(--ink); border-radius: 24px; box-shadow: var(--shadow); width: 100%; max-width: 500px; max-height: 80vh; overflow-y: auto; padding: 24px; position: relative; }
     
     /* Report Styles */
-    .report-table-row { display: grid; grid-template-columns: 3fr 2fr 3fr 2fr; gap: 8px; align-items: center; padding: 12px 0; border-bottom: 1px dashed var(--line); font-size: 13px; font-weight: bold;}
+    .report-table-row { display: grid; grid-template-columns: 3fr 2fr 3fr 2fr; gap: 8px; align-items: center; padding: 12px 0; border-bottom: 1px dashed var(--ink-soft); font-size: 13px; font-weight: bold;}
     .report-table-row:last-child { border-bottom: none; }
     @media(max-width: 500px) {
         .report-table-row { grid-template-columns: 1fr; gap: 4px; padding: 10px 0; }
@@ -153,10 +153,6 @@
 </head>
 <body>
 
-<!-- ============================================================
-     登录锁（Eugene 专属）—— 由 Claude 添加
-     ★ 想换账号或密码，只改下面 script 里那两行 ACCOUNT / PASSWORD 即可，其它别动。
-     ============================================================ -->
 <style>
   #xy-gate{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;
     padding:24px;background:radial-gradient(circle at 12% 8%,#fff5dd 0,transparent 40%),
@@ -197,14 +193,10 @@
 
 <script>
 (function(){
-  /* ===== 账号密码：要改就改这两行 ===== */
   var ACCOUNT  = "eugene";
   var PASSWORD = "0987";
-  var AUTO_TOKEN = "eug-2026"; /* 从主站登录后自动跳转会带这个暗号，带了就免登录 */
-  /* ==================================== */
-  var gate = document.getElementById('xy-gate');
-  if (new URLSearchParams(location.search).get('unlock') === AUTO_TOKEN) { if (gate) gate.style.display = 'none'; return; }
   document.body.classList.add('xy-locked');
+  var gate = document.getElementById('xy-gate');
   var acc  = document.getElementById('xy-acc');
   var pwd  = document.getElementById('xy-pwd');
   var err  = document.getElementById('xy-err');
@@ -223,9 +215,7 @@
   acc.addEventListener('keydown', function(e){ if(e.key === 'Enter') pwd.focus(); });
 })();
 </script>
-<!-- ============== 登录锁 结束 ============== -->
 
-<!-- Navigation -->
 <nav class="nav-bar">
   <button class="nav-btn active" onclick="switchTab('guide')" id="tab-guide"><i class="fas fa-home mr-1"></i> 指南</button>
   <button class="nav-btn" onclick="switchTab('vocab')" id="tab-vocab"><i class="fas fa-bolt mr-1"></i> 词汇</button>
@@ -233,7 +223,6 @@
   <button class="nav-btn" onclick="switchTab('report')" id="tab-report"><i class="fas fa-chart-pie mr-1"></i> 报告</button>
 </nav>
 
-<!-- ==================== VIEW: GUIDE ==================== -->
 <div id="view-guide" class="app-view active wrap">
   <header class="cover">
     <span class="blob b1"></span><span class="blob b2"></span>
@@ -271,7 +260,6 @@
   </div>
 </div>
 
-<!-- ==================== VIEW: VOCAB ==================== -->
 <div id="view-vocab" class="app-view wrap">
   <div class="desktop-card">
     <div class="flex justify-between items-end mb-2 px-2">
@@ -315,7 +303,6 @@
   </div>
 </div>
 
-<!-- ==================== VIEW: SYNTAX ==================== -->
 <div id="view-syntax" class="app-view wrap pb-40">
   <div class="desktop-card">
     <div class="flex justify-between items-center mb-4">
@@ -339,13 +326,11 @@
       </div>
     </div>
 
-    <!-- Syntax Questions Container -->
     <div id="syntax-container" class="space-y-4"></div>
 
     <button onclick="submitSyntax()" class="action-btn-large mt-6 mb-10"><i class="fas fa-paper-plane"></i> 提交当前关卡</button>
   </div>
 
-  <!-- Sticky Tag Bank -->
   <div id="tag-bank" class="tag-bank-wrapper">
     <div class="desktop-card flex justify-around items-center">
       <div class="draggable-tag" style="border-color:var(--main); color:#9c3414; background:var(--main-bg)" data-type="main"><span>主菜</span><span>主句</span></div>
@@ -356,7 +341,6 @@
   </div>
 </div>
 
-<!-- ==================== VIEW: REPORT ==================== -->
 <div id="view-report" class="app-view wrap">
   <div class="desktop-card">
     <h1 class="font-zcool text-3xl font-black text-center mb-6">我的个性化学习报告</h1>
@@ -369,7 +353,6 @@
       </div>
     </div>
 
-    <!-- Vocab Report -->
     <div class="guide-card !p-5 mb-5">
       <h3 class="font-zcool text-xl mb-3 flex items-center gap-2"><i class="fas fa-bolt text-[var(--main)]"></i> 词汇扫雷</h3>
       <div class="grid grid-cols-2 gap-4 mb-4">
@@ -403,15 +386,11 @@
       </div>
     </div>
 
-    <!-- Syntax Report -->
     <div class="guide-card !p-5 mb-5">
       <div class="flex justify-between items-end mb-4">
         <h3 class="font-zcool text-xl flex items-center gap-2"><i class="fas fa-layer-group text-[var(--clause)]"></i> 句法拆解（共 7 关）</h3>
       </div>
-      
-      <div id="r-syntax-list" class="flex flex-col gap-2">
-        <!-- Rendered by JS -->
-      </div>
+      <div id="r-syntax-list" class="flex flex-col gap-2"></div>
     </div>
 
     <div class="guide-card">
@@ -428,7 +407,6 @@
   </div>
 </div>
 
-<!-- Modal Overlay for Syntax Results -->
 <div id="syntax-modal" class="fixed inset-0 bg-black/70 z-50 hidden items-center justify-center backdrop-blur-sm px-4">
   <div class="modal-card">
     <div class="text-center mb-6">
@@ -442,7 +420,6 @@
 
 <script>
 const VOCAB_DATA = [
-  // CEFR B1 - C2 words extracted from the texts
   { en: "transform", phon: "/trænsˈfɔːrm/", cn: "v. 改变形态，变形 (B2)", ex: "witches could transform into a black cat" },
   { en: "emphasize", phon: "/ˈemfəsaɪz/", cn: "v. 强调 (B2)", ex: "emphasizing superstitions of these furry creatures" },
   { en: "superstition", phon: "/ˌsuːpərˈstɪʃn/", cn: "n. 迷信 (C1)", ex: "emphasizing superstitions of these furry creatures" },
@@ -469,6 +446,13 @@ const BASE_SENTENCES = [
   {
     en: "Legend had it that witches could transform into a black cat and back, emphasizing superstitions of these furry creatures.",
     cn: "相传女巫能变成黑猫再变回来，这加深了人们对这些毛茸茸生物的迷信。",
+    detail: `
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--main)] mr-1"></span><span class="font-bold text-[#9c3414]">Legend had it</span> (主菜) - 句子的核心骨架</div>
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--sign)] mr-1"></span><span class="font-bold text-[var(--sign)]">that</span> (路标词) - 引导后面的宾语从句</div>
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--clause)] mr-1"></span><span class="font-bold text-[#1a4f86]">witches could transform...</span> (配菜:从句) - 补充说明传说的具体内容</div>
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--verb)] mr-1"></span><span class="font-bold text-[#136b3b]">emphasizing superstitions</span> (配菜:非谓语) - 现在分词作伴随状态/结果</div>
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--prep)] mr-1"></span><span class="font-bold text-[#8a5e08]">of these furry creatures</span> (配菜:介词) - 作定语修饰“迷信”</div>
+    `,
     segments: [
       { t: 'chunk', v: 'Legend had it', ans: 'main' }, { t: 'text', v: ' ' },
       { t: 'word', v: 'that', sign: true }, { t: 'text', v: ' ' },
@@ -480,6 +464,14 @@ const BASE_SENTENCES = [
   {
     en: "Additionally, there was the Middle Age legend that the devil often gifted black cats to witches to act as their servants.",
     cn: "此外，中世纪还有个传说，说魔鬼经常把黑猫作为礼物送给女巫，让它们充当仆人。",
+    detail: `
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--sign)] mr-1"></span><span class="font-bold text-[var(--sign)]">Additionally</span> (路标词) - 表示递进关系</div>
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--main)] mr-1"></span><span class="font-bold text-[#9c3414]">there was the Middle Age legend</span> (主菜) - 存在句，核心骨架</div>
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--sign)] mr-1"></span><span class="font-bold text-[var(--sign)]">that</span> (路标词) - 引导同位语从句</div>
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--clause)] mr-1"></span><span class="font-bold text-[#1a4f86]">the devil often gifted black cats</span> (配菜:从句) - 解释传说(legend)的具体内容</div>
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--prep)] mr-1"></span><span class="font-bold text-[#8a5e08]">to witches</span> (配菜:介词) - 表示送礼的对象</div>
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--verb)] mr-1"></span><span class="font-bold text-[#136b3b]">to act as their servants</span> (配菜:非谓语) - 动词不定式作目的状语</div>
+    `,
     segments: [
       { t: 'word', v: 'Additionally', sign: true }, { t: 'text', v: ', ' },
       { t: 'chunk', v: 'there was the Middle Age legend', ans: 'main' }, { t: 'text', v: ' ' },
@@ -492,6 +484,14 @@ const BASE_SENTENCES = [
   {
     en: "The Dairy Queen made an ice cream cake weighing 10,115kg, setting the Guinness World Record for the biggest ice cream cake ever made in the world in Toronto on Tuesday.",
     cn: "Dairy Queen制作了一个重达10,115公斤的冰淇淋蛋糕，于周二在多伦多创下了制作最大冰淇淋蛋糕的吉尼斯纪录。",
+    detail: `
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--main)] mr-1"></span><span class="font-bold text-[#9c3414]">The Dairy Queen made...</span> (主菜) - 句子的核心骨架</div>
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--verb)] mr-1"></span><span class="font-bold text-[#136b3b]">weighing 10,115kg</span> (配菜:非谓语) - 现在分词作后置定语修饰 cake</div>
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--verb)] mr-1"></span><span class="font-bold text-[#136b3b]">setting the Guinness World Record</span> (配菜:非谓语) - 现在分词表示伴随发生的结果</div>
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--prep)] mr-1"></span><span class="font-bold text-[#8a5e08]">for the biggest ice cream cake</span> (配菜:介词) - 修饰前面创下的 record</div>
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--verb)] mr-1"></span><span class="font-bold text-[#136b3b]">ever made</span> (配菜:非谓语) - 过去分词进一步修饰前面的 cake</div>
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--prep)] mr-1"></span><span class="font-bold text-[#8a5e08]">in the world / in Toronto / on Tuesday</span> (配菜:介词) - 分别表示范围、地点和时间</div>
+    `,
     segments: [
       { t: 'chunk', v: 'The Dairy Queen made an ice cream cake', ans: 'main' }, { t: 'text', v: ' ' },
       { t: 'chunk', v: 'weighing 10,115kg', ans: 'verb' }, { t: 'text', v: ', ' },
@@ -506,6 +506,14 @@ const BASE_SENTENCES = [
   {
     en: "All people who have known what I felt are not surprised when they saw me eating three piece of bread with a bottle of Lao Gan Ma.",
     cn: "所有了解我感受的人，在看到我拿一瓶老干妈吃三片面包时都不会感到惊讶。",
+    detail: `
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--main)] mr-1"></span><span class="font-bold text-[#9c3414]">All people ... are not surprised</span> (主菜) - 主语和谓语被中间的从句切开了</div>
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--clause)] mr-1"></span><span class="font-bold text-[#1a4f86]">who have known</span> (配菜:从句) - 定语从句修饰 people</div>
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--clause)] mr-1"></span><span class="font-bold text-[#1a4f86]">what I felt</span> (配菜:从句) - 宾语从句作 known 的宾语</div>
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--sign)] mr-1"></span><span class="font-bold text-[var(--sign)]">when</span> (路标词) - 引导时间状语从句</div>
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--clause)] mr-1"></span><span class="font-bold text-[#1a4f86]">they saw me eating...</span> (配菜:从句) - 时间状语从句的具体内容</div>
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--prep)] mr-1"></span><span class="font-bold text-[#8a5e08]">with a bottle of Lao Gan Ma</span> (配菜:介词) - 表示伴随的动作状态</div>
+    `,
     segments: [
       { t: 'chunk', v: 'All people', ans: 'main' }, { t: 'text', v: ' ' },
       { t: 'chunk', v: 'who have known', ans: 'clause' }, { t: 'text', v: ' ' },
@@ -519,6 +527,13 @@ const BASE_SENTENCES = [
   {
     en: "Japan's aging population and the higher cost of keeping dogs has likely contributed to the sliding number of pet canines in the country, with cats overtaking them last year.",
     cn: "日本人口老龄化和养狗成本的增加可能是导致该国宠物狗数量下降的原因，去年猫的数量超过了狗。",
+    detail: `
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--main)] mr-1"></span><span class="font-bold text-[#9c3414]">Japan's aging population... has likely contributed</span> (主菜) - 句子的核心骨架</div>
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--prep)] mr-1"></span><span class="font-bold text-[#8a5e08]">of keeping dogs</span> (配菜:介词) - 修饰前面的 cost (成本)</div>
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--prep)] mr-1"></span><span class="font-bold text-[#8a5e08]">to the sliding number</span> (配菜:介词) - 习惯用法 contribute to...</div>
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--prep)] mr-1"></span><span class="font-bold text-[#8a5e08]">of pet canines / in the country</span> (配菜:介词) - 作后置定语修饰 number</div>
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--prep)] mr-1"></span><span class="font-bold text-[#8a5e08]">with cats overtaking them last year</span> (配菜:介词) - with引导的独立主格(伴随状语)，补充说明背景情况</div>
+    `,
     segments: [
       { t: 'chunk', v: "Japan's aging population and the higher cost", ans: 'main' }, { t: 'text', v: ' ' },
       { t: 'chunk', v: 'of keeping dogs', ans: 'prep' }, { t: 'text', v: ' ' },
@@ -532,6 +547,13 @@ const BASE_SENTENCES = [
   {
     en: "She says more elderly people are giving up on dogs and keeping cats instead due to the perception that dogs require greater care.",
     cn: "她说，越来越多的老年人放弃养狗转而养猫，因为他们认为狗需要更多的照顾。",
+    detail: `
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--main)] mr-1"></span><span class="font-bold text-[#9c3414]">She says</span> (主菜) - 极简的核心骨架</div>
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--clause)] mr-1"></span><span class="font-bold text-[#1a4f86]">more elderly people are giving up...</span> (配菜:从句) - 省略了引导词 that 的宾语从句</div>
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--prep)] mr-1"></span><span class="font-bold text-[#8a5e08]">due to the perception</span> (配菜:介词) - 作原因状语</div>
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--sign)] mr-1"></span><span class="font-bold text-[var(--sign)]">that</span> (路标词) - 引导同位语从句</div>
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--clause)] mr-1"></span><span class="font-bold text-[#1a4f86]">dogs require greater care</span> (配菜:从句) - 解释 perception (观念) 的具体内容</div>
+    `,
     segments: [
       { t: 'chunk', v: 'She says', ans: 'main' }, { t: 'text', v: ' ' },
       { t: 'chunk', v: 'more elderly people are giving up on dogs and keeping cats instead', ans: 'clause' }, { t: 'text', v: ' ' },
@@ -543,6 +565,14 @@ const BASE_SENTENCES = [
   {
     en: "By analyzing the data collected from various sensors, the engineering team managed to identify the core issue causing the engine failure.",
     cn: "通过分析从各种传感器收集的数据，工程团队设法找出了导致发动机故障的核心问题。",
+    detail: `
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--sign)] mr-1"></span><span class="font-bold text-[var(--sign)]">By</span> (路标词) - 介词作为句首状语路标</div>
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--verb)] mr-1"></span><span class="font-bold text-[#136b3b]">analyzing the data</span> (配菜:非谓语) - 动名词作 By 的宾语</div>
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--verb)] mr-1"></span><span class="font-bold text-[#136b3b]">collected</span> (配菜:非谓语) - 过去分词作定语修饰 data</div>
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--prep)] mr-1"></span><span class="font-bold text-[#8a5e08]">from various sensors</span> (配菜:介词) - 补充数据收集的来源</div>
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--main)] mr-1"></span><span class="font-bold text-[#9c3414]">the engineering team managed to...</span> (主菜) - 逗号后才是真正的句子核心骨架</div>
+      <div><span class="inline-block w-2 h-2 rounded-full bg-[var(--verb)] mr-1"></span><span class="font-bold text-[#136b3b]">causing the engine failure</span> (配菜:非谓语) - 现在分词作定语修饰 issue</div>
+    `,
     segments: [
       { t: 'word', v: 'By', sign: true }, { t: 'text', v: ' ' },
       { t: 'chunk', v: 'analyzing the data', ans: 'verb' }, { t: 'text', v: ' ' },
@@ -554,24 +584,17 @@ const BASE_SENTENCES = [
   }
 ];
 
-// Generate exactly 80 Syntax Questions Pool
 const TOTAL_SYNTAX_Q = 80;
 const SYNTAX_POOL = [];
 for (let i = 0; i < TOTAL_SYNTAX_Q; i++) {
-  // Rotate through base sentences to fulfill the pool requirement
   const base = BASE_SENTENCES[i % BASE_SENTENCES.length];
-  SYNTAX_POOL.push({ id: `q_${i}`, en: base.en, cn: base.cn, segments: JSON.parse(JSON.stringify(base.segments)) });
+  SYNTAX_POOL.push({ id: `q_${i}`, en: base.en, cn: base.cn, detail: base.detail, segments: JSON.parse(JSON.stringify(base.segments)) });
 }
 
 let state = {
   vocab: { 
     words: VOCAB_DATA.map((w,i)=>({ ...w, id:i, firstRes: null, peeked: false })), 
-    queue: [], 
-    mastered: 0, 
-    done: false, 
-    startTime: null, 
-    timeSpent: 0, 
-    lastDate: null 
+    queue: [], mastered: 0, done: false, startTime: null, timeSpent: 0, lastDate: null 
   },
   syntax: { 
     firstPlayDate: null,
@@ -584,10 +607,7 @@ let state = {
       { id: 6, status: 'locked', bestAcc: null, lastAcc: null, timeSpent: 0, lastDate: null, questions: [] },
       { id: 7, status: 'locked', bestAcc: null, lastAcc: null, timeSpent: 0, lastDate: null, questions: [] }
     ],
-    activeLevelIdx: 0, 
-    isSignpostMode: false, 
-    answers: {},
-    startTime: null
+    activeLevelIdx: 0, isSignpostMode: false, answers: {}, startTime: null
   }
 };
 
@@ -600,17 +620,6 @@ const typeLabels = {
   'prep': {name: '配菜', sub: '介词短语', bg: 'var(--prep-bg)', border: 'var(--prep)', color: '#8a5e08'}
 };
 
-function initApp() {
-  loadData();
-  
-  if(state.vocab.queue.length === 0 && !state.vocab.done) {
-    state.vocab.queue = state.vocab.words.map((w) => w.id).sort(() => Math.random() - 0.5);
-  }
-  
-  renderVocab();
-  updateReport();
-}
-
 function loadData() {
   const saved = localStorage.getItem('block_english_pro_data');
   if(saved) {
@@ -618,13 +627,10 @@ function loadData() {
         const data = JSON.parse(saved);
         if(data.vocab && data.vocab.words) {
             state.vocab = data.vocab;
-            // 新增：如果刷新或退出页面时词汇没做完，进度和计时自动清零
             if(!state.vocab.done) {
                 state.vocab.words.forEach(w => { w.firstRes = null; w.peeked = false; });
                 state.vocab.queue = state.vocab.words.map(w => w.id).sort(() => Math.random() - 0.5);
-                state.vocab.mastered = 0;
-                state.vocab.timeSpent = 0;
-                state.vocab.startTime = null;
+                state.vocab.mastered = 0; state.vocab.timeSpent = 0; state.vocab.startTime = null;
             }
         }
         if(data.syntax && data.syntax.levels) state.syntax = data.syntax;
@@ -640,33 +646,23 @@ function checkDailyUnlock() {
   }
   const firstPlay = new Date(state.syntax.firstPlayDate);
   const today = new Date();
-  
-  firstPlay.setHours(0,0,0,0);
-  today.setHours(0,0,0,0);
+  firstPlay.setHours(0,0,0,0); today.setHours(0,0,0,0);
   
   const diffDays = Math.floor((today - firstPlay) / (1000 * 60 * 60 * 24));
   if (diffDays > 0) {
     for(let i = 1; i <= Math.min(6, diffDays); i++) {
-      if (state.syntax.levels[i].status === 'locked') {
-        state.syntax.levels[i].status = 'unlocked';
-      }
+      if (state.syntax.levels[i].status === 'locked') state.syntax.levels[i].status = 'unlocked';
     }
     saveData();
   }
 }
 
 function initApp() {
-  loadData();
-  checkDailyUnlock();
-  
+  loadData(); checkDailyUnlock();
   if(state.vocab.queue.length === 0 && !state.vocab.done) {
     state.vocab.queue = state.vocab.words.map((w) => w.id).sort(() => Math.random() - 0.5);
   }
-  
-  renderVocab();
-  updateReport();
-  
-  navToSyntax(false);
+  renderVocab(); updateReport(); navToSyntax(false);
 }
 
 function saveData() {
@@ -674,15 +670,12 @@ function saveData() {
   updateReport();
 }
 
-// === 新增：与后端交互的数据同步机制 ===
-// 获取学生身份：假设通过网址链接传递，例如 ?studentId=001&name=张三
 const urlParams = new URLSearchParams(window.location.search);
 const studentInfo = {
   id: urlParams.get('studentId') || 'guest_' + Math.floor(Math.random()*10000),
   name: urlParams.get('name') || '匿名游客'
 };
 
-// 【重要】请将这里替换为你 Supabase 项目的真实 URL 和 anon key
 const SUPABASE_URL = 'https://xxxxxxxxxxxxxxxxxxxx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -697,6 +690,13 @@ async function syncDataToBackend(testType, levelId, accuracy, timeSpent, logDeta
     time_spent_ms: timeSpent,
     details: logDetails // jsonb 格式，包含每一题的具体对错和渲染HTML
   };
+
+  // 避免在测试环境（占位符URL）中触发真实的 Fetch 报错
+  if (SUPABASE_URL.includes('xxxxxxxxxxxxxxxxxxxx')) {
+    console.log("⚠️ 检测到默认占位符。跳过真实的网络请求，模拟同步成功。");
+    console.log("待上传的数据载荷：", payload);
+    return;
+  }
 
   try {
     // 调用 Supabase SDK 将数据插入 student_scores 表
@@ -717,8 +717,7 @@ async function syncDataToBackend(testType, levelId, accuracy, timeSpent, logDeta
 
 function resetAllProgress() {
   if(confirm("确定要清除所有进度吗？此操作不可恢复。")) {
-    localStorage.removeItem('block_english_pro_data');
-    location.reload();
+    localStorage.removeItem('block_english_pro_data'); location.reload();
   }
 }
 
@@ -744,45 +743,33 @@ function switchTab(tab) {
   document.getElementById('tab-' + tab).classList.add('active');
   window.scrollTo(0,0);
   
-  clearInterval(timerIntervals.vocab); 
-  clearInterval(timerIntervals.syntax);
+  clearInterval(timerIntervals.vocab); clearInterval(timerIntervals.syntax);
 
-  // 处理离开测试标签页：进度和计时自动清零
   if (leavingTab === 'vocab' && tab !== 'vocab') {
     if (!state.vocab.done) {
       state.vocab.words.forEach(w => { w.firstRes = null; w.peeked = false; });
       state.vocab.queue = state.vocab.words.map(w => w.id).sort(() => Math.random() - 0.5);
-      state.vocab.mastered = 0;
-      state.vocab.timeSpent = 0;
-      state.vocab.startTime = null;
-      saveData();
-      renderVocab();
+      state.vocab.mastered = 0; state.vocab.timeSpent = 0; state.vocab.startTime = null;
+      saveData(); renderVocab();
     }
   }
 
   if (leavingTab === 'syntax' && tab !== 'syntax') {
-    state.syntax.startTime = null;
-    state.syntax.answers = {};
-    if (document.getElementById('syntax-container').children.length > 0) {
-        renderSyntaxSet(); // 清空当前做了一半的选项
-    }
+    state.syntax.startTime = null; state.syntax.answers = {};
+    if (document.getElementById('syntax-container').children.length > 0) renderSyntaxSet(); 
     document.getElementById('s-timer').textContent = "00:00";
   }
   
-  // 处理进入测试标签页：开始/重置计时
   if (tab === 'vocab' && !state.vocab.done) {
-    state.vocab.timeSpent = 0; // 确保计时从0开始
-    state.vocab.startTime = Date.now();
+    state.vocab.timeSpent = 0; state.vocab.startTime = Date.now();
     document.getElementById('v-timer').textContent = "00:00";
     timerIntervals.vocab = setInterval(() => {
       const ms = Date.now() - state.vocab.startTime;
       document.getElementById('v-timer').textContent = formatTime(Math.floor(ms/1000));
     }, 1000);
   } else if (tab === 'syntax') {
-    if (document.getElementById('syntax-container').children.length === 0) {
-        navToSyntax(false);
-    }
-    state.syntax.startTime = Date.now(); // 确保计时从0开始
+    if (document.getElementById('syntax-container').children.length === 0) navToSyntax(false);
+    state.syntax.startTime = Date.now();
     document.getElementById('s-timer').textContent = "00:00";
     timerIntervals.syntax = setInterval(() => {
       const ms = Date.now() - state.syntax.startTime;
@@ -798,16 +785,14 @@ function renderVocab() {
     state.vocab.done = true;
     if(state.vocab.startTime) {
        state.vocab.timeSpent += (Date.now() - state.vocab.startTime);
-       state.vocab.startTime = null;
-       state.vocab.lastDate = new Date().toISOString();
+       state.vocab.startTime = null; state.vocab.lastDate = new Date().toISOString();
        saveData();
     }
   } else {
     document.getElementById('vocab-play-area').classList.remove('hidden');
     document.getElementById('vocab-done-area').classList.add('hidden');
     
-    const wordIdx = state.vocab.queue[0];
-    const w = state.vocab.words[wordIdx];
+    const wordIdx = state.vocab.queue[0]; const w = state.vocab.words[wordIdx];
     
     document.getElementById('v-en').textContent = w.en;
     document.getElementById('v-phon').textContent = w.phon;
@@ -816,7 +801,6 @@ function renderVocab() {
     
     document.getElementById('v-ans-area').classList.add('hidden');
     document.getElementById('v-reveal-btn').classList.remove('hidden');
-    // Action buttons are always visible as requested
   }
   
   document.getElementById('v-mastered').textContent = state.vocab.mastered;
@@ -825,83 +809,53 @@ function renderVocab() {
 }
 
 function revealVocab() {
-  const currentIdx = state.vocab.queue[0];
-  state.vocab.words[currentIdx].peeked = true;
+  const currentIdx = state.vocab.queue[0]; state.vocab.words[currentIdx].peeked = true;
   document.getElementById('v-reveal-btn').classList.add('hidden');
   document.getElementById('v-ans-area').classList.remove('hidden');
 }
 
 function markVocab(result) {
-  const currentIdx = state.vocab.queue.shift();
-  const w = state.vocab.words[currentIdx];
+  const currentIdx = state.vocab.queue.shift(); const w = state.vocab.words[currentIdx];
+  if(!w.firstRes) w.firstRes = result;
   
-  if(!w.firstRes) {
-      w.firstRes = result;
-      // if they mark 'know' without ever clicking reveal, peeked remains false.
-  }
+  if(result === 'know') state.vocab.mastered++;
+  else if (result === 'meh') { const pos = Math.min(state.vocab.queue.length, 3); state.vocab.queue.splice(pos, 0, currentIdx); }
+  else { const pos = Math.min(state.vocab.queue.length, 1); state.vocab.queue.splice(pos, 0, currentIdx); }
   
-  if(result === 'know') {
-    state.vocab.mastered++;
-  } else if (result === 'meh') {
-    const pos = Math.min(state.vocab.queue.length, 3);
-    state.vocab.queue.splice(pos, 0, currentIdx);
-  } else {
-    const pos = Math.min(state.vocab.queue.length, 1);
-    state.vocab.queue.splice(pos, 0, currentIdx);
-  }
-  
-  saveData();
-  renderVocab();
+  saveData(); renderVocab();
 }
 
 function resetVocab() {
   state.vocab.words.forEach(w => { w.firstRes = null; w.peeked = false; });
   state.vocab.queue = state.vocab.words.map(w => w.id).sort(() => Math.random() - 0.5);
   state.vocab.mastered = 0; state.vocab.done = false; state.vocab.timeSpent = 0; state.vocab.startTime = Date.now();
-  saveData();
-  renderVocab();
-  switchTab('vocab');
+  saveData(); renderVocab(); switchTab('vocab');
 }
 
 function navToSyntax(doSwitch = true) {
-  // Find highest unlocked level
   let targetIdx = 0;
   for(let i=0; i<7; i++) {
     if(state.syntax.levels[i].status === 'unlocked' || state.syntax.levels[i].status === 'passed') targetIdx = i;
     if(state.syntax.levels[i].status === 'locked') break;
   }
-  
-  if (state.syntax.levels[targetIdx].questions.length === 0) {
-    startSyntaxLevel(targetIdx);
-  } else {
-    state.syntax.activeLevelIdx = targetIdx;
-    renderSyntaxSet();
-  }
-  
+  if (state.syntax.levels[targetIdx].questions.length === 0) startSyntaxLevel(targetIdx);
+  else { state.syntax.activeLevelIdx = targetIdx; renderSyntaxSet(); }
   if(doSwitch) switchTab('syntax');
 }
 
 function startSyntaxLevel(idx) {
-  state.syntax.activeLevelIdx = idx;
-  const level = state.syntax.levels[idx];
-  
-  // Feature: Randomly draw 6 questions from the 80 question pool
+  state.syntax.activeLevelIdx = idx; const level = state.syntax.levels[idx];
   const shuffledPool = [...SYNTAX_POOL].sort(() => Math.random() - 0.5);
   level.questions = shuffledPool.slice(0, 6);
-  
-  state.syntax.startTime = Date.now();
-  renderSyntaxSet();
+  state.syntax.startTime = Date.now(); renderSyntaxSet();
 }
 
 function renderSyntaxSet() {
-  const idx = state.syntax.activeLevelIdx;
-  const level = state.syntax.levels[idx];
-  
+  const idx = state.syntax.activeLevelIdx; const level = state.syntax.levels[idx];
   document.getElementById('set-indicator').textContent = `Level ${idx + 1}`;
   
   const container = document.getElementById('syntax-container');
-  container.innerHTML = '';
-  state.syntax.answers = {};
+  container.innerHTML = ''; state.syntax.answers = {};
   
   level.questions.forEach((q, index) => {
     state.syntax.answers[q.id] = { chunks: {}, signposts: [] };
@@ -912,46 +866,34 @@ function renderSyntaxSet() {
 
     const sentenceBody = document.createElement('div');
     sentenceBody.className = 'sentence-container';
-
     let chunkCounter = 0; let wordCounter = 0;
 
     q.segments.forEach(seg => {
       if (seg.t === 'text') { sentenceBody.appendChild(document.createTextNode(seg.v)); } 
       else if (seg.t === 'word') {
-        const span = document.createElement('span');
-        span.className = 'clickable-word';
-        span.dataset.qid = q.id; span.dataset.widx = wordCounter;
-        span.textContent = seg.v;
+        const span = document.createElement('span'); span.className = 'clickable-word';
+        span.dataset.qid = q.id; span.dataset.widx = wordCounter; span.textContent = seg.v;
         span.onclick = () => handleSignpostClick(q.id, span.dataset.widx, span);
-        sentenceBody.appendChild(span);
-        wordCounter++;
+        sentenceBody.appendChild(span); wordCounter++;
       }
       else if (seg.t === 'chunk') {
-        const wrapper = document.createElement('span');
-        wrapper.className = 'chunk-container';
-        
-        const textSpan = document.createElement('span');
-        textSpan.className = 'chunk-text'; textSpan.textContent = seg.v;
-        
-        const dropzone = document.createElement('div');
-        dropzone.className = 'dropzone'; dropzone.dataset.qid = q.id; dropzone.dataset.cidx = chunkCounter;
+        const wrapper = document.createElement('span'); wrapper.className = 'chunk-container';
+        const textSpan = document.createElement('span'); textSpan.className = 'chunk-text'; textSpan.textContent = seg.v;
+        const dropzone = document.createElement('div'); dropzone.className = 'dropzone'; dropzone.dataset.qid = q.id; dropzone.dataset.cidx = chunkCounter;
         dropzone.onclick = () => {
           if(!state.syntax.isSignpostMode && dropzone.classList.contains('filled')) {
             delete state.syntax.answers[q.id].chunks[dropzone.dataset.cidx];
             dropzone.className = 'dropzone'; dropzone.style = ''; dropzone.innerHTML = '';
           }
         };
-
         wrapper.appendChild(textSpan); wrapper.appendChild(dropzone);
-        sentenceBody.appendChild(wrapper);
-        chunkCounter++;
+        sentenceBody.appendChild(wrapper); chunkCounter++;
       }
     });
     card.appendChild(sentenceBody); container.appendChild(card);
   });
 }
 
-// Signpost Mode Toggle
 document.getElementById('signpost-toggle').addEventListener('change', (e) => {
   state.syntax.isSignpostMode = e.target.checked;
   const view = document.getElementById('view-syntax');
@@ -961,8 +903,7 @@ document.getElementById('signpost-toggle').addEventListener('change', (e) => {
 
 function handleSignpostClick(qId, wIdxStr, el) {
   if (!state.syntax.isSignpostMode) return;
-  const wIdx = parseInt(wIdxStr);
-  const arr = state.syntax.answers[qId].signposts;
+  const wIdx = parseInt(wIdxStr); const arr = state.syntax.answers[qId].signposts;
   const pos = arr.indexOf(wIdx);
   if (pos === -1) { arr.push(wIdx); el.classList.add('selected'); }
   else { arr.splice(pos, 1); el.classList.remove('selected'); }
@@ -978,14 +919,10 @@ function startDrag(e) {
   if (state.syntax.isSignpostMode) return;
   if (e.type === 'touchstart') e.preventDefault(); 
   
-  dragInfo.type = e.currentTarget.dataset.type;
-  dragInfo.isDragging = true;
-  
+  dragInfo.type = e.currentTarget.dataset.type; dragInfo.isDragging = true;
   dragInfo.ghost = document.createElement('div');
-  dragInfo.ghost.id = 'drag-ghost';
-  dragInfo.ghost.className = e.currentTarget.className;
-  dragInfo.ghost.style.cssText = e.currentTarget.style.cssText;
-  dragInfo.ghost.innerHTML = e.currentTarget.innerHTML;
+  dragInfo.ghost.id = 'drag-ghost'; dragInfo.ghost.className = e.currentTarget.className;
+  dragInfo.ghost.style.cssText = e.currentTarget.style.cssText; dragInfo.ghost.innerHTML = e.currentTarget.innerHTML;
   document.body.appendChild(dragInfo.ghost);
 
   const x = e.touches ? e.touches[0].clientX : e.clientX;
@@ -1006,8 +943,7 @@ function moveDragGhost(x, y) { if(dragInfo.ghost){ dragInfo.ghost.style.left = x
 function handleDragMove(e) {
   if (!dragInfo.isDragging) return;
   e.preventDefault();
-  const x = e.touches ? e.touches[0].clientX : e.clientX;
-  const y = e.touches ? e.touches[0].clientY : e.clientY;
+  const x = e.touches ? e.touches[0].clientX : e.clientX; const y = e.touches ? e.touches[0].clientY : e.clientY;
   moveDragGhost(x, y);
 
   dragInfo.ghost.style.visibility = 'hidden';
@@ -1022,44 +958,33 @@ function handleDragMove(e) {
 
 function handleDragEnd(e) {
   if (!dragInfo.isDragging) return;
-  document.removeEventListener('mousemove', handleDragMove);
-  document.removeEventListener('mouseup', handleDragEnd);
-  document.removeEventListener('touchmove', handleDragMove);
-  document.removeEventListener('touchend', handleDragEnd);
+  document.removeEventListener('mousemove', handleDragMove); document.removeEventListener('mouseup', handleDragEnd);
+  document.removeEventListener('touchmove', handleDragMove); document.removeEventListener('touchend', handleDragEnd);
 
   if (dragInfo.ghost) { dragInfo.ghost.remove(); dragInfo.ghost = null; }
   if (dragInfo.target) {
     dragInfo.target.classList.remove('drag-over');
-    const qId = dragInfo.target.dataset.qid;
-    const cIdx = parseInt(dragInfo.target.dataset.cidx);
-    const type = dragInfo.type;
+    const qId = dragInfo.target.dataset.qid; const cIdx = parseInt(dragInfo.target.dataset.cidx); const type = dragInfo.type;
     
     state.syntax.answers[qId].chunks[cIdx] = type;
     dragInfo.target.className = 'dropzone filled cursor-pointer';
-    dragInfo.target.style.background = typeLabels[type].bg;
-    dragInfo.target.style.borderColor = typeLabels[type].border;
-    dragInfo.target.style.color = typeLabels[type].color;
+    dragInfo.target.style.background = typeLabels[type].bg; dragInfo.target.style.borderColor = typeLabels[type].border; dragInfo.target.style.color = typeLabels[type].color;
     dragInfo.target.innerHTML = `<div class="text-[13px] font-bold text-center leading-tight"><span>${typeLabels[type].name}</span><br><span style="font-size:9px;opacity:0.8">${typeLabels[type].sub}</span></div>`;
   }
   dragInfo.isDragging = false; dragInfo.type = null; dragInfo.target = null;
 }
 
 function submitSyntax() {
-  const idx = state.syntax.activeLevelIdx;
-  const level = state.syntax.levels[idx];
+  const idx = state.syntax.activeLevelIdx; const level = state.syntax.levels[idx];
   const questions = level.questions;
-  
   let correctScore = 0; let totalScore = 0; let log = [];
 
   questions.forEach(q => {
-    let cIdx = 0; let wIdx = 0; let hasErr = false;
-    let visualHtml = [];
-
+    let cIdx = 0; let wIdx = 0; let hasErr = false; let visualHtml = [];
     q.segments.forEach(seg => {
       if (seg.t === 'text') { visualHtml.push(`<span>${seg.v}</span>`); } 
       else if (seg.t === 'word') {
-        totalScore++;
-        const isSel = state.syntax.answers[q.id].signposts.includes(wIdx);
+        totalScore++; const isSel = state.syntax.answers[q.id].signposts.includes(wIdx);
         if (seg.sign) {
           if (isSel) { correctScore++; visualHtml.push(`<span class="p-sign mx-1">${seg.v}</span>`); }
           else { hasErr=true; visualHtml.push(`<span class="p-sign mx-1" style="border:2px dashed red">${seg.v}</span>`); }
@@ -1070,52 +995,38 @@ function submitSyntax() {
         wIdx++;
       } 
       else if (seg.t === 'chunk') {
-        totalScore++;
-        const uAns = state.syntax.answers[q.id].chunks[cIdx];
+        totalScore++; const uAns = state.syntax.answers[q.id].chunks[cIdx];
         if (uAns === seg.ans) { correctScore++; visualHtml.push(`<span class="p-${seg.ans} mx-1 whitespace-nowrap">${seg.v}</span>`); }
         else { hasErr=true; visualHtml.push(`<span class="p-${seg.ans} mx-1 whitespace-nowrap" style="border:2px dashed red">${seg.v}</span>`); }
         cIdx++;
       }
     });
-    log.push({ html: visualHtml.join(''), cn: q.cn, hasErr });
+    log.push({ html: visualHtml.join(''), cn: q.cn, detail: q.detail, hasErr });
   });
 
-  const accuracy = correctScore / totalScore;
-  const isPass = accuracy >= 0.85; // 85% requirement to unlock
+  const accuracy = correctScore / totalScore; const isPass = accuracy >= 0.85; 
 
-  // Update level stats
   level.lastAcc = accuracy;
   if(level.bestAcc === null || accuracy > level.bestAcc) level.bestAcc = accuracy;
-  level.timeSpent += (Date.now() - state.syntax.startTime);
-  level.lastDate = new Date().toISOString();
-  state.syntax.startTime = null; // stop timer
+  level.timeSpent += (Date.now() - state.syntax.startTime); level.lastDate = new Date().toISOString();
+  state.syntax.startTime = null; 
 
   if (isPass) {
     level.status = 'passed';
-    if (idx < 6 && state.syntax.levels[idx+1].status === 'locked') {
-      state.syntax.levels[idx+1].status = 'unlocked';
-    }
+    if (idx < 6 && state.syntax.levels[idx+1].status === 'locked') state.syntax.levels[idx+1].status = 'unlocked';
   }
   
-  saveData();
-  clearInterval(timerIntervals.syntax);
-  
-  // 新增：向老师的后台发送本次成绩！
+  saveData(); clearInterval(timerIntervals.syntax);
   syncDataToBackend('syntax', idx + 1, accuracy, level.timeSpent, log);
-
   showSyntaxModal(accuracy, isPass, log, idx);
 }
 
 function showSyntaxModal(acc, isPass, log, idx) {
-  const modal = document.getElementById('syntax-modal');
-  const title = document.getElementById('modal-title');
-  const sub = document.getElementById('modal-subtitle');
-  const content = document.getElementById('modal-content');
+  const modal = document.getElementById('syntax-modal'); const title = document.getElementById('modal-title');
+  const sub = document.getElementById('modal-subtitle'); const content = document.getElementById('modal-content');
   const btn = document.getElementById('modal-btn');
 
-  modal.classList.remove('hidden'); modal.classList.add('flex');
-  content.innerHTML = '';
-  
+  modal.classList.remove('hidden'); modal.classList.add('flex'); content.innerHTML = '';
   const pct = Math.round(acc * 100);
 
   if(isPass) {
@@ -1127,8 +1038,7 @@ function showSyntaxModal(acc, isPass, log, idx) {
       if(idx < 6) { 
         if(state.syntax.levels[idx+1].status === 'locked') state.syntax.levels[idx+1].status = 'unlocked';
         startSyntaxLevel(idx+1); switchTab('syntax'); 
-      }
-      else { switchTab('report'); }
+      } else switchTab('report');
     };
   } else {
     title.innerHTML = '<i class="fas fa-exclamation-triangle text-[var(--main)]"></i> 未达标！';
@@ -1145,20 +1055,26 @@ function showSyntaxModal(acc, isPass, log, idx) {
           ${l.hasErr ? '<span class="text-xs font-bold text-red-500">发现错误</span>' : '<span class="text-xs font-bold text-green-500">完全正确</span>'}
         </div>
         <div class="font-nunito font-bold text-lg leading-[2.2] text-gray-800 mb-2">${l.html}</div>
-        <div class="bg-[var(--paper)] p-2 rounded text-sm text-gray-600 font-bold">参考：${l.cn}</div>
+        <div class="bg-[var(--paper)] p-2 rounded text-sm text-gray-600 font-bold mb-3">参考：${l.cn}</div>
+        
+        <!-- 新增的详细解析区块 -->
+        <div class="bg-[#F8F9FA] border border-[#E9ECEF] p-3 rounded-lg text-[13.5px] text-gray-700 mt-2 shadow-sm">
+          <div class="font-bold text-indigo-500 mb-2 flex items-center gap-1.5"><i class="fas fa-puzzle-piece"></i> 积木拆解</div>
+          <div class="space-y-2 leading-relaxed">
+            ${l.detail}
+          </div>
+        </div>
       </div>
     `;
   });
 }
 
 function closeSyntaxModal() {
-  document.getElementById('syntax-modal').classList.add('hidden');
-  document.getElementById('syntax-modal').classList.remove('flex');
+  document.getElementById('syntax-modal').classList.add('hidden'); document.getElementById('syntax-modal').classList.remove('flex');
   window.scrollTo(0,0);
 }
 
 function updateReport() {
-  // Vocab Breakdown
   let firstKnow = 0; let peeked = 0; let struggle = 0;
   state.vocab.words.forEach(w => {
     if(w.firstRes === 'know' && !w.peeked) firstKnow++;
@@ -1166,8 +1082,7 @@ function updateReport() {
     else if(w.firstRes === 'meh' || w.firstRes === 'no') struggle++;
   });
   
-  const vTotal = state.vocab.words.length;
-  document.getElementById('r-v-total').textContent = vTotal;
+  document.getElementById('r-v-total').textContent = state.vocab.words.length;
   document.getElementById('r-v-first').textContent = firstKnow;
   document.getElementById('r-v-peeked').textContent = peeked;
   document.getElementById('r-v-struggle').textContent = struggle;
@@ -1177,34 +1092,22 @@ function updateReport() {
   document.getElementById('r-vocab-time').textContent = formatTime(Math.floor((state.vocab.timeSpent + currentSessionVocabTime)/1000));
   document.getElementById('r-vocab-date').textContent = formatDate(state.vocab.lastDate);
 
-  // Syntax Warning Logic
-  let completedCount = 0;
-  let sumAcc = 0;
+  let completedCount = 0; let sumAcc = 0;
   state.syntax.levels.forEach(lvl => {
-    if(lvl.lastAcc !== null) {
-      completedCount++;
-      sumAcc += lvl.lastAcc;
-    }
+    if(lvl.lastAcc !== null) { completedCount++; sumAcc += lvl.lastAcc; }
   });
   
   const banner = document.getElementById('r-warning-banner');
-  if (completedCount >= 2 && (sumAcc / completedCount) < 0.85) {
-     banner.classList.remove('hidden');
-  } else {
-     banner.classList.add('hidden');
-  }
+  if (completedCount >= 2 && (sumAcc / completedCount) < 0.85) banner.classList.remove('hidden');
+  else banner.classList.add('hidden');
 
-  // Syntax Progress
-  const sList = document.getElementById('r-syntax-list');
-  sList.innerHTML = '';
-  
+  const sList = document.getElementById('r-syntax-list'); sList.innerHTML = '';
   state.syntax.levels.forEach(lvl => {
     let statusHtml = ''; let accHtml = '--'; let timeStr = '--:--'; let actionHtml = '';
     
     if(lvl.lastAcc !== null) {
       const pct = Math.round(lvl.lastAcc * 100);
-      accHtml = `${pct}%`;
-      timeStr = formatTime(Math.floor(lvl.timeSpent/1000));
+      accHtml = `${pct}%`; timeStr = formatTime(Math.floor(lvl.timeSpent/1000));
       
       if(lvl.status === 'passed') {
         statusHtml = `<span class="text-green-600 bg-green-50 px-2 py-1 rounded"><i class="fas fa-check"></i> 已通关</span>`;
