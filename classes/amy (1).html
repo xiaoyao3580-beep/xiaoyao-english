@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Amy 熟词生义·高频词组背诵卡 (Pro)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .hide { display: none !important; }
+    
+    /* 翻牌过渡动画 */
+    .answer-section {
+      transition: all 0.3s ease-out;
+    }
+    .answer-hidden {
+      opacity: 0;
+      transform: translateY(15px);
+      pointer-events: none;
+    }
+    .answer-visible {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    /* 卡片点击交互提示 */
+    .flashcard-container {
+      cursor: pointer;
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+    .flashcard-container:active {
+      transform: scale(0.98);
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-red-50 text-gray-900 selection:bg-red-200 antialiased overflow-x-hidden">
+  <div class="container mx-auto px-4 py-6 sm:py-8">
+    
+    <!-- ==================== HOME VIEW ==================== -->
+    <div id="view-home" class="max-w-3xl mx-auto mt-4 sm:mt-12 p-6 sm:p-8 bg-white rounded-[2rem] shadow-xl border border-red-100">
+      <div class="text-center mb-8 sm:mb-10">
+        <span class="inline-block px-3 py-1 bg-red-100 text-red-600 rounded-full text-xs font-bold uppercase tracking-wider mb-3">升级版淘汰制</span>
+        <h1 class="text-3xl sm:text-4xl font-black text-red-600 mb-3 tracking-tight">Amy 熟词生义·高频词组</h1>
+        <p class="text-gray-500 text-sm sm:text-base">对应失分点④：词都认识、意思想不到、抽象易混</p>
+      </div>
+
+      <div class="flex justify-center items-center mb-8 sm:mb-10 space-x-3 sm:space-x-4 cursor-pointer select-none" onclick="toggleMode()">
+        <span id="label-en2zh" class="font-semibold text-red-600 text-sm sm:text-base transition-colors">看英文回忆中文</span>
+        <button class="relative inline-flex h-7 w-14 sm:h-8 sm:w-16 items-center rounded-full bg-red-100 transition-colors focus:outline-none">
+          <span id="mode-toggle-dot" class="inline-block h-5 w-5 sm:h-6 sm:w-6 transform rounded-full bg-red-600 transition duration-300 ease-in-out translate-x-1"></span>
+        </button>
+        <span id="label-zh2en" class="font-semibold text-gray-400 text-sm sm:text-base transition-colors">看中文回忆英文</span>
+      </div>
+
+      <div class="space-y-4">
+        <h2 class="text-lg sm:text-xl font-bold text-gray-800 mb-4 text-center">选择考核范围</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+          <button onclick="startQuiz('字面≠实意')" class="p-4 border-2 border-red-50 rounded-2xl hover:border-red-200 hover:bg-red-50 text-gray-700 font-medium transition active:scale-95">字面≠实意 (17词)</button>
+          <button onclick="startQuiz('一词多义')" class="p-4 border-2 border-red-50 rounded-2xl hover:border-red-200 hover:bg-red-50 text-gray-700 font-medium transition active:scale-95">一词多义 (11词)</button>
+          <button onclick="startQuiz('习语表达')" class="p-4 border-2 border-red-50 rounded-2xl hover:border-red-200 hover:bg-red-50 text-gray-700 font-medium transition active:scale-95">习语表达 (11词)</button>
+          <button onclick="startQuiz('易混淆词')" class="p-4 border-2 border-red-50 rounded-2xl hover:border-red-200 hover:bg-red-50 text-gray-700 font-medium transition active:scale-95">易混淆词 (5词)</button>
+          <button onclick="startQuiz('高频抽象词组')" class="p-4 border-2 border-red-100 bg-red-50/50 rounded-2xl hover:border-red-300 hover:bg-red-100 text-red-700 font-bold transition active:scale-95 md:col-span-2">🔥 新增：高频抽象词组 (11词)</button>
+        </div>
+        <button onclick="startQuiz('全部')" class="w-full mt-6 p-4 sm:p-5 bg-red-600 text-white rounded-2xl font-bold text-lg shadow-lg shadow-red-600/30 hover:bg-red-700 hover:shadow-red-600/40 transition-all active:scale-95">
+          随机考核全部 55 组 (淘汰制过关)
+        </button>
+      </div>
+    </div>
+
+    <!-- ==================== QUIZ VIEW ==================== -->
+    <div id="view-quiz" class="max-w-4xl mx-auto mt-2 sm:mt-8 p-2 sm:p-4 hide">
+      
+      <!-- Header & Progress -->
+      <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-4 sm:mb-6">
+        <button onclick="showHome()" class="text-gray-400 hover:text-red-600 font-medium flex items-center transition self-start p-2 -ml-2 rounded-lg hover:bg-gray-100">
+          ← 退出考核
+        </button>
+        
+        <div class="flex items-center gap-4 text-sm font-medium">
+          <div class="bg-white px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 shadow-sm flex items-center gap-2">
+            <span>第 <strong class="text-red-600 text-base" id="quiz-round-text">1</strong> 轮</span>
+            <span class="w-px h-4 bg-gray-300"></span>
+            <span>剩余: <strong class="text-gray-800" id="quiz-remaining-text">0</strong> 词</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Progress Bar -->
+      <div class="w-full bg-red-100 rounded-full h-2 mb-6 sm:mb-8 overflow-hidden">
+        <div id="quiz-progress-bar" class="bg-red-600 h-2 rounded-full transition-all duration-500 ease-out" style="width: 0%"></div>
+      </div>
+      <div class="text-center text-xs text-red-400 mb-2 font-medium" id="quiz-progress-percent">总进度 0%</div>
+
+      <!-- Flashcard -->
+      <div id="flashcard" onclick="flipCard()" class="flashcard-container bg-white rounded-[2rem] shadow-xl border border-red-50 min-h-[350px] sm:min-h-[450px] flex flex-col items-center justify-center p-8 sm:p-12 text-center relative select-none">
+        
+        <div class="absolute top-4 sm:top-6 left-4 sm:left-6 flex gap-2">
+          <span id="card-category" class="text-xs sm:text-sm font-bold text-red-400 bg-red-50 px-3 py-1.5 rounded-full tracking-wider">
+            分类
+          </span>
+        </div>
+        
+        <div class="absolute top-4 sm:top-6 right-4 sm:right-6 sm:hidden text-gray-300 text-xs flex items-center gap-1">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path></svg>
+          点击翻转
+        </div>
+
+        <div class="mb-6 sm:mb-8 mt-6">
+          <h2 id="card-question" class="text-3xl sm:text-5xl font-black text-gray-800 break-words max-w-2xl leading-tight">Question</h2>
+        </div>
+
+        <div id="card-answer-container" class="w-full answer-section answer-hidden">
+          <div class="w-12 sm:w-16 h-1 bg-red-100 mx-auto mb-6 sm:mb-8 rounded-full"></div>
+          <h3 id="card-answer" class="text-2xl sm:text-4xl font-bold text-red-600 break-words max-w-2xl leading-snug">Answer</h3>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="mt-6 sm:mt-10 max-w-lg mx-auto px-2">
+        
+        <div id="controls-flip">
+          <button onclick="flipCard()" class="w-full py-4 sm:py-5 bg-red-600 text-white rounded-2xl font-bold text-lg sm:text-xl shadow-lg hover:bg-red-700 transition flex items-center justify-center gap-2 active:scale-95">
+            查看答案
+            <span class="text-sm font-normal text-red-200 bg-red-800/30 px-2 py-1 rounded hidden sm:inline-block ml-2">按空格键</span>
+          </button>
+        </div>
+
+        <div id="controls-judge" class="flex gap-3 sm:gap-4 hide">
+          <button onclick="handleAnswer(false, event)" class="flex-1 py-4 sm:py-5 bg-white text-gray-700 border-2 border-gray-200 rounded-2xl font-bold text-lg sm:text-xl hover:border-red-400 hover:text-red-600 transition flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 active:scale-95 group">
+            <span class="text-2xl group-hover:scale-110 transition">❌</span> 
+            <span>没记住</span>
+            <span class="text-xs font-normal text-gray-400 bg-gray-100 px-2 py-1 rounded hidden sm:inline-block sm:ml-2 group-hover:bg-red-50 group-hover:text-red-400">← 左键</span>
+          </button>
+          <button onclick="handleAnswer(true, event)" class="flex-1 py-4 sm:py-5 bg-red-600 text-white border-2 border-red-600 rounded-2xl font-bold text-lg sm:text-xl shadow-lg hover:bg-red-700 hover:border-red-700 transition flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 active:scale-95 group">
+            <span class="text-2xl group-hover:scale-110 transition">✅</span> 
+            <span>掌握了</span>
+            <span class="text-xs font-normal text-red-200 bg-red-800/30 px-2 py-1 rounded hidden sm:inline-block sm:ml-2">右键 →</span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ==================== RESULT VIEW ==================== -->
+    <div id="view-result" class="max-w-3xl mx-auto mt-4 sm:mt-12 p-6 sm:p-8 bg-white rounded-[2rem] shadow-xl border border-red-100 text-center hide">
+      
+      <div class="inline-flex items-center justify-center w-20 h-20 bg-green-100 rounded-full mb-6">
+        <span class="text-4xl">🏆</span>
+      </div>
+      <h2 class="text-3xl sm:text-4xl font-black text-gray-800 mb-2">考核通关！</h2>
+      <p class="text-gray-500 mb-8 font-medium">所有单词均已标记为掌握</p>
+      
+      <!-- Stats Board -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-10 bg-gray-50 p-6 rounded-2xl">
+        <div class="text-center">
+          <p class="text-gray-500 text-xs sm:text-sm mb-1 font-semibold uppercase">测试词汇量</p>
+          <p id="stat-total-words" class="text-2xl sm:text-3xl font-black text-gray-800">0</p>
+        </div>
+        <div class="text-center">
+          <p class="text-gray-500 text-xs sm:text-sm mb-1 font-semibold uppercase">挑战轮数</p>
+          <p id="stat-rounds" class="text-2xl sm:text-3xl font-black text-blue-600">0</p>
+        </div>
+        <div class="text-center">
+          <p class="text-gray-500 text-xs sm:text-sm mb-1 font-semibold uppercase">总用时</p>
+          <p id="stat-time" class="text-lg sm:text-xl font-black text-purple-600 mt-1">00:00</p>
+        </div>
+        <div class="text-center">
+          <p class="text-gray-500 text-xs sm:text-sm mb-1 font-semibold uppercase">完成日期</p>
+          <p id="stat-date" class="text-sm sm:text-base font-bold text-gray-700 mt-2">--</p>
+        </div>
+      </div>
+
+      <!-- Detailed Wrong Words List -->
+      <div class="text-left mb-10">
+        <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center justify-between">
+          <span>📉 错词统计榜单 (本次测试)</span>
+          <span class="text-sm font-normal text-gray-500 bg-gray-100 px-3 py-1 rounded-full" id="stat-wrong-count">0 个错词</span>
+        </h3>
+        
+        <div id="wrong-words-container" class="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+          <ul id="wrong-words-list" class="divide-y divide-gray-100 max-h-72 overflow-y-auto">
+            <!-- Dynamic items injected here -->
+          </ul>
+          <div id="no-wrong-words" class="p-8 text-center text-gray-400 font-medium hide">
+            太棒了！所有词汇一遍过，没有错词！🎉
+          </div>
+        </div>
+      </div>
+
+      <div class="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
+        <button onclick="showHome()" class="px-8 py-4 bg-white text-gray-700 border-2 border-gray-200 rounded-xl font-bold text-lg hover:border-gray-300 transition active:scale-95 w-full sm:w-auto">
+          返回主页
+        </button>
+        <button onclick="startQuiz('全部')" class="px-8 py-4 bg-red-600 text-white rounded-xl font-bold text-lg shadow-lg shadow-red-600/30 hover:bg-red-700 transition active:scale-95 w-full sm:w-auto">
+          再来一次 (全库)
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ==================== JAVASCRIPT ==================== -->
+  <script>
+    const WORD_LIST = [
+      // 1. 字面≠实意
+      { id: 1, en: "pull one's leg", zh: "开玩笑、逗某人(不是\"拖后腿\")", cat: "字面≠实意" },
+      { id: 2, en: "put up with", zh: "忍受、容忍", cat: "字面≠实意" },
+      { id: 3, en: "take after", zh: "(长相/性格)像(长辈)", cat: "字面≠实意" },
+      { id: 4, en: "turn out", zh: "结果是、原来是", cat: "字面≠实意" },
+      { id: 5, en: "give away", zh: "泄露(秘密);免费赠送", cat: "字面≠实意" },
+      { id: 6, en: "come up with", zh: "想出(主意、办法)", cat: "字面≠实意" },
+      { id: 7, en: "come across", zh: "偶然遇到、无意发现", cat: "字面≠实意" },
+      { id: 8, en: "stand for", zh: "代表、象征", cat: "字面≠实意" },
+      { id: 9, en: "make for", zh: "朝……走去", cat: "字面≠实意" },
+      { id: 10, en: "come off", zh: "脱落;(计划)成功", cat: "字面≠实意" },
+      { id: 11, en: "keep back", zh: "忍住、抑制(情绪/眼泪)", cat: "字面≠实意" },
+      { id: 12, en: "count on", zh: "指望、依靠", cat: "字面≠实意" },
+      { id: 13, en: "end up", zh: "最终(落得、变成、到了)", cat: "字面≠实意" },
+      { id: 14, en: "die out", zh: "灭绝、消失", cat: "字面≠实意" },
+      { id: 15, en: "pass away", zh: "去世(委婉说法)", cat: "字面≠实意" },
+      { id: 16, en: "live on", zh: "以……为食/靠生活", cat: "字面≠实意" },
+      { id: 17, en: "be hard on sb", zh: "对某人苛刻、严厉", cat: "字面≠实意" },
+
+      // 2. 一词多义
+      { id: 18, en: "make up", zh: "编造;化妆;和好;组成", cat: "一词多义" },
+      { id: 19, en: "take in", zh: "吸收;理解;欺骗", cat: "一词多义" },
+      { id: 20, en: "take off", zh: "起飞;脱(衣);(事业)腾飞", cat: "一词多义" },
+      { id: 21, en: "take up", zh: "占用(时间/空间);开始从事(爱好)", cat: "一词多义" },
+      { id: 22, en: "work out", zh: "锻炼;算出;解决;(事情)进展顺利", cat: "一词多义" },
+      { id: 23, en: "go off", zh: "(闹钟)响;(食物)变质;(炸弹)爆炸;离开", cat: "一词多义" },
+      { id: 24, en: "break down", zh: "(车)抛锚;(人)崩溃;分解", cat: "一词多义" },
+      { id: 25, en: "turn up / turn down", zh: "调大/出现 | 调小/拒绝", cat: "一词多义" },
+      { id: 26, en: "pick up", zh: "捡起;(开车)去接;学会;(行情)好转", cat: "一词多义" },
+      { id: 27, en: "bring up", zh: "抚养;提出(话题)", cat: "一词多义" },
+      { id: 28, en: "set off", zh: "出发;引爆、触发", cat: "一词多义" },
+
+      // 3. 习语表达
+      { id: 29, en: "under the weather", zh: "身体不舒服", cat: "习语表达" },
+      { id: 30, en: "a piece of cake", zh: "小菜一碟、很容易", cat: "习语表达" },
+      { id: 31, en: "once in a blue moon", zh: "极少、千载难逢", cat: "习语表达" },
+      { id: 32, en: "make sense", zh: "讲得通、有道理", cat: "习语表达" },
+      { id: 33, en: "make a difference", zh: "有影响、起作用", cat: "习语表达" },
+      { id: 34, en: "take place", zh: "发生、举行", cat: "习语表达" },
+      { id: 35, en: "after all", zh: "毕竟", cat: "习语表达" },
+      { id: 36, en: "can't help doing", zh: "忍不住(做某事)", cat: "习语表达" },
+      { id: 37, en: "be fed up with", zh: "受够了、厌烦", cat: "习语表达" },
+      { id: 38, en: "in no time", zh: "很快、立刻", cat: "习语表达" },
+      { id: 39, en: "by no means", zh: "绝不、一点也不", cat: "习语表达" },
+
+      // 4. 易混淆词
+      { id: 40, en: "look up to / look down on", zh: "敬仰 / 看不起", cat: "易混淆词" },
+      { id: 41, en: "have a word with / have words with", zh: "谈一谈 / 吵架", cat: "易混淆词" },
+      { id: 42, en: "keep up with / catch up with", zh: "跟上 / 赶上", cat: "易混淆词" },
+      { id: 43, en: "put off / take off", zh: "推迟 / 脱掉·起飞", cat: "易混淆词" },
+      { id: 44, en: "get over / get along with", zh: "克服·康复 / 与……相处", cat: "易混淆词" },
+
+      // 5. 高频抽象词组 (新增)
+      { id: 45, en: "set", zh: "太阳下山; 设置; 树立(榜样)", cat: "高频抽象词组" },
+      { id: 46, en: "setting", zh: "环境; 背景; 设置", cat: "高频抽象词组" },
+      { id: 47, en: "settle down", zh: "定居; 安静下来; 专心于", cat: "高频抽象词组" },
+      { id: 48, en: "set up", zh: "建立; 创立; 安排", cat: "高频抽象词组" },
+      { id: 49, en: "set out", zh: "出发; 开始做(to do)", cat: "高频抽象词组" },
+      { id: 50, en: "carry out", zh: "执行; 贯彻; 完成", cat: "高频抽象词组" },
+      { id: 51, en: "carry on", zh: "继续; 坚持", cat: "高频抽象词组" },
+      { id: 52, en: "be carried away", zh: "使激动; 使着迷(失去理智)", cat: "高频抽象词组" },
+      { id: 53, en: "make out", zh: "辨认出; 理解; 声称", cat: "高频抽象词组" },
+      { id: 54, en: "make up for", zh: "弥补; 补偿", cat: "高频抽象词组" },
+      { id: 55, en: "make it", zh: "成功; 准时到达; 挺过难关", cat: "高频抽象词组" }
+    ];
+
+    // State variables
+    let currentView = 'home';
+    let currentMode = 'en2zh';
+    
+    // Quiz Mechanics
+    let totalInitialWords = 0;
+    let masteredCount = 0;
+    let roundNumber = 1;
+    let currentRoundWords = [];
+    let nextRoundWords = []; // 答错的词进入下一轮
+    let currentIndex = 0;
+    let isFlipped = false;
+    
+    // Analytics
+    let startTime = null;
+    let wordStats = {}; // 记录每个词的错误次数: { id: { wordObj, wrongCount } }
+
+    // DOM Elements
+    const viewHome = document.getElementById('view-home');
+    const viewQuiz = document.getElementById('view-quiz');
+    const viewResult = document.getElementById('view-result');
+
+    // Helper: Switch views
+    function switchView(viewName) {
+      currentView = viewName;
+      viewHome.classList.add('hide');
+      viewQuiz.classList.add('hide');
+      viewResult.classList.add('hide');
+
+      if (viewName === 'home') viewHome.classList.remove('hide');
+      if (viewName === 'quiz') viewQuiz.classList.remove('hide');
+      if (viewName === 'result') viewResult.classList.remove('hide');
+    }
+
+    function showHome() {
+      switchView('home');
+    }
+
+    // Toggle en2zh / zh2en mode
+    function toggleMode() {
+      const dot = document.getElementById('mode-toggle-dot');
+      const lblEn = document.getElementById('label-en2zh');
+      const lblZh = document.getElementById('label-zh2en');
+
+      if (currentMode === 'en2zh') {
+        currentMode = 'zh2en';
+        dot.classList.replace('translate-x-1', 'translate-x-7');
+        dot.classList.add('sm:translate-x-9');
+        dot.classList.remove('sm:translate-x-1');
+        lblEn.classList.replace('text-red-600', 'text-gray-400');
+        lblZh.classList.replace('text-gray-400', 'text-red-600');
+      } else {
+        currentMode = 'en2zh';
+        dot.classList.replace('translate-x-7', 'translate-x-1');
+        dot.classList.add('sm:translate-x-1');
+        dot.classList.remove('sm:translate-x-9');
+        lblZh.classList.replace('text-red-600', 'text-gray-400');
+        lblEn.classList.replace('text-gray-400', 'text-red-600');
+      }
+    }
+
+    // Helper: Shuffle Array
+    function shuffleArray(array) {
+      let shuffled = [...array];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      return shuffled;
+    }
+
+    // Start Quiz
+    function startQuiz(category) {
+      let selectedWords = [];
+      if (category === "全部") {
+        selectedWords = [...WORD_LIST];
+      } else {
+        selectedWords = WORD_LIST.filter(w => w.cat === category);
+      }
+      
+      // Initialize Quiz State
+      totalInitialWords = selectedWords.length;
+      masteredCount = 0;
+      roundNumber = 1;
+      currentRoundWords = shuffleArray(selectedWords);
+      nextRoundWords = [];
+      currentIndex = 0;
+      isFlipped = false;
+      
+      // Initialize Analytics
+      startTime = new Date();
+      wordStats = {};
+      selectedWords.forEach(w => {
+        wordStats[w.id] = { word: w, wrongCount: 0 };
+      });
+      
+      updateQuizUI();
+      switchView('quiz');
+    }
+
+    // Update Quiz View DOM
+    function updateQuizUI() {
+      const currentWord = currentRoundWords[currentIndex];
+      
+      // Progress UI Update
+      const overallProgress = (masteredCount / totalInitialWords) * 100;
+      const remainingThisRound = currentRoundWords.length - currentIndex;
+      
+      document.getElementById('quiz-round-text').innerText = roundNumber;
+      document.getElementById('quiz-remaining-text').innerText = remainingThisRound + nextRoundWords.length;
+      document.getElementById('quiz-progress-bar').style.width = `${overallProgress}%`;
+      document.getElementById('quiz-progress-percent').innerText = `总进度 ${Math.floor(overallProgress)}%`;
+      
+      // Card Content Update
+      const questionText = currentMode === 'en2zh' ? currentWord.en : currentWord.zh;
+      const answerText = currentMode === 'en2zh' ? currentWord.zh : currentWord.en;
+      
+      document.getElementById('card-category').innerText = currentWord.cat;
+      
+      const qEl = document.getElementById('card-question');
+      qEl.innerText = questionText;
+      
+      const aEl = document.getElementById('card-answer');
+      aEl.innerText = answerText;
+
+      // Reset flip state
+      isFlipped = false;
+      document.getElementById('card-answer-container').classList.replace('answer-visible', 'answer-hidden');
+      document.getElementById('controls-flip').classList.remove('hide');
+      document.getElementById('controls-judge').classList.add('hide');
+    }
+
+    // Flip Card
+    function flipCard() {
+      if (isFlipped) return;
+      isFlipped = true;
+      document.getElementById('card-answer-container').classList.replace('answer-hidden', 'answer-visible');
+      document.getElementById('controls-flip').classList.add('hide');
+      document.getElementById('controls-judge').classList.remove('hide');
+    }
+
+    // Handle Answer (known/unknown)
+    function handleAnswer(isKnown, event) {
+      if (event) event.stopPropagation(); // 阻止冒泡触发flipCard
+      if (!isFlipped) return;
+      
+      const currentWord = currentRoundWords[currentIndex];
+      
+      if (isKnown) {
+        masteredCount++;
+      } else {
+        nextRoundWords.push(currentWord);
+        wordStats[currentWord.id].wrongCount++;
+      }
+
+      currentIndex++;
+      
+      // Check if current round is finished
+      if (currentIndex >= currentRoundWords.length) {
+        if (nextRoundWords.length > 0) {
+          // Go to next round with missed words
+          roundNumber++;
+          currentRoundWords = shuffleArray([...nextRoundWords]);
+          nextRoundWords = [];
+          currentIndex = 0;
+          updateQuizUI();
+        } else {
+          // All words mastered!
+          finishQuiz();
+        }
+      } else {
+        // Next word in current round
+        updateQuizUI();
+      }
+    }
+
+    // Format Time (seconds to MM:SS)
+    function formatTime(seconds) {
+      const m = Math.floor(seconds / 60);
+      const s = seconds % 60;
+      return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
+
+    // Finish Quiz and Show Result
+    function finishQuiz() {
+      const endTime = new Date();
+      const timeSpentSec = Math.floor((endTime - startTime) / 1000);
+      
+      document.getElementById('stat-total-words').innerText = totalInitialWords;
+      document.getElementById('stat-rounds').innerText = roundNumber;
+      document.getElementById('stat-time').innerText = formatTime(timeSpentSec);
+      
+      // Format Date: YYYY-MM-DD
+      const dateOpts = { year: 'numeric', month: '2-digit', day: '2-digit' };
+      document.getElementById('stat-date').innerText = endTime.toLocaleDateString('zh-CN', dateOpts);
+
+      // Analyze wrong words
+      const wrongWordsListEl = document.getElementById('wrong-words-list');
+      const noWrongWordsEl = document.getElementById('no-wrong-words');
+      
+      // Filter out words that were wrong at least once and sort by wrong count (descending)
+      const wrongWordsArray = Object.values(wordStats)
+        .filter(item => item.wrongCount > 0)
+        .sort((a, b) => b.wrongCount - a.wrongCount);
+
+      document.getElementById('stat-wrong-count').innerText = `${wrongWordsArray.length} 个错词`;
+
+      if (wrongWordsArray.length > 0) {
+        wrongWordsListEl.innerHTML = wrongWordsArray.map(item => `
+          <li class="flex flex-col sm:flex-row sm:items-center justify-between p-4 hover:bg-gray-50 transition">
+            <div class="mb-2 sm:mb-0">
+              <span class="font-bold text-gray-800 text-lg block sm:inline-block">${item.word.en}</span>
+              <span class="text-gray-500 sm:ml-3 text-sm sm:text-base">${item.word.zh}</span>
+            </div>
+            <div class="flex-shrink-0">
+              <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-red-100 text-red-800">
+                错了 ${item.wrongCount} 次
+              </span>
+            </div>
+          </li>
+        `).join('');
+        wrongWordsListEl.classList.remove('hide');
+        noWrongWordsEl.classList.add('hide');
+      } else {
+        wrongWordsListEl.innerHTML = '';
+        wrongWordsListEl.classList.add('hide');
+        noWrongWordsEl.classList.remove('hide');
+      }
+
+      switchView('result');
+    }
+
+    // Global Keyboard Controls (For PC)
+    document.addEventListener('keydown', (e) => {
+      if (currentView !== 'quiz') return;
+      
+      if (e.code === 'Space') {
+        e.preventDefault(); 
+        if (!isFlipped) flipCard();
+      } else if (e.code === 'ArrowLeft') {
+        e.preventDefault();
+        if (isFlipped) handleAnswer(false);
+      } else if (e.code === 'ArrowRight') {
+        e.preventDefault();
+        if (isFlipped) handleAnswer(true);
+      }
+    });
+
+  </script>
+</body>
+</html>
