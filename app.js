@@ -1164,7 +1164,54 @@ function reportEntityId(record, viewMode) { return viewMode === 'class' ? 'class
 function reportEntityLabel(record, viewMode) { return viewMode === 'class' ? (record.className || '未分班') : record.studentName; }
 function reportLessonOptions(cfg, records) { const map = reportModuleMap(); const ids = new Set(records.map(r => r.lessonId).filter(Boolean)); map.forEach((meta, id) => { if (cfg.selectedLevelId === 'all' || meta.levelId === cfg.selectedLevelId) ids.add(id); }); return Array.from(ids).map(id => { const meta = map.get(id); return { id, title:meta?.title || id, levelId:meta?.levelId || '' }; }).filter(item => cfg.selectedLevelId === 'all' || item.levelId === cfg.selectedLevelId || !item.levelId).sort((a,b) => a.title.localeCompare(b.title)); }
 function reportLessonId(row) { const meta = row && typeof row.metadata === 'object' && row.metadata ? row.metadata : {}; const legacy = meta.legacyPayload && typeof meta.legacyPayload === 'object' ? meta.legacyPayload : {}; return row.homework_id || row.lesson_id || row.module_id || row.moduleId || legacy.homework_id || legacy.homeworkId || legacy.module_id || legacy.moduleId || ''; }
-function rawReportRecords() { const students = reportStudentMap(); const modules = reportModuleMap(); const cfg = reportCfg(); const start = reportBoundary(cfg.startDate, false); const end = reportBoundary(cfg.endDate, true); if (!start || !end) return []; const make = (row) => { const studentId = row.student_id || row.studentId; const lessonId = reportLessonId(row); const student = students.get(studentId); const meta = modules.get(lessonId); const rowMeta = row && typeof row.metadata === 'object' && row.metadata ? row.metadata : {}; const classes = classesOf(student); const submittedAt = row.submitted_at || row.created_at || row.date || new Date().toISOString(); const correct = reportMetric(row, 'correct_count'); const total = reportMetric(row, 'total_count'); const score = reportScore(correct, total, row.score); const source = row.source === 'quiz' ? 'quiz' : row.source === 'diagnostic' ? 'diagnostic' : (String(row.event_type || '').includes('quiz') ? 'quiz' : String(row.event_type || '').includes('diagnostic') ? 'diagnostic' : 'lesson'); const confidence = Number(rowMeta.metrics && rowMeta.metrics.confidence || 0); return { id:source + ':' + (row.id || studentId + ':' + lessonId + ':' + submittedAt), source, sourceLabel:source === 'quiz' ? '测验' : source === 'diagnostic' ? '诊断' : '练习', studentId, studentName:student?.name || studentId || '未命名学生', className:classes.length ? classes.map(reportClassLabel).join(' / ') : '未分班', lessonId, moduleTitle:meta?.title || row.module_title || lessonId || '未命名单元', levelId:meta?.levelId || normalizeClass(row.class_code || ''), levelCode:meta?.levelTitle || reportClassLabel(row.class_code || ''), submittedAt, correctCount:correct ?? null, totalCount:total ?? null, scorePercent:score, reportConfidence:confidence, reportNote:String(rowMeta.text || rowMeta.triggerText || '') }; }; return state.logs.map(make).filter(record => { const d = new Date(record.submittedAt); return record.studentId && record.lessonId && !isExemptLessonId(record.lessonId) && d >= start && d <= end; }); }
+function reportObjectCandidates(meta) {
+  const list = [];
+  const add = value => {
+    if (!value) return;
+    if (typeof value === 'string') {
+      try { value = JSON.parse(value); } catch { return; }
+    }
+    if (typeof value === 'object' && !list.includes(value)) list.push(value);
+  };
+  add(meta);
+  add(meta?.report);
+  add(meta?.metadata);
+  add(meta?.legacyPayload);
+  add(meta?.legacyPayload?.report);
+  add(meta?.legacyPayload?.metadata);
+  return list;
+}
+function reportProcessPayload(meta) {
+  return reportObjectCandidates(meta).find(item => Array.isArray(item.phrase_details) || Array.isArray(item.weak_phrases) || Array.isArray(item.attempts)) || null;
+}
+function reportProcessSummary(meta) {
+  const payload = reportProcessPayload(meta);
+  if (!payload) return null;
+  const phraseDetails = Array.isArray(payload.phrase_details) ? payload.phrase_details : [];
+  const weakSource = Array.isArray(payload.weak_phrases) ? payload.weak_phrases : phraseDetails.filter(item => Number(item.clozeWrong || 0) || Number(item.meaningWrong || 0));
+  const attempts = Array.isArray(payload.attempts) ? payload.attempts : [];
+  if (!phraseDetails.length && !weakSource.length && !attempts.length) return null;
+  const weakPhrases = weakSource.slice().sort((a,b) => {
+    const aw = Number(a.clozeWrong || 0) + Number(a.meaningWrong || 0) + Number(a.studyCount || 0);
+    const bw = Number(b.clozeWrong || 0) + Number(b.meaningWrong || 0) + Number(b.studyCount || 0);
+    return bw - aw || String(a.phrase || '').localeCompare(String(b.phrase || ''));
+  });
+  const firstPass = phraseDetails.filter(item => Number(item.clozeWrong || 0) === 0).length;
+  return {
+    totalPhrases:Number(payload.total_phrases || phraseDetails.length || weakPhrases.length || 0),
+    selectedCategory:String(payload.selected_category || payload.category || ''),
+    durationSeconds:Number(payload.duration_seconds || payload.durationSeconds || 0),
+    phraseDetails,
+    weakPhrases,
+    attempts,
+    metrics:payload.metrics && typeof payload.metrics === 'object' ? payload.metrics : {},
+    firstPass,
+    clozeWrongCount:phraseDetails.reduce((sum,item) => sum + Number(item.clozeWrong || 0), 0),
+    meaningWrongCount:phraseDetails.reduce((sum,item) => sum + Number(item.meaningWrong || 0), 0),
+    studyCount:phraseDetails.reduce((sum,item) => sum + Number(item.studyCount || 0), 0)
+  };
+}
+function rawReportRecords() { const students = reportStudentMap(); const modules = reportModuleMap(); const cfg = reportCfg(); const start = reportBoundary(cfg.startDate, false); const end = reportBoundary(cfg.endDate, true); if (!start || !end) return []; const make = (row) => { const studentId = row.student_id || row.studentId; const lessonId = reportLessonId(row); const student = students.get(studentId); const meta = modules.get(lessonId); const rowMeta = row && typeof row.metadata === 'object' && row.metadata ? row.metadata : {}; const classes = classesOf(student); const submittedAt = row.submitted_at || row.created_at || row.date || new Date().toISOString(); const correct = reportMetric(row, 'correct_count'); const total = reportMetric(row, 'total_count'); const score = reportScore(correct, total, row.score); const source = row.source === 'quiz' ? 'quiz' : row.source === 'diagnostic' ? 'diagnostic' : (String(row.event_type || '').includes('quiz') ? 'quiz' : String(row.event_type || '').includes('diagnostic') ? 'diagnostic' : 'lesson'); const confidence = Number(rowMeta.metrics && rowMeta.metrics.confidence || 0); const processReport = reportProcessSummary(rowMeta); return { id:source + ':' + (row.id || studentId + ':' + lessonId + ':' + submittedAt), source, sourceLabel:source === 'quiz' ? '测验' : source === 'diagnostic' ? '诊断' : '练习', studentId, studentName:student?.name || studentId || '未命名学生', className:classes.length ? classes.map(reportClassLabel).join(' / ') : '未分班', lessonId, moduleTitle:meta?.title || row.module_title || lessonId || '未命名单元', levelId:meta?.levelId || normalizeClass(row.class_code || ''), levelCode:meta?.levelTitle || reportClassLabel(row.class_code || ''), submittedAt, correctCount:correct ?? null, totalCount:total ?? null, scorePercent:score, reportConfidence:confidence, reportNote:String(rowMeta.text || rowMeta.triggerText || ''), metadata:rowMeta, processReport }; }; return state.logs.map(make).filter(record => { const d = new Date(record.submittedAt); return record.studentId && record.lessonId && !isExemptLessonId(record.lessonId) && d >= start && d <= end; }); }
 function computeReports() {
   const cfg = reportCfg();
   const records = rawReportRecords().filter(record => !isUnverifiedObserverReport(record) && (cfg.sourceFilter === 'all' || record.source === cfg.sourceFilter) && (cfg.selectedLevelId === 'all' || record.levelId === cfg.selectedLevelId) && (cfg.selectedLessonId === 'all' || record.lessonId === cfg.selectedLessonId));
@@ -1209,7 +1256,8 @@ function computeReports() {
   const buckets = REPORT_BUCKETS.map(bucket => ({ ...bucket, count:latestRows.filter(r => r.scorePercent >= bucket.min && r.scorePercent <= bucket.max).length }));
   const studentCount = new Set(latestRows.map(r => r.studentId)).size;
   const classCount = new Set(latestRows.map(r => r.className)).size;
-  return { records, latestRows, summaryRows, comparisonOptions, selected, keys, chart, buckets, stats:{ studentCount, classCount, submitCount:latestRows.length, averageScore:reportAverage(latestRows.map(r => r.scorePercent)) }, lessons:reportLessonOptions(cfg, rawReportRecords()) };
+  const processReports = latestRows.filter(r => r.processReport);
+  return { records, latestRows, summaryRows, comparisonOptions, selected, keys, chart, buckets, processReports, stats:{ studentCount, classCount, submitCount:latestRows.length, averageScore:reportAverage(latestRows.map(r => r.scorePercent)) }, lessons:reportLessonOptions(cfg, rawReportRecords()) };
 }
 function reportPieBackground(buckets) { const total = buckets.reduce((s,b) => s + b.count, 0); if (!total) return 'conic-gradient(#e2e8f0 0deg 360deg)'; let cursor = 0; return 'conic-gradient(' + buckets.map(b => { const start = cursor; const end = cursor + b.count / total * 360; cursor = end; return b.color + ' ' + start + 'deg ' + end + 'deg'; }).join(',') + ')'; }
 function reportTrendSvg(data) { if (!data.chart.length) return '<div class="rounded-[1.4rem] border border-dashed border-gray-200 bg-[#F8F8FC] px-5 py-8 text-center text-sm font-bold text-gray-400">暂无趋势数据。</div>'; const w = 720, h = 260, pad = { left:42, right:24, top:26, bottom:38 }; const point = (i, val, count) => { const iw = w - pad.left - pad.right; const ih = h - pad.top - pad.bottom; return { x:pad.left + (iw / ((count - 1) || 1)) * i, y:pad.top + ih - (Math.max(0, Math.min(100, val)) / 100) * ih }; }; const grid = [100,75,50,25,0].map(level => { const p = point(0, level, 2); return '<g><line x1="' + pad.left + '" x2="' + (w-pad.right) + '" y1="' + p.y + '" y2="' + p.y + '" stroke="#e2e8f0" stroke-dasharray="4 6"></line><text x="8" y="' + (p.y+4) + '" fill="#94a3b8" font-size="11" font-weight="900">' + level + '%</text></g>'; }).join(''); const dates = data.keys.map((key,i,arr) => { const p = point(i,0,arr.length); const show = arr.length <= 10 || i === 0 || i === arr.length - 1 || i % Math.ceil(arr.length/6) === 0; return '<g><line x1="' + p.x + '" x2="' + p.x + '" y1="' + pad.top + '" y2="' + (h-pad.bottom) + '" stroke="#f1f5f9"></line>' + (show ? '<text x="' + p.x + '" y="' + (h-12) + '" text-anchor="middle" fill="#94a3b8" font-size="11" font-weight="900">' + reportShortDate(key) + '</text>' : '') + '</g>'; }).join(''); const lines = data.chart.map(series => { const pts = series.values.map((v,i) => v === null ? null : point(i,v,series.values.length)); const path = pts.map((p,i) => p ? (i === 0 || !pts.slice(0,i).some(Boolean) ? 'M ' : 'L ') + p.x + ' ' + p.y : '').filter(Boolean).join(' '); const circles = pts.map((p,i) => p ? '<circle cx="' + p.x + '" cy="' + p.y + '" r="4.5" fill="' + series.color + '" stroke="#fff" stroke-width="2.5"><title>' + esc(series.label + ' ' + reportFullDate(data.keys[i]) + ' ' + series.values[i] + '%') + '</title></circle>' : '').join(''); return '<g><path d="' + path + '" fill="none" stroke="' + series.color + '" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path>' + circles + '</g>'; }).join(''); const legend = data.chart.map(s => '<div class="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-xs font-black text-gray-600 shadow-sm"><span class="h-2.5 w-2.5 rounded-full" style="background:' + s.color + '"></span>' + esc(s.label) + '</div>').join(''); return '<div class="rounded-[1.35rem] border border-gray-200 bg-[#F8F8FC] p-3 md:p-5"><svg viewBox="0 0 720 260" class="h-auto w-full overflow-visible" role="img" aria-label="成绩趋势折线图">' + grid + dates + lines + '</svg><div class="mt-4 flex flex-wrap gap-3">' + legend + '</div></div>'; }
@@ -1267,10 +1315,43 @@ function reportsPanelV2() {
       '<div class="card-solid overflow-hidden"><div class="border-b border-gray-100 px-5 py-5 md:px-6"><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Distribution</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">分数段分布</h3></div><div class="space-y-5 px-5 py-5 md:px-6"><div class="mx-auto flex h-44 w-44 items-center justify-center rounded-full bg-[#F8F8FC] shadow-inner"><div class="relative flex h-40 w-40 items-center justify-center rounded-full" style="background-image:' + reportPieBackground(data.buckets) + '"><div class="absolute inset-[28px] rounded-full bg-white shadow-inner"></div><div class="relative text-center"><p class="text-xs font-black text-gray-400">单元成绩</p><p class="mt-1 text-3xl font-black text-[#2D2A4A]">' + data.latestRows.length + '</p></div></div></div><div class="space-y-3">' + bucketRows + '</div></div></div>' +
     '</section>' +
     reportTableSection(cfg.viewMode === 'class' ? '班级成绩查看' : '学生成绩查看', cfg.viewMode === 'class' ? '班级' : '学生', summaryRows, cfg.viewMode === 'class', summaryCards) +
+    reportProcessSection(data.processReports) +
     reportDetailSection(detailRows, detailCards) +
     '</div>';
 }
 function reportTableSection(title, firstHead, rows, hasStudentCount, mobileCards) { const empty = '<div class="rounded-[1.4rem] border border-dashed border-gray-200 bg-[#F8F8FC] px-5 py-8 text-center text-sm font-bold text-gray-400">暂无成绩数据。</div>'; return '<section class="card-solid overflow-hidden"><div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-5 md:flex-row md:items-center md:justify-between md:px-6"><div><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Ranking</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">' + title + '</h3></div></div><div class="space-y-3 px-4 py-4 md:hidden">' + (mobileCards || empty) + '</div><div class="hidden px-5 py-5 md:block md:px-6">' + (rows ? '<table class="w-full min-w-[760px] border-separate border-spacing-y-2"><thead><tr class="text-left text-xs font-black uppercase tracking-[0.16em] text-gray-400"><th class="px-4 py-2">' + firstHead + '</th><th class="px-4 py-2">平均正确率</th><th class="px-4 py-2">提交次数</th><th class="px-4 py-2">覆盖单元</th>' + (hasStudentCount ? '<th class="px-4 py-2">学生数</th>' : '') + '<th class="px-4 py-2">最近提交</th></tr></thead><tbody>' + rows + '</tbody></table>' : empty) + '</div></section>'; }
+function reportTimeText(seconds) {
+  const n = Number(seconds || 0);
+  if (!Number.isFinite(n) || n <= 0) return '--';
+  const min = Math.floor(n / 60);
+  const sec = Math.round(n % 60);
+  return min ? min + '分' + String(sec).padStart(2, '0') + '秒' : sec + '秒';
+}
+function reportProcessPhaseLabel(phase) {
+  const text = String(phase || '');
+  if (text.includes('meaning')) return '中文义';
+  if (text.includes('study')) return '复习';
+  if (text.includes('cloze')) return '完形';
+  return text || '练习';
+}
+function reportProcessSection(records) {
+  const empty = '<div class="rounded-[1.4rem] border border-dashed border-gray-200 bg-[#F8F8FC] px-5 py-8 text-center text-sm font-bold text-gray-400">暂无专项过程报告。学生完成支持 metadata 的专项练习后，会自动出现在这里。</div>';
+  const cards = (records || []).slice(0, 12).map(record => {
+    const p = record.processReport;
+    const weak = (p.weakPhrases || []).slice(0, 8);
+    const weakRows = weak.length ? weak.map((item, index) => {
+      const wrongTotal = Number(item.clozeWrong || 0) + Number(item.meaningWrong || 0);
+      const timeText = '完形 ' + reportTimeText(item.clozeTimeSeconds) + ' / 中文 ' + reportTimeText(item.meaningTimeSeconds) + ' / 复习 ' + reportTimeText(item.studyTimeSeconds);
+      return '<details class="rounded-[1rem] border border-gray-100 bg-white px-4 py-3 shadow-sm"><summary class="cursor-pointer list-none"><div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"><div class="min-w-0"><p class="text-sm font-black text-[#2D2A4A]">' + (index + 1) + '. ' + esc(item.phrase || '未命名词组') + '</p><p class="mt-1 text-xs font-bold text-gray-400">' + esc(item.meaning || item.category || '暂无释义') + '</p></div><div class="flex shrink-0 flex-wrap gap-2"><span class="rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-black text-red-500">错 ' + wrongTotal + '</span><span class="rounded-full bg-[#F4F2FF] px-2.5 py-1 text-[11px] font-black text-[#6B48FF]">复习 ' + Number(item.studyCount || 0) + '</span></div></div></summary><div class="mt-3 space-y-2 border-t border-gray-100 pt-3 text-xs font-bold leading-5 text-gray-500"><p>' + esc(timeText) + '</p>' + (item.clozeQuestion ? '<p><span class="font-black text-[#2D2A4A]">完形题：</span>' + esc(item.clozeQuestion) + '</p>' : '') + (Array.isArray(item.examples) && item.examples.length ? '<div><span class="font-black text-[#2D2A4A]">常用例句：</span>' + item.examples.slice(0,2).map(example => '<p class="mt-1">' + esc(example.en || example.text || '') + (example.cn ? '<br><span class="text-gray-400">' + esc(example.cn) + '</span>' : '') + '</p>').join('') + '</div>' : '') + '</div></details>';
+    }).join('') : '<div class="rounded-[1rem] border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-600">本次没有明显薄弱词组。</div>';
+    const attemptRows = (p.attempts || []).slice(-12).map(item => {
+      const ok = item.correct === true || item.isCorrect === true;
+      return '<span class="inline-flex items-center gap-1 rounded-full ' + (ok ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500') + ' px-2.5 py-1 text-[11px] font-black">' + reportProcessPhaseLabel(item.phase || item.stage) + ' ' + (ok ? '对' : '错') + ' ' + reportTimeText(Number(item.duration_ms || item.durationMs || 0) / 1000) + '</span>';
+    }).join('');
+    return '<details class="rounded-[1.25rem] border border-gray-100 bg-[#F8F8FC] p-4 shadow-sm" open><summary class="cursor-pointer list-none"><div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between"><div class="min-w-0"><p class="text-base font-black text-[#2D2A4A]">' + esc(record.studentName) + ' · ' + esc(record.moduleTitle) + '</p><p class="mt-1 text-xs font-bold text-gray-400">' + esc(record.className) + ' · ' + reportDateTime(record.submittedAt) + '</p></div><div class="flex shrink-0 flex-wrap gap-2"><span class="rounded-full bg-white px-3 py-1.5 text-xs font-black text-[#6B48FF] shadow-sm">' + record.scorePercent + '%</span><span class="rounded-full bg-white px-3 py-1.5 text-xs font-black text-gray-500 shadow-sm">' + reportTimeText(p.durationSeconds) + '</span></div></div></summary><div class="mt-4 grid gap-3 md:grid-cols-4"><div class="rounded-xl bg-white px-3 py-3 text-center shadow-sm"><p class="text-[10px] font-black text-gray-400">词组总数</p><p class="mt-1 text-lg font-black text-[#2D2A4A]">' + p.totalPhrases + '</p></div><div class="rounded-xl bg-white px-3 py-3 text-center shadow-sm"><p class="text-[10px] font-black text-gray-400">首轮过关</p><p class="mt-1 text-lg font-black text-[#2D2A4A]">' + p.firstPass + '</p></div><div class="rounded-xl bg-white px-3 py-3 text-center shadow-sm"><p class="text-[10px] font-black text-gray-400">完形错次</p><p class="mt-1 text-lg font-black text-[#2D2A4A]">' + p.clozeWrongCount + '</p></div><div class="rounded-xl bg-white px-3 py-3 text-center shadow-sm"><p class="text-[10px] font-black text-gray-400">中文错次</p><p class="mt-1 text-lg font-black text-[#2D2A4A]">' + p.meaningWrongCount + '</p></div></div><div class="mt-4 space-y-3">' + weakRows + '</div>' + (attemptRows ? '<div class="mt-4 rounded-xl bg-white px-4 py-3 shadow-sm"><p class="mb-2 text-xs font-black uppercase tracking-[0.16em] text-gray-400">Recent Steps</p><div class="flex flex-wrap gap-2">' + attemptRows + '</div></div>' : '') + '</details>';
+  }).join('');
+  return '<section class="card-solid overflow-hidden"><div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-5 md:flex-row md:items-center md:justify-between md:px-6"><div><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Process Report</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">全景做题报告</h3></div><span class="rounded-full bg-[#F4F2FF] px-3 py-1 text-xs font-black text-[#6B48FF]">专项练习元数据</span></div><div class="space-y-3 px-4 py-4 md:px-6">' + (cards || empty) + '</div></section>';
+}
 function reportDetailSection(rows, mobileCards) { const empty = '<div class="rounded-[1.4rem] border border-dashed border-gray-200 bg-[#F8F8FC] px-5 py-8 text-center text-sm font-bold text-gray-400">暂无单元明细。</div>'; return '<section class="card-solid overflow-hidden"><div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-5 md:flex-row md:items-center md:justify-between md:px-6"><div><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Unit Details</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">单元明细</h3></div></div><div class="space-y-3 px-4 py-4 md:hidden">' + (mobileCards || empty) + '</div><div class="hidden px-5 py-5 md:block md:px-6">' + (rows ? '<table class="w-full min-w-[900px] border-separate border-spacing-y-2"><thead><tr class="text-left text-xs font-black uppercase tracking-[0.16em] text-gray-400"><th class="px-4 py-2">对象</th><th class="px-4 py-2">单元</th><th class="px-4 py-2">来源</th><th class="px-4 py-2">次数</th><th class="px-4 py-2">正确率</th><th class="px-4 py-2">提交时间</th></tr></thead><tbody>' + rows + '</tbody></table>' : empty) + '</div></section>'; }
 function attendancePanel() {
   const cfg = attendanceCfg();
