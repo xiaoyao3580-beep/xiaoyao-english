@@ -48,6 +48,26 @@ window.XY_CONTENT_LEVELS = [
     "buttonTheme": "bg-emerald-500 text-white shadow-md shadow-emerald-500/20"
   },
   {
+    "id": "one_to_one",
+    "code": "ONE-TO-ONE",
+    "title": "一对一专属课",
+    "subtitle": "Personal Lesson",
+    "icon": "fa-user-graduate",
+    "theme": "text-blue-700 bg-blue-50 border-blue-100",
+    "buttonTheme": "bg-blue-500 text-white shadow-md shadow-blue-500/20",
+    "course_type": "one_to_one"
+  },
+  {
+    "id": "coaching",
+    "code": "COACHING",
+    "title": "线上陪跑课",
+    "subtitle": "Online Coaching",
+    "icon": "fa-route",
+    "theme": "text-green-700 bg-green-50 border-green-100",
+    "buttonTheme": "bg-green-500 text-white shadow-md shadow-green-500/20",
+    "course_type": "coaching"
+  },
+  {
     "id": "swsy",
     "code": "SWSY",
     "title": "深外素养口语课",
@@ -81,6 +101,8 @@ window.XY_CONTENT_LEVELS = [
   }
 ];
 window.XY_CONTENT_MODULES = {
+  "one_to_one": [],
+  "coaching": [],
   "summer-uk-2026": [],
   "a1": [
     {
