@@ -989,10 +989,19 @@ function homeworkPanel() { return homeworkUploadPanel(); }
 function courseTypeLabel(type) {
   return type === 'one_to_one' ? '一对一专属课' : (type === 'coaching' ? '线上陪跑课' : '普通班级作业');
 }
-function studentOptionLabel(student) {
+function studentMatchesCourseType(student, courseType) {
+  const type = normalizeCourseType(courseType);
+  if (type === 'class') return studentTypeOf(student) === 'class';
+  return studentTypeOf(student) === type || classesOf(student).includes(type);
+}
+function studentOptionLabel(student, courseType = '') {
   const type = studentTypeOf(student);
-  const typeLabel = type === 'one_to_one' ? '一对一' : (type === 'coaching' ? '陪跑' : '班课');
-  return (student.name || student.id) + ' · ' + student.id + ' · ' + typeLabel;
+  const permissions = classesOf(student).filter(isPersonalCourse);
+  const target = normalizeCourseType(courseType);
+  const hasTargetPermission = target !== 'class' && permissions.includes(target);
+  const typeLabel = type === 'one_to_one' ? '一对一' : (type === 'coaching' ? '陪跑' : (hasTargetPermission ? courseTypeLabel(target).replace('专属课','').replace('课','') + '权限' : '班课'));
+  const extra = type === 'class' && permissions.length && !hasTargetPermission ? ' + ' + permissions.map(p => courseTypeLabel(p).replace('专属课','').replace('课','')).join('/') : '';
+  return (student.name || student.id) + ' · ' + student.id + ' · ' + typeLabel + extra;
 }
 function homeworkOwnerLabel(hw) {
   if (hw.courseType === 'class') return teacherClasses().find(c => c.code === normalizeClass(hw.classId || hw.classCode))?.name || hw.classCode || '普通班级';
@@ -1000,9 +1009,9 @@ function homeworkOwnerLabel(hw) {
   return courseTypeLabel(hw.courseType) + ' · ' + (student ? (student.name || student.id) + ' (' + student.id + ')' : (hw.studentId || '未指定学生'));
 }
 function homeworkStudentOptions(courseType, selectedId = '') {
-  const primary = state.students.filter(s => studentTypeOf(s) === courseType);
-  const others = state.students.filter(s => studentTypeOf(s) !== courseType);
-  const option = s => '<option value="' + esc(s.id) + '" ' + (studentMatchesId(s, selectedId) ? 'selected' : '') + '>' + esc(studentOptionLabel(s)) + '</option>';
+  const primary = state.students.filter(s => studentMatchesCourseType(s, courseType));
+  const others = state.students.filter(s => !studentMatchesCourseType(s, courseType));
+  const option = s => '<option value="' + esc(s.id) + '" ' + (studentMatchesId(s, selectedId) ? 'selected' : '') + '>' + esc(studentOptionLabel(s, courseType)) + '</option>';
   return '<option value="">请选择学生</option>' +
     (primary.length ? '<optgroup label="' + esc(courseTypeLabel(courseType)) + '">' + primary.map(option).join('') + '</optgroup>' : '') +
     (others.length ? '<optgroup label="全部学生">' + others.map(option).join('') + '</optgroup>' : '');
