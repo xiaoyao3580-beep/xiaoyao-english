@@ -147,6 +147,7 @@
           <span class="mt-2 block text-sm font-semibold text-red-100">适合课后完整诊断</span>
         </button>
       </div>
+      <div id="test-report-box" class="text-center"></div>
     </section>
 
     <section id="view-practice" class="hide">
@@ -201,6 +202,7 @@
   <script>
     const HOMEWORK_ID = 'amy_phrase_cloze_mastery';
     const MODULE_TITLE = 'Amy 词组-完形填空专项练习';
+    const TEST_REPORT_PARAM = 'xy_report_test';
 
     const PHRASES = [
       { id:1, en:"pull one's leg", zh:"开玩笑、逗某人", cat:"字面≠实意", cloze:"Tom looked serious, but Amy soon realized he was only ____ when he said the exam was cancelled.", cn:"Tom看起来很认真，但Amy很快发现他说考试取消只是开玩笑。", examples:["Don't be angry. I was only pulling your leg.","If someone pulls your leg, they are joking, not telling a real fact."] },
@@ -226,7 +228,7 @@
       { id:21, en:"take up", zh:"占用;开始从事", cat:"一词多义", cloze:"The new desk ____ too much space in Amy's small room.", cn:"新书桌占了Amy小房间太多空间。", examples:["This hobby takes up a lot of time.","It can also mean starting a new hobby."] },
       { id:22, en:"work out", zh:"锻炼;算出;解决", cat:"一词多义", cloze:"The math problem looked hard, but Amy finally ____ the answer.", cn:"数学题看起来很难，但Amy最终算出了答案。", examples:["He works out every morning.","In tests, check whether it means exercise or solve."] },
       { id:23, en:"go off", zh:"响;变质;爆炸;离开", cat:"一词多义", cloze:"Amy woke up as soon as the alarm ____ at six.", cn:"闹钟六点一响，Amy就醒了。", examples:["The milk has gone off.","The meaning changes with alarm, food, bomb, or person."] },
-      { id:24, en:"break down", zh:"抛锚;崩溃;分解", cat:"一词多义", cloze:"The car ____ on the way, so they had to call for help.", cn:"车在路上抛锚了，解体，所以他们只好求助。", cn:"车在路上抛锚了，所以他们只好求助。", examples:["She broke down and cried.","Machines, people, and materials can all break down."] },
+      { id:24, en:"break down", zh:"抛锚;崩溃;分解", cat:"一词多义", cloze:"The car ____ on the way, so they had to call for help.", cn:"车在路上抛锚了，所以他们只好求助。", examples:["She broke down and cried.","Machines, people, and materials can all break down."] },
       { id:25, en:"turn up / turn down", zh:"调大/出现 | 调小/拒绝", cat:"一词多义", cloze:"Amy invited him to the party, but he ____ her invitation politely.", cn:"Amy邀请他参加聚会，但他礼貌地拒绝了。", examples:["Turn up the radio, please.","Turn down can mean lower the volume or refuse."] },
       { id:26, en:"pick up", zh:"捡起;接;学会;好转", cat:"一词多义", cloze:"Amy ____ some useful expressions while reading English stories.", cn:"Amy读英文故事时学会了一些有用表达。", examples:["Dad picked me up at school.","It can mean collect, learn, or improve."] },
       { id:27, en:"bring up", zh:"抚养;提出", cat:"一词多义", cloze:"During the discussion, Amy ____ a question that everyone had ignored.", cn:"讨论中，Amy提出了一个大家忽略的问题。", examples:["Her grandparents brought her up.","It can mean raise a child or mention a topic."] },
@@ -310,6 +312,13 @@
       state.view = view;
     }
     function showHome() { show('home'); }
+    function isReportTestMode() {
+      const params = new URLSearchParams(location.search);
+      return params.get(TEST_REPORT_PARAM) === '1' || location.hash.includes(TEST_REPORT_PARAM);
+    }
+    function reportTestButtonHtml() {
+      return `<button onclick="submitSampleReport()" class="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-3 text-sm font-black text-amber-700 shadow-sm">生成测试报告并上报</button>`;
+    }
     function initStats(item) {
       return { ...item, status:'pending', clozeAttempts:0, clozeWrong:0, meaningAttempts:0, meaningWrong:0, studyCount:0, clozeTimeMs:0, meaningTimeMs:0, studyTimeMs:0, meaningPassed:false, firstClozePassed:false, finalPassed:false, history:[] };
     }
@@ -678,6 +687,78 @@
         });
       } catch (err) {}
       show('result');
+    }
+    function samplePhraseDetail(item, index) {
+      const clozeWrong = index % 2;
+      const meaningWrong = index === 1 ? 1 : 0;
+      const studyCount = clozeWrong || meaningWrong ? 1 : 0;
+      return {
+        id:item.id,
+        phrase:item.en,
+        meaning:item.zh,
+        category:item.cat,
+        clozeAttempts:clozeWrong + 1,
+        clozeWrong,
+        meaningAttempts:meaningWrong + 1,
+        meaningWrong,
+        studyCount,
+        firstClozePassed:clozeWrong === 0,
+        clozeTimeSeconds:12 + index * 5,
+        meaningTimeSeconds:6 + index * 3,
+        studyTimeSeconds:studyCount ? 32 + index * 6 : 0,
+        clozeQuestion:displayCloze(item),
+        examples:commonExamples(item)
+      };
+    }
+    function submitSampleReport() {
+      const picked = PHRASES.slice(35, 41);
+      const phraseDetails = picked.map(samplePhraseDetail);
+      const weak = phraseDetails.filter(item => item.clozeWrong || item.meaningWrong || item.studyCount).sort((a,b) => (b.clozeWrong + b.meaningWrong + b.studyCount) - (a.clozeWrong + a.meaningWrong + a.studyCount));
+      const firstPass = phraseDetails.filter(item => item.firstClozePassed).length;
+      const detail = {
+        homework_id: HOMEWORK_ID,
+        module_title: MODULE_TITLE + ' · 测试报告',
+        selected_category: '后台连通测试',
+        started_at: new Date(Date.now() - 9 * 60 * 1000).toISOString(),
+        finished_at: new Date().toISOString(),
+        duration_seconds: 540,
+        metrics: {
+          total_phrases: phraseDetails.length,
+          first_cloze_pass: firstPass,
+          cloze_wrong_count: phraseDetails.reduce((sum,item) => sum + item.clozeWrong, 0),
+          meaning_wrong_count: phraseDetails.reduce((sum,item) => sum + item.meaningWrong, 0),
+          study_count: phraseDetails.reduce((sum,item) => sum + item.studyCount, 0),
+          confidence: Math.round(firstPass / phraseDetails.length * 100)
+        },
+        weak_phrases: weak,
+        phrase_details: phraseDetails,
+        attempts: phraseDetails.flatMap(item => [
+          { phrase:item.phrase, phase:'cloze', correct:item.clozeWrong === 0, selected:item.clozeWrong ? 'wrong option' : item.phrase, duration_ms:item.clozeTimeSeconds * 1000 },
+          { phrase:item.phrase, phase:'meaning', correct:item.meaningWrong === 0, selected:item.meaningWrong ? 'wrong meaning' : item.meaning, duration_ms:item.meaningTimeSeconds * 1000 }
+        ]),
+        test_record:true
+      };
+      try {
+        window.XY_RECORD_SCORE?.({
+          homework_id: HOMEWORK_ID,
+          score: detail.metrics.confidence,
+          correct_count: firstPass,
+          total_count: phraseDetails.length,
+          module_title: detail.module_title,
+          event_type: 'score_complete',
+          metadata: detail,
+          report: detail
+        });
+        alert('测试报告已发送。请回老师端报表刷新查看，全景报告里可删除这条测试记录。');
+      } catch (err) {
+        alert('测试报告发送失败：' + (err.message || err));
+      }
+    }
+    if (isReportTestMode()) {
+      window.addEventListener('DOMContentLoaded', () => {
+        const box = $('test-report-box');
+        if (box) box.innerHTML = reportTestButtonHtml();
+      });
     }
   </script>
 </body>
