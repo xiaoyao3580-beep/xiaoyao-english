@@ -1479,14 +1479,21 @@ function showStudentInfo(id) {
   const row = (label, value, icon) => '<div class="rounded-2xl bg-[#F8F8FC] px-5 py-4 text-left"><p class="text-[11px] font-black uppercase tracking-[0.2em] text-gray-400"><i class="fa-solid ' + icon + ' mr-2 text-[#6B48FF]"></i>' + label + '</p><p class="mt-2 break-words text-base font-black text-[#2D2A4A]">' + esc(value || '--') + '</p></div>';
   modalRoot.innerHTML = '<div class="fixed inset-0 z-[9999] flex items-center justify-center p-4"><div class="absolute inset-0 bg-black/40 backdrop-blur-sm" data-close-modal></div><div class="relative z-10 w-full max-w-md rounded-[32px] bg-white p-7 shadow-2xl motion-auth-panel-enter"><div class="mb-6 text-center"><div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#F4F2FF] text-[#6B48FF]"><i class="fa-solid fa-user-graduate text-2xl"></i></div><h3 class="text-[24px] font-black text-[#2D2A4A]">' + esc(student.name) + '</h3><p class="mt-1 text-sm font-bold text-gray-400">学生档案信息</p></div><div class="space-y-3">' + row('ID', student.id, 'fa-id-card') + row('Password', student.password, 'fa-key') + row('课程权限', classLabels.join(' / '), 'fa-layer-group') + '</div><button data-close-modal class="mt-6 w-full rounded-2xl bg-[#6B48FF] py-4 text-base font-bold text-white shadow-lg shadow-[#6B48FF]/30 active-scale">关闭</button></div></div>';
 }
+function inferStudentType(selectedType, classes) {
+  const type = normalizeCourseType(selectedType);
+  if (type !== 'class') return type;
+  if ((classes || []).some(code => !isPersonalCourse(code))) return 'class';
+  return classesOf({ classes }).find(isPersonalCourse) || 'class';
+}
 async function addStudent() {
   const id = (document.getElementById('form-id')?.value || '').trim().toUpperCase() || ('S' + Date.now().toString().slice(-6));
   const password = (document.getElementById('form-pwd')?.value || '').trim() || Math.floor(1000 + Math.random() * 9000).toString();
   const name = (document.getElementById('form-name')?.value || '').trim();
-  const student_type = normalizeCourseType(document.getElementById('form-student-type')?.value || 'class');
+  const selectedType = normalizeCourseType(document.getElementById('form-student-type')?.value || 'class');
   const classes = Array.from(document.querySelectorAll('[data-toggle-chip].selected')).map(el => el.dataset.toggleChip);
+  const student_type = inferStudentType(selectedType, classes);
   if (!name) return showAlert('请填写姓名。', '提示');
-  if (student_type === 'class' && !classes.some(code => !isPersonalCourse(code))) return showAlert('普通班级学生请至少选择一个班级。', '提示');
+  if (!classes.length) return showAlert('请至少选择一个课程权限。', '提示');
   showConfirm('将要给 ' + name + ' (' + id + ') 建立专属云端档案。', '添加学生', '确认添加', 'bg-[#2D2A4A] shadow-[#2D2A4A]/30', async () => {
     const result = await sb.from('students').insert({ id, password, name, classes, student_type });
     if (result.error) {
@@ -1503,10 +1510,11 @@ async function saveStudentProfile(id) {
   if (!root || !student) return showAlert('没有找到这个学生档案。', '学生个人');
   const name = (root.querySelector('[data-student-name]')?.value || '').trim();
   const password = (root.querySelector('[data-student-password]')?.value || '').trim();
-  const student_type = normalizeCourseType(root.querySelector('[data-student-type]')?.value || 'class');
+  const selectedType = normalizeCourseType(root.querySelector('[data-student-type]')?.value || 'class');
   const classes = Array.from(root.querySelectorAll('[data-student-class-chip].selected')).map(el => el.dataset.studentClassChip);
+  const student_type = inferStudentType(selectedType, classes);
   if (!name || !password) return showAlert('请填写姓名和密码。', '提示');
-  if (student_type === 'class' && !classes.some(code => !isPersonalCourse(code))) return showAlert('普通班级学生请至少选择一个班级课程权限。', '提示');
+  if (!classes.length) return showAlert('请至少选择一个课程权限。', '提示');
   const result = await sb.from('students').update({ name, password, classes, student_type }).eq('id', String(id));
   if (result.error) return showAlert('保存失败：' + result.error.message, '错误');
   state.students = state.students.map(s => String(s.id) === String(id) ? { ...s, name, password, classes, student_type } : s);
