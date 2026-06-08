@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Amy 词组完形专项·掌握循环</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; }
+    .hide { display: none !important; }
+    .option { transition: transform .16s ease, border-color .16s ease, background-color .16s ease, box-shadow .16s ease; }
+    .option:active { transform: scale(.985); }
+    .option.correct { border-color: #16a34a; background: #dcfce7; color: #166534; box-shadow: 0 0 0 2px #16a34a inset; }
+    .option.wrong { border-color: #ef4444; background: #fee2e2; color: #991b1b; }
+    .soft-panel { box-shadow: 0 22px 60px -34px rgba(185,28,28,.32); }
+    
+    /* 底部按钮强固定层：始终在最上层、同一位置、不被内容或浏览器安全区遮住 */
+    :root {
+      --action-reserve: 0px;
+      /* 手机浏览器/微信内置浏览器底部工具栏会吃掉 fixed bottom:0，所以按钮固定抬高一段 */
+      --fixed-action-bottom: max(14px, env(safe-area-inset-bottom));
+    }
+    html, body {
+      min-height: 100%;
+      overflow-x: hidden;
+    }
+    #action-container {
+      position: fixed !important;
+      left: 0 !important;
+      right: 0 !important;
+      top: auto !important;
+      bottom: var(--fixed-action-bottom) !important;
+      padding: 0 .9rem;
+      background: transparent !important;
+      z-index: 2147483647 !important;
+      display: flex;
+      justify-content: center;
+      pointer-events: none;
+      transform: translateZ(0);
+      -webkit-transform: translateZ(0);
+      isolation: isolate;
+    }
+    #action-box {
+      position: relative;
+      z-index: 2147483647 !important;
+      width: 100%;
+      max-width: 48rem;
+      pointer-events: auto;
+    }
+    #action-box::before {
+      content: "";
+      position: absolute;
+      left: -1rem;
+      right: -1rem;
+      top: -1rem;
+      bottom: -1rem;
+      z-index: -1;
+      border-radius: 1.5rem;
+      background: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.96) 38%, #fff 100%);
+      filter: drop-shadow(0 12px 26px rgba(15,23,42,.12));
+    }
+    .action-btn {
+      width: 100%;
+      min-height: 4.15rem;
+      border: 0;
+      border-radius: 1.15rem;
+      padding: .95rem 1.15rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: .55rem;
+      line-height: 1.2;
+      font-size: 1.12rem;
+      font-weight: 900;
+      color: #fff;
+      box-shadow: 0 18px 38px -18px rgba(0,0,0,.42), 0 8px 18px -12px rgba(0,0,0,.25);
+      -webkit-tap-highlight-color: transparent;
+      position: relative;
+      z-index: 2147483647 !important;
+    }
+    .action-btn:active { transform: scale(.985); }
+    .action-green { background: #16a34a; }
+    .action-red { background: #dc2626; }
+    .action-blue { background: #2563eb; }
+
+    @keyframes slideUpBtn {
+      0% { opacity: 0; }
+      100% { opacity: 1; }
+    }
+    .animate-slide-up {
+      animation: slideUpBtn 0.18s ease-out forwards;
+    }
+    
+    #feedback-box:not(.hide) {
+      max-height: min(42dvh, 24rem);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scroll-margin-bottom: calc(var(--action-reserve, 9rem) + 1.5rem);
+    }
+
+    /* 自适应底部安全区：按钮出现时，页面自动预留真实高度，避免遮住图标和字样 */
+    #view-practice {
+      padding-bottom: calc(var(--action-reserve, 0px) + 1.25rem + env(safe-area-inset-bottom));
+    }
+    @media (max-width: 640px) {
+      main { padding-left: .75rem !important; padding-right: .75rem !important; padding-top: .85rem !important; }
+      :root { --fixed-action-bottom: calc(82px + env(safe-area-inset-bottom)); }
+      #action-container { padding: 0 .7rem; }
+      .action-btn {
+        min-height: 3.85rem;
+        border-radius: 1rem;
+        font-size: 1rem;
+        padding-left: .85rem;
+        padding-right: .85rem;
+      }
+      #feedback-box:not(.hide) {
+        max-height: min(36dvh, 18rem);
+        padding: 1rem;
+      }
+      #question-box h2 { word-break: break-word; }
+      .option { padding: .85rem 1rem !important; }
+      .option span:first-child { width: 1.9rem; height: 1.9rem; }
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-red-50 text-gray-900 antialiased selection:bg-red-200">
+  <main class="mx-auto max-w-5xl px-4 py-6 sm:py-9">
+    <section id="view-home" class="mx-auto mt-4 max-w-3xl rounded-[2rem] border border-red-100 bg-white p-6 shadow-xl sm:mt-10 sm:p-8">
+      <div class="text-center">
+        <span class="inline-flex rounded-full bg-red-100 px-3 py-1 text-xs font-black uppercase tracking-[.2em] text-red-600">Cloze Mastery Loop</span>
+        <h1 class="mt-4 text-3xl font-black tracking-tight text-red-600 sm:text-4xl">Amy 词组-完形填空专项</h1>
+        <p class="mx-auto mt-3 max-w-2xl text-sm font-semibold leading-7 text-gray-500 sm:text-base">先在语境中选词组；错题进入例句强化，再测中文意思，最后回到完形二测。每个词组必须真正过关才结束。</p>
+      </div>
+
+      <div class="mt-8 grid gap-3 sm:grid-cols-2">
+        <button onclick="startSession('高频抽象词组')" class="rounded-2xl border-2 border-red-100 bg-red-50/70 p-5 text-left font-black text-red-700 transition hover:border-red-300 active:scale-[.99]">
+          高频抽象词组
+          <span class="mt-2 block text-sm font-semibold text-red-500/80">set / carry / make 系列重点突破</span>
+        </button>
+        <button onclick="startSession('字面≠实意')" class="rounded-2xl border-2 border-red-50 p-5 text-left font-bold text-gray-700 transition hover:border-red-200 hover:bg-red-50 active:scale-[.99]">字面≠实意</button>
+        <button onclick="startSession('一词多义')" class="rounded-2xl border-2 border-red-50 p-5 text-left font-bold text-gray-700 transition hover:border-red-200 hover:bg-red-50 active:scale-[.99]">一词多义</button>
+        <button onclick="startSession('习语表达')" class="rounded-2xl border-2 border-red-50 p-5 text-left font-bold text-gray-700 transition hover:border-red-200 hover:bg-red-50 active:scale-[.99]">习语表达</button>
+        <button onclick="startSession('易混淆词')" class="rounded-2xl border-2 border-red-50 p-5 text-left font-bold text-gray-700 transition hover:border-red-200 hover:bg-red-50 active:scale-[.99]">易混淆词</button>
+        <button onclick="startSession('全部')" class="rounded-2xl bg-red-600 p-5 text-left font-black text-white shadow-lg shadow-red-600/25 transition hover:bg-red-700 active:scale-[.99]">
+          全部词组循环过关
+          <span class="mt-2 block text-sm font-semibold text-red-100">适合课后完整诊断</span>
+        </button>
+      </div>
+    </section>
+
+    <section id="view-practice" class="hide">
+      <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <button onclick="showHome()" class="w-fit rounded-full bg-white px-4 py-2 text-sm font-bold text-gray-500 shadow-sm">← 返回主页</button>
+        <div class="flex flex-wrap items-center gap-2 text-xs font-black text-gray-500">
+          <span id="phase-pill" class="rounded-full bg-red-100 px-3 py-1.5 text-red-600">完形测试</span>
+          <span id="round-pill" class="rounded-full bg-white px-3 py-1.5 shadow-sm">第 1 轮</span>
+          <span id="left-pill" class="rounded-full bg-white px-3 py-1.5 shadow-sm">剩余 0</span>
+        </div>
+      </div>
+      <div class="mb-6 h-2 overflow-hidden rounded-full bg-red-100">
+        <div id="progress-bar" class="h-full rounded-full bg-red-600 transition-all duration-500" style="width:0%"></div>
+      </div>
+
+      <article class="soft-panel rounded-[2rem] border border-red-100 bg-white p-5 sm:p-8">
+        <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <span id="category-tag" class="rounded-full bg-red-50 px-3 py-1.5 text-xs font-black uppercase tracking-[.16em] text-red-500">Category</span>
+          <span id="attempt-tag" class="rounded-full bg-gray-100 px-3 py-1.5 text-xs font-black text-gray-500">Attempt</span>
+        </div>
+        <div id="question-box"></div>
+        <div id="option-box" class="mt-6 grid gap-3"></div>
+        <div id="feedback-box" class="mt-6 hide rounded-2xl border p-4 sm:p-5 text-sm font-bold leading-7"></div>
+      </article>
+
+      <!-- 固定的底部操作容器 -->
+      <div id="action-container" class="hide">
+        <div id="action-box"></div>
+      </div>
+    </section>
+
+    <section id="view-result" class="hide mx-auto mt-4 max-w-4xl rounded-[2rem] border border-red-100 bg-white p-6 text-center shadow-xl sm:mt-10 sm:p-8">
+      <div class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-green-100 text-4xl">🏆</div>
+      <h2 class="mt-5 text-3xl font-black text-gray-900 sm:text-4xl">全部过关</h2>
+      <p class="mt-2 text-sm font-semibold text-gray-500">本次词组完形专项已经完成，数据已尝试上报老师后台。</p>
+      <div class="mt-8 grid gap-3 rounded-3xl bg-gray-50 p-4 sm:grid-cols-4">
+        <div class="rounded-2xl bg-white p-4"><p class="text-xs font-black uppercase text-gray-400">词组数</p><p id="r-total" class="mt-2 text-2xl font-black text-gray-900">0</p></div>
+        <div class="rounded-2xl bg-white p-4"><p class="text-xs font-black uppercase text-gray-400">用时</p><p id="r-time" class="mt-2 text-2xl font-black text-purple-600">00:00</p></div>
+        <div class="rounded-2xl bg-white p-4"><p class="text-xs font-black uppercase text-gray-400">完形错误</p><p id="r-cloze-wrong" class="mt-2 text-2xl font-black text-red-600">0</p></div>
+        <div class="rounded-2xl bg-white p-4"><p class="text-xs font-black uppercase text-gray-400">强化次数</p><p id="r-study" class="mt-2 text-2xl font-black text-blue-600">0</p></div>
+      </div>
+      <div class="mt-8 text-left">
+        <h3 class="mb-3 text-lg font-black text-gray-900">词组掌握明细</h3>
+        <div id="result-list" class="max-h-[28rem] overflow-y-auto rounded-2xl border border-gray-100"></div>
+      </div>
+      <div class="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-center">
+        <button onclick="showHome()" class="rounded-2xl bg-red-600 px-6 py-3 font-black text-white hover:bg-red-700">返回主页</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const HOMEWORK_ID = 'amy_phrase_cloze_mastery';
+    const MODULE_TITLE = 'Amy 词组-完形填空专项练习';
+
+    const PHRASES = [
+      { id:1, en:"pull one's leg", zh:"开玩笑、逗某人", cat:"字面≠实意", cloze:"Tom looked serious, but Amy soon realized he was only ____ when he said the exam was cancelled.", cn:"Tom看起来很认真，但Amy很快发现他说考试取消只是开玩笑。", examples:["Don't be angry. I was only pulling your leg.","If someone pulls your leg, they are joking, not telling a real fact."] },
+      { id:2, en:"put up with", zh:"忍受、容忍", cat:"字面≠实意", cloze:"The room was noisy, but she had to ____ it until the meeting ended.", cn:"房间很吵，但她只能忍到会议结束。", examples:["I can't put up with the noise any longer.","In a story, this phrase often shows patience under pressure."] },
+      { id:3, en:"take after", zh:"像长辈", cat:"字面≠实意", cloze:"Everyone says Amy ____ her mother because they are both careful and patient.", cn:"大家说Amy像妈妈，因为她们都细心又耐心。", examples:["She takes after her father in many ways.","This phrase is about similarity, not taking something away."] },
+      { id:4, en:"turn out", zh:"结果是、原来是", cat:"字面≠实意", cloze:"The problem looked easy at first, but it ____ to be much harder than we expected.", cn:"这个问题起初看起来简单，结果比预期难得多。", examples:["The stranger turned out to be her old teacher.","In cloze tests, it often introduces the final result."] },
+      { id:5, en:"give away", zh:"泄露;赠送", cat:"字面≠实意", cloze:"Amy tried to keep the surprise secret, but her smile almost ____ the plan.", cn:"Amy想保密这个惊喜，但她的微笑差点泄露计划。", examples:["His face gave away his true feelings.","Shops may give away gifts, but people can also give away secrets."] },
+      { id:6, en:"come up with", zh:"想出", cat:"字面≠实意", cloze:"After thinking for a long time, she finally ____ a better ending for the story.", cn:"想了很久后，她终于想出了更好的结尾。", examples:["We need to come up with a new plan.","It usually matches ideas, answers, plans, or solutions."] },
+      { id:7, en:"come across", zh:"偶然遇到、无意发现", cat:"字面≠实意", cloze:"While reading an old book, Amy ____ a sentence that helped her understand the passage.", cn:"读旧书时，Amy偶然看到一句帮助理解文章的话。", examples:["I came across an interesting article yesterday.","It means finding something by chance."] },
+      { id:8, en:"stand for", zh:"代表、象征", cat:"字面≠实意", cloze:"In the story, the old tree ____ hope and courage.", cn:"在故事中，那棵老树象征希望和勇气。", examples:["The letters UN stand for the United Nations.","It connects a symbol with its meaning."] },
+      { id:9, en:"make for", zh:"朝……走去", cat:"字面≠实意", cloze:"When the bell rang, the students ____ the school gate quickly.", cn:"铃响后，学生们快速朝校门走去。", examples:["The children made for the playground.","It often means moving toward a place."] },
+      { id:10, en:"come off", zh:"脱落;(计划)成功", cat:"字面≠实意", cloze:"The button on her coat ____ when she hurried onto the bus.", cn:"她匆忙上公交时，外套扣子掉了。", examples:["The handle came off in my hand.","A plan can also come off if it succeeds."] },
+      { id:11, en:"keep back", zh:"忍住、抑制", cat:"字面≠实意", cloze:"She tried to ____ her tears when she heard the sad news.", cn:"听到坏消息时，她努力忍住眼泪。", examples:["He could hardly keep back his anger.","It often appears with tears, anger, or feelings."] },
+      { id:12, en:"count on", zh:"指望、依靠", cat:"字面≠实意", cloze:"When the team was in trouble, they knew they could ____ Amy.", cn:"团队遇到困难时，他们知道可以依靠Amy。", examples:["You can count on me.","It means trust someone or depend on something."] },
+      { id:13, en:"end up", zh:"最终落得、变成", cat:"字面≠实意", cloze:"He wanted to save time, but he ____ spending even longer on the task.", cn:"他想节省时间，结果反而花了更久。", examples:["They ended up taking the wrong bus.","It shows the final result, often unexpected."] },
+      { id:14, en:"die out", zh:"灭绝、消失", cat:"字面≠实意", cloze:"If people do not protect them, some languages may ____ in the future.", cn:"如果人们不保护，一些语言未来可能消失。", examples:["Many old customs are dying out.","It can describe animals, traditions, or languages."] },
+      { id:15, en:"pass away", zh:"去世", cat:"字面≠实意", cloze:"Her grandfather ____ peacefully at the age of ninety.", cn:"她的爷爷九十岁时安详去世。", examples:["The old man passed away last winter.","This is a gentle way to say someone died."] },
+      { id:16, en:"live on", zh:"以……为食/靠……生活", cat:"字面≠实意", cloze:"In winter, the animals ____ dry grass and leaves.", cn:"冬天，这些动物靠干草和树叶为食。", examples:["Some families live on a small income.","It can mean food source or life support."] },
+      { id:17, en:"be hard on sb", zh:"对某人苛刻、严厉", cat:"字面≠实意", cloze:"Amy made only one mistake, so the teacher decided not to ____ her.", cn:"Amy只犯了一个错，所以老师决定不对她太严厉。", examples:["Don't be too hard on yourself.","It means treating someone too strictly."] },
+      { id:18, en:"make up", zh:"编造;化妆;和好;组成", cat:"一词多义", cloze:"The boy was late, so he ____ an excuse about missing the bus.", cn:"男孩迟到了，于是编了个错过公交的借口。", examples:["She made up a story.","The same phrase can also mean put on makeup, become friends again, or form something."] },
+      { id:19, en:"take in", zh:"吸收;理解;欺骗", cat:"一词多义", cloze:"The article was so difficult that Amy needed time to ____ all the information.", cn:"文章很难，Amy需要时间理解所有信息。", examples:["Plants take in water.","Readers take in information when they understand it."] },
+      { id:20, en:"take off", zh:"起飞;脱下;(事业)腾飞", cat:"一词多义", cloze:"The plane will ____ in ten minutes, so everyone must sit down.", cn:"飞机十分钟后起飞，所以大家必须坐好。", examples:["Please take off your coat.","A career can also take off when it becomes successful."] },
+      { id:21, en:"take up", zh:"占用;开始从事", cat:"一词多义", cloze:"The new desk ____ too much space in Amy's small room.", cn:"新书桌占了Amy小房间太多空间。", examples:["This hobby takes up a lot of time.","It can also mean starting a new hobby."] },
+      { id:22, en:"work out", zh:"锻炼;算出;解决", cat:"一词多义", cloze:"The math problem looked hard, but Amy finally ____ the answer.", cn:"数学题看起来很难，但Amy最终算出了答案。", examples:["He works out every morning.","In tests, check whether it means exercise or solve."] },
+      { id:23, en:"go off", zh:"响;变质;爆炸;离开", cat:"一词多义", cloze:"Amy woke up as soon as the alarm ____ at six.", cn:"闹钟六点一响，Amy就醒了。", examples:["The milk has gone off.","The meaning changes with alarm, food, bomb, or person."] },
+      { id:24, en:"break down", zh:"抛锚;崩溃;分解", cat:"一词多义", cloze:"The car ____ on the way, so they had to call for help.", cn:"车在路上抛锚了，解体，所以他们只好求助。", cn:"车在路上抛锚了，所以他们只好求助。", examples:["She broke down and cried.","Machines, people, and materials can all break down."] },
+      { id:25, en:"turn up / turn down", zh:"调大/出现 | 调小/拒绝", cat:"一词多义", cloze:"Amy invited him to the party, but he ____ her invitation politely.", cn:"Amy邀请他参加聚会，但他礼貌地拒绝了。", examples:["Turn up the radio, please.","Turn down can mean lower the volume or refuse."] },
+      { id:26, en:"pick up", zh:"捡起;接;学会;好转", cat:"一词多义", cloze:"Amy ____ some useful expressions while reading English stories.", cn:"Amy读英文故事时学会了一些有用表达。", examples:["Dad picked me up at school.","It can mean collect, learn, or improve."] },
+      { id:27, en:"bring up", zh:"抚养;提出", cat:"一词多义", cloze:"During the discussion, Amy ____ a question that everyone had ignored.", cn:"讨论中，Amy提出了一个大家忽略的问题。", examples:["Her grandparents brought her up.","It can mean raise a child or mention a topic."] },
+      { id:28, en:"set off", zh:"出发;引爆、触发", cat:"一词多义", cloze:"They ____ early in the morning to avoid the heavy traffic.", cn:"他们一大早出发，以避开拥堵。", examples:["The fireworks set off a loud noise.","It can mean start a journey or trigger something."] },
+      { id:29, en:"under the weather", zh:"身体不舒服", cat:"习语表达", cloze:"Amy didn't go running because she felt ____ that morning.", cn:"Amy那天早上觉得不舒服，所以没去跑步。", examples:["I am feeling under the weather today.","This idiom means not feeling well."] },
+      { id:30, en:"a piece of cake", zh:"小菜一碟", cat:"习语表达", cloze:"The first exercise looked difficult, but it was ____ for Amy.", cn:"第一道练习看起来难，但对Amy来说很容易。", examples:["The test was a piece of cake.","It does not mean real cake in reading."] },
+      { id:31, en:"once in a blue moon", zh:"极少、千载难逢", cat:"习语表达", cloze:"Amy is usually busy, so she watches TV only ____.", cn:"Amy通常很忙，所以很少看电视。", examples:["He visits us once in a blue moon.","It means very rarely."] },
+      { id:32, en:"make sense", zh:"讲得通、有道理", cat:"习语表达", cloze:"At first the paragraph was confusing, but the last sentence made everything ____.", cn:"起初段落很混乱，但最后一句让一切讲得通了。", examples:["Your explanation makes sense.","It means something is logical or understandable."] },
+      { id:33, en:"make a difference", zh:"有影响、起作用", cat:"习语表达", cloze:"Even one kind word can ____ to a person who feels lonely.", cn:"哪怕一句善意的话，也能对孤独的人产生影响。", examples:["Small changes can make a difference.","It often appears in moral or school-life passages."] },
+      { id:34, en:"take place", zh:"发生、举行", cat:"习语表达", cloze:"The reading competition will ____ in the school hall next Friday.", cn:"阅读比赛下周五将在学校礼堂举行。", examples:["The story takes place in a small town.","It can mean happen or be held."] },
+      { id:35, en:"after all", zh:"毕竟", cat:"习语表达", cloze:"Amy decided to help him. ____, he had helped her many times before.", cn:"Amy决定帮他。毕竟，他以前帮过她很多次。", examples:["Don't be too angry. After all, he is only a child.","It gives a reason or reminder."] },
+      { id:36, en:"can't help", zh:"忍不住做某事", cat:"习语表达", cloze:"The story is so funny that Amy ____ laughing.", cn:"故事太好笑了，Amy忍不住笑了。", examples:["I can't help smiling when I see the picture.","She can't help laughing at the joke."] },
+      { id:37, en:"be fed up with", zh:"受够了、厌烦", cat:"习语表达", cloze:"After hearing the same excuse again and again, Amy was ____ it.", cn:"一遍遍听到同样借口后，Amy已经受够了。", examples:["She is fed up with waiting.","It shows strong tiredness or annoyance."] },
+      { id:38, en:"in no time", zh:"很快、立刻", cat:"习语表达", cloze:"With everyone's help, the room was cleaned ____.", cn:"在大家帮助下，房间很快被打扫干净。", examples:["You will improve in no time if you keep practicing.","It means very quickly."] },
+      { id:39, en:"by no means", zh:"绝不、一点也不", cat:"习语表达", cloze:"The task is difficult, but it is ____ impossible.", cn:"任务很难，但绝不是不可能。", examples:["This result is by no means perfect.","It means definitely not."] },
+      { id:40, en:"look up to / look down on", zh:"敬仰 / 看不起", cat:"易混淆词", cloze:"Amy ____ her coach because he was strict but fair.", cn:"Amy敬仰她的教练，因为他严格但公平。", examples:["Many students look up to good teachers.","Look down on means the opposite: to think someone is less important."] },
+      { id:41, en:"have a word with / have words with", zh:"谈一谈 / 吵架", cat:"易混淆词", cloze:"The teacher wanted to ____ Amy after class about her homework plan.", cn:"老师想课后和Amy谈谈她的作业计划。", examples:["Have a word with someone means talk briefly.","Have words with someone means argue."] },
+      { id:42, en:"keep up with / catch up with", zh:"跟上 / 赶上", cat:"易混淆词", cloze:"Amy reviewed every day so that she could ____ the class.", cn:"Amy每天复习，这样就能跟上班级进度。", examples:["Keep up with means stay at the same speed.","Catch up with means reach someone after being behind."] },
+      { id:43, en:"put off / take off", zh:"推迟 / 脱掉·起飞", cat:"易混淆词", cloze:"Because of the heavy rain, the school had to ____ the sports meeting.", cn:"因为大雨，学校不得不推迟运动会。", examples:["Put off means delay.","Take off can mean remove clothes or leave the ground."] },
+      { id:44, en:"get over / get along with", zh:"克服·康复 / 与……相处", cat:"易混淆词", cloze:"It took Amy several days to ____ her fear of speaking English.", cn:"Amy花了几天才克服说英语的恐惧。", examples:["Get over a problem means overcome it.","Get along with people means have a good relationship."] },
+      { id:45, en:"set", zh:"太阳下山;设置;树立", cat:"高频抽象词组", cloze:"The sun was beginning to ____ when Amy finally finished the last paragraph.", cn:"Amy终于读完最后一段时，太阳开始下山。", examples:["The sun sets in the west.","Set can also mean set a rule, set a goal, or set an example."] },
+      { id:46, en:"setting", zh:"环境;背景;设置", cat:"高频抽象词组", cloze:"The village is the ____ of the story, and it helps readers understand the characters.", cn:"这个村庄是故事背景，帮助读者理解人物。", examples:["The setting of a story includes time and place.","In tests, setting is often not computer settings."] },
+      { id:47, en:"settle down", zh:"定居;安静下来;专心于", cat:"高频抽象词组", cloze:"After moving to a new city, Amy needed time to ____ and focus on study again.", cn:"搬到新城市后，Amy需要时间安定下来并重新专注学习。", examples:["Please settle down and listen carefully.","It can mean become calm or start living steadily."] },
+      { id:48, en:"set up", zh:"建立;创立;安排", cat:"高频抽象词组", cloze:"The students decided to ____ a reading club for younger children.", cn:"学生们决定为低年级孩子成立阅读社团。", examples:["They set up a new company.","It often goes with clubs, schools, systems, or projects."] },
+      { id:49, en:"set out", zh:"出发;开始做", cat:"高频抽象词组", cloze:"Amy ____ to find the answer, checking each clue in the passage carefully.", cn:"Amy开始寻找答案，认真检查文章里的每条线索。", examples:["They set out early in the morning.","Set out to do something means begin with a clear purpose."] },
+      { id:50, en:"carry out", zh:"执行;贯彻;完成", cat:"高频抽象词组", cloze:"The group made a plan and then ____ it step by step.", cn:"小组制定了计划，然后一步步执行。", examples:["Scientists carried out an experiment.","It usually matches plans, tasks, experiments, or rules."] },
+      { id:51, en:"carry on", zh:"继续;坚持", cat:"高频抽象词组", cloze:"Although Amy was tired, she decided to ____ until she finished the exercise.", cn:"虽然Amy很累，她决定继续直到完成练习。", examples:["Carry on with your work.","It means continue, especially after difficulty."] },
+      { id:52, en:"be carried away", zh:"激动;着迷而失去理智", cat:"高频抽象词组", cloze:"Amy loved the idea so much that she ____ and forgot the time.", cn:"Amy太喜欢这个想法，以至于兴奋过头忘了时间。", examples:["Don't get carried away by small success.","It warns that emotion may control judgment."] },
+      { id:53, en:"make out", zh:"辨认出;理解;声称", cat:"高频抽象词组", cloze:"The note was messy, but Amy could still ____ the writer's name.", cn:"便条很乱，但Amy仍能辨认出作者名字。", examples:["I couldn't make out what he was saying.","It often means recognize or understand with difficulty."] },
+      { id:54, en:"make up for", zh:"弥补;补偿", cat:"高频抽象词组", cloze:"Amy studied harder to ____ the time she had lost.", cn:"Amy更努力学习来弥补失去的时间。", examples:["Hard work can make up for lost time.","It means compensate for a loss or weakness."] },
+      { id:55, en:"make it", zh:"成功;准时到达;挺过难关", cat:"高频抽象词组", cloze:"The road was crowded, but Amy still ____ to class on time.", cn:"路很拥挤，但Amy还是准时到达课堂。", examples:["You can make it if you keep trying.","It can mean succeed, arrive on time, or survive difficulty."] }
+    ];
+
+    const state = { view:'home', phase:'cloze', items:[], phaseQueue:[], phaseIndex:0, current:null, round:1, selectedCategory:'', startedAt:0, endedAt:0, attempts:[], locked:false, questionStartedAt:0 };
+    const $ = id => document.getElementById(id);
+    const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    function shuffle(items) {
+      const arr = items.slice();
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+    const EXAMPLE_ZH = {
+      1:"别生气。我只是在逗你。", 2:"我再也忍受不了这种噪音了。", 3:"她在很多方面像她的父亲。", 4:"那个陌生人原来是她以前的老师。",
+      5:"他的表情泄露了真实感受。", 6:"我们需要想出一个新计划。", 7:"我昨天偶然看到一篇有趣的文章。", 8:"UN 这几个字母代表联合国。",
+      9:"孩子们朝操场走去。", 10:"把手在我手里脱落了。", 11:"他几乎忍不住怒火。", 12:"你可以依靠我。",
+      13:"他们最后坐错了公交车。", 14:"许多老习俗正在消失。", 15:"那位老人去年冬天去世了。", 16:"一些家庭靠很少的收入生活。",
+      17:"不要对自己太苛刻。", 18:"她编了一个故事。", 19:"植物吸收水分。", 20:"请脱下你的外套。",
+      21:"这个爱好占用了很多时间。", 22:"他每天早上锻炼。", 23:"牛奶变质了。", 24:"她情绪崩溃，哭了起来。",
+      25:"请把收音机声音调大。", 26:"爸爸在学校接我。", 27:"她的祖父母把她抚养长大。", 28:"他们一大早出发了。",
+      29:"我今天身体不太舒服。", 30:"这次测试很容易。", 31:"他很少来看我们。", 32:"你的解释讲得通。",
+      33:"小改变也能产生影响。", 34:"故事发生在一个小镇。", 35:"别太生气。毕竟，他只是个孩子。", 36:"我看到这张照片就忍不住微笑。",
+      37:"她受够了等待。", 38:"如果你坚持练习，很快就会进步。", 39:"这个结果绝不完美。", 40:"许多学生敬仰好老师。",
+      41:"我需要课后和你谈一谈。", 42:"她努力学习以跟上班级进度。", 43:"他们因为下雨推迟了会议。", 44:"他终于克服了说话的恐惧。",
+      45:"太阳从西边落下。", 46:"故事背景包括时间和地点。", 47:"请安静下来，认真听。", 48:"他们创办了一家新公司。",
+      49:"他们一大早出发了。", 50:"科学家们进行了一项实验。", 51:"继续做你的工作。", 52:"不要被小小的成功冲昏头脑。",
+      53:"我听不清他在说什么。", 54:"努力可以弥补失去的时间。", 55:"如果你坚持努力，你能成功。"
+    };
+    const COMMON_EN = {
+      41:"I need to have a word with you after class.",
+      42:"She works hard to keep up with the class.",
+      43:"They put off the meeting because of the rain.",
+      44:"He finally got over his fear of speaking."
+    };
+    const NAMES = ['Mia','Leo','Lily','Jack','Grace','Ben','Nora','Eric','Sophie','Ryan','Ella','David'];
+    function phraseLabel(text) { return text.replace("one's", "one's / someone's"); }
+    function protagonist(item) { return NAMES[item.id % NAMES.length]; }
+    function displayCloze(item) { return item.cloze.replace(/\bAmy\b/g, protagonist(item)); }
+    function displayCn(item) { return item.cn.replace(/Amy/g, protagonist(item)); }
+    function completedSentence(item) { return displayCloze(item).replace('____', phraseLabel(item.en)); }
+    function commonExamples(item) {
+      return [
+        { en:COMMON_EN[item.id] || item.examples[0], zh:EXAMPLE_ZH[item.id] || displayCn(item) },
+        { en:completedSentence(item), zh:displayCn(item) }
+      ];
+    }
+    function show(view) {
+      ['home','practice','result'].forEach(name => $('view-' + name).classList.toggle('hide', name !== view));
+      state.view = view;
+    }
+    function showHome() { show('home'); }
+    function initStats(item) {
+      return { ...item, status:'pending', clozeAttempts:0, clozeWrong:0, meaningAttempts:0, meaningWrong:0, studyCount:0, clozeTimeMs:0, meaningTimeMs:0, studyTimeMs:0, meaningPassed:false, firstClozePassed:false, finalPassed:false, history:[] };
+    }
+    function startSession(category) {
+      const selected = category === '全部' ? PHRASES : PHRASES.filter(item => item.cat === category);
+      state.items = selected.map(initStats);
+      state.phaseQueue = shuffle(state.items.map(item => item.id));
+      state.phaseIndex = 0;
+      state.current = null;
+      state.phase = 'cloze';
+      state.round = 1;
+      state.selectedCategory = category;
+      state.startedAt = Date.now();
+      state.endedAt = 0;
+      state.attempts = [];
+      state.locked = false;
+      state.questionStartedAt = 0;
+      show('practice');
+      loadCurrentFromQueue();
+    }
+    function itemById(id) { return state.items.find(item => item.id === id); }
+    function distractors(current, key) {
+      return shuffle(PHRASES.filter(item => item.id !== current.id).map(item => item[key])).slice(0, 3);
+    }
+    function renderShell() {
+      const mastered = state.items.filter(item => item.finalPassed).length;
+      const pct = state.items.length ? Math.round(mastered / state.items.length * 100) : 0;
+      $('progress-bar').style.width = pct + '%';
+      $('phase-pill').textContent = state.phase === 'cloze' ? '完形测试' : state.phase === 'study' ? '集体例句强化' : '集体中文义测试';
+      $('round-pill').textContent = '第 ' + state.round + ' 轮';
+      $('left-pill').textContent = '本阶段 ' + Math.min(state.phaseIndex + 1, state.phaseQueue.length) + ' / ' + state.phaseQueue.length + ' · 已过 ' + mastered + ' / ' + state.items.length;
+    }
+    
+    function renderQuestion() {
+      const item = state.current;
+      state.locked = false;
+      renderShell();
+      $('category-tag').textContent = item.cat;
+      $('attempt-tag').textContent = phraseLabel(item.en);
+      $('feedback-box').classList.add('hide');
+      $('feedback-box').innerHTML = '';
+      $('action-container').classList.add('hide'); // 隐藏操作容器
+      $('action-box').innerHTML = '';
+      updateActionReserve();
+      updateActionReserve();
+      state.questionStartedAt = Date.now();
+      if (state.phase === 'study') return renderStudy(item);
+      if (state.phase === 'meaning') return renderMeaning(item);
+      return renderCloze(item);
+    }
+
+    function optionButton(opt, letter, handlerName, weightClass = 'text-lg font-black') {
+      const label = handlerName === 'answerCloze' ? phraseLabel(opt) : opt;
+      return `<button data-value="${encodeURIComponent(opt)}" class="option flex items-start gap-3 rounded-2xl border-2 border-gray-100 bg-white px-5 py-4 text-left ${weightClass} text-gray-700 hover:border-red-200 hover:bg-red-50" onclick="${handlerName}(decodeURIComponent(this.dataset.value), this)"><span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-black text-gray-500">${letter}</span><span class="min-w-0 flex-1">${escapeHtml(label)}</span></button>`;
+    }
+    
+    function renderCloze(item) {
+      const options = shuffle([item.en, ...distractors(item, 'en')]);
+      $('question-box').innerHTML = `
+        <p class="text-xs font-black uppercase tracking-[.18em] text-gray-400">Choose the best phrase</p>
+        <h2 class="mt-4 text-2xl font-black leading-tight text-gray-900 sm:text-3xl">${escapeHtml(displayCloze(item).replace('____', '_____'))}</h2>
+      `;
+      $('option-box').innerHTML = options.map((opt, i) => optionButton(opt, 'ABCD'[i], 'answerCloze')).join('');
+    }
+
+    function renderStudy(item) {
+      const examples = commonExamples(item);
+      $('question-box').innerHTML = `
+        <p class="text-xs font-black uppercase tracking-[.18em] text-gray-400">Batch review before meaning check</p>
+        <h2 class="mt-3 text-3xl font-black text-red-600">${escapeHtml(phraseLabel(item.en))}</h2>
+        <p class="mt-2 text-lg font-bold text-gray-700">${escapeHtml(item.zh)}</p>
+        <div class="mt-6 grid gap-3">${examples.map((ex, i) => `<div class="rounded-2xl bg-gray-50 p-4"><div class="flex items-center justify-between gap-3"><p class="text-xs font-black uppercase tracking-[.16em] text-gray-400">Example ${i + 1}</p><button onclick="toggleTranslation(this)" class="rounded-full bg-white px-3 py-1 text-xs font-black text-red-500 shadow-sm" type="button">译</button></div><p class="mt-2 text-base font-bold leading-7 text-gray-800">${escapeHtml(ex.en)}</p><p class="translation hide mt-2 rounded-xl bg-white px-3 py-2 text-sm font-bold leading-6 text-gray-500">${escapeHtml(ex.zh)}</p></div>`).join('')}</div>
+      `;
+      $('option-box').innerHTML = '';
+      
+      // 直接显示强化反馈和操作按钮
+      $('feedback-box').className = 'mt-6 rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm font-bold leading-7 text-blue-700';
+      $('feedback-box').innerHTML = '<div class="flex items-start gap-2"><span class="text-lg">💡</span><p>本阶段带你复习完形错词。<b>重点看它在句子里承担的功能，不要只背字面意思！</b></p></div>';
+      
+      $('action-container').classList.remove('hide');
+      $('action-box').innerHTML = '<button onclick="completeStudy()" class="action-btn action-blue animate-slide-up"><span>已复习，继续下一题</span><span aria-hidden="true">→</span></button>';
+      updateActionReserve();
+      updateActionReserve();
+      setTimeout(updateActionReserve, 80);
+    }
+
+    function toggleTranslation(button) {
+      const box = button.closest('.rounded-2xl')?.querySelector('.translation');
+      if (box) box.classList.toggle('hide');
+    }
+
+    function renderMeaning(item) {
+      const options = shuffle([item.zh, ...distractors(item, 'zh')]);
+      $('question-box').innerHTML = `
+        <p class="text-xs font-black uppercase tracking-[.18em] text-gray-400">Meaning check</p>
+        <h2 class="mt-4 text-4xl font-black text-gray-900">${escapeHtml(phraseLabel(item.en))}</h2>
+        <p class="mt-4 text-sm font-semibold leading-7 text-gray-500">选出这个词组在中考完形语境中最常见、最需要立刻反应出的意思。</p>
+      `;
+      $('option-box').innerHTML = options.map((opt, i) => optionButton(opt, 'ABCD'[i], 'answerMeaning', 'text-base font-bold leading-7')).join('');
+    }
+
+    function setFeedback(ok, htmlContent) {
+      $('feedback-box').className = 'mt-6 rounded-2xl border p-5 text-sm leading-7 ' + (ok ? 'border-green-200 bg-green-50 text-green-900' : 'border-red-200 bg-red-50 text-red-900');
+      $('feedback-box').innerHTML = htmlContent;
+    }
+
+    function updateActionReserve() {
+      const container = $('action-container');
+      const box = $('action-box');
+      const visible = container && !container.classList.contains('hide');
+      if (!visible) {
+        document.documentElement.style.setProperty('--action-reserve', '0px');
+        return;
+      }
+      const boxHeight = box ? Math.ceil(box.getBoundingClientRect().height) : 72;
+      const bottomGap = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fixed-action-bottom')) || 0;
+      const height = boxHeight + bottomGap + 38;
+      document.documentElement.style.setProperty('--action-reserve', height + 'px');
+    }
+
+    window.addEventListener('resize', updateActionReserve);
+    window.addEventListener('orientationchange', () => setTimeout(updateActionReserve, 250));
+
+    function revealNextAction(btnColor, btnText) {
+      $('action-container').classList.remove('hide');
+      const colorClass = btnColor === 'green' ? 'action-green' : btnColor === 'red' ? 'action-red' : 'action-blue';
+      $('action-box').innerHTML = `<button onclick="advanceQueue()" class="action-btn ${colorClass} animate-slide-up"><span>${btnText}</span><span aria-hidden="true">→</span></button>`;
+      updateActionReserve();
+      
+      // 稍微延迟让 DOM 渲染，然后把滚动条聚焦到反馈框；底部空间会按按钮真实高度动态预留
+      setTimeout(() => {
+        updateActionReserve();
+        $('feedback-box').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 80);
+    }
+
+    // 优化后的解析模板：更结构化，抓重点
+    function clozeReason(item) {
+      return `
+        <div class="space-y-3 mt-4 border-t border-red-200/60 pt-4">
+          <div class="flex items-start gap-3">
+            <span class="shrink-0 rounded bg-white border border-red-100 px-2 py-0.5 text-xs font-black text-red-600 shadow-sm mt-0.5">✅ 句意</span>
+            <span class="text-gray-700 font-bold leading-6">${escapeHtml(displayCn(item))}</span>
+          </div>
+          <div class="flex items-start gap-3">
+            <span class="shrink-0 rounded bg-white border border-blue-100 px-2 py-0.5 text-xs font-black text-blue-600 shadow-sm mt-0.5">🎯 考点</span>
+            <span class="text-gray-700 leading-6">空格处需要表达的逻辑是 <b>“${escapeHtml(item.zh)}”</b></span>
+          </div>
+          <div class="flex items-start gap-3">
+            <span class="shrink-0 rounded bg-white border border-green-100 px-2 py-0.5 text-xs font-black text-green-600 shadow-sm mt-0.5">🧩 匹配</span>
+            <span class="text-gray-700 leading-6">结合前后文语境，只有 <b class="text-green-700 text-[1.05rem] bg-green-100/50 px-1 rounded">${escapeHtml(phraseLabel(item.en))}</b> 能够完美填入。</span>
+          </div>
+        </div>
+      `;
+    }
+
+    function markOptions(button, correctText) {
+      document.querySelectorAll('#option-box button').forEach(btn => {
+        btn.disabled = true;
+        if (decodeURIComponent(btn.dataset.value || '') === correctText) btn.classList.add('correct');
+      });
+      if (button && !button.classList.contains('correct')) button.classList.add('wrong');
+    }
+    
+    function elapsedSinceQuestion() {
+      return state.questionStartedAt ? Date.now() - state.questionStartedAt : 0;
+    }
+    
+    function record(item, phase, correct, selected) {
+      const durationMs = elapsedSinceQuestion();
+      if (phase === 'cloze') item.clozeTimeMs += durationMs;
+      if (phase === 'meaning') item.meaningTimeMs += durationMs;
+      if (phase === 'study') item.studyTimeMs += durationMs;
+      const row = { time:new Date().toISOString(), id:item.id, phrase:item.en, category:item.cat, phase, round:state.round, correct, selected, duration_ms:durationMs };
+      item.history.push(row);
+      state.attempts.push(row);
+    }
+    
+    function answerCloze(selected, button) {
+      if (state.locked) return;
+      state.locked = true;
+      const item = state.current;
+      const correct = selected === item.en;
+      item.clozeAttempts++;
+      if (!correct) item.clozeWrong++;
+      record(item, 'cloze', correct, selected);
+      markOptions(button, item.en);
+      
+      if (correct) {
+        item.firstClozePassed = item.firstClozePassed || item.clozeAttempts === 1;
+        item.finalPassed = true;
+        item.status = 'mastered';
+        
+        // 做对了：不再长篇大论，直接给正反馈
+        setFeedback(true, `
+          <div class="flex items-center gap-2">
+            <span class="text-xl">✅</span><span class="text-lg font-black text-green-700">选得准！</span>
+          </div>
+          <div class="mt-2 text-green-800 font-bold">${escapeHtml(displayCn(item))}</div>
+        `);
+        revealNextAction('green', '回答正确，继续下一题');
+      } else {
+        item.status = 'needs-review';
+        item.meaningPassed = false;
+        
+        // 做错了：给出详细结构化解析
+        setFeedback(false, `
+          <div class="flex flex-wrap items-center gap-2 mb-2">
+            <span class="text-xl">❌</span>
+            <span class="text-lg font-bold text-red-800">正确选项应当是：</span>
+            <span class="text-lg font-black text-red-600 bg-white px-2 py-0.5 rounded border border-red-200 shadow-sm">${escapeHtml(phraseLabel(item.en))}</span>
+          </div>
+          ${clozeReason(item)}
+        `);
+        revealNextAction('red', '记下解析，继续下一题');
+      }
+    }
+    
+    function answerMeaning(selected, button) {
+      if (state.locked) return;
+      state.locked = true;
+      const item = state.current;
+      const correct = selected === item.zh;
+      item.meaningAttempts++;
+      if (!correct) item.meaningWrong++;
+      record(item, 'meaning', correct, selected);
+      markOptions(button, item.zh);
+      
+      if (correct) {
+        item.meaningPassed = true;
+        item.status = 'meaning-passed';
+        setFeedback(true, `
+          <div class="flex items-center gap-2">
+            <span class="text-xl">✅</span><span class="text-lg font-black text-green-700">释义正确！</span>
+          </div>
+          <div class="mt-2 font-bold text-green-800">等本阶段全部错词过完后，会重新进入完形语境进行终极测试。</div>
+        `);
+        revealNextAction('green', '回答正确，继续');
+      } else {
+        item.meaningPassed = false;
+        item.status = 'needs-review';
+        setFeedback(false, `
+          <div class="flex flex-wrap items-center gap-2 mb-2">
+            <span class="text-xl">❌</span>
+            <span class="text-lg font-bold text-red-800">正确释义是：</span>
+            <span class="text-lg font-black text-red-600 bg-white px-2 py-0.5 rounded border border-red-200 shadow-sm">${escapeHtml(item.zh)}</span>
+          </div>
+          <div class="mt-3 font-bold text-red-800">本阶段结束后，它会重新进入例句强化环节。</div>
+        `);
+        revealNextAction('red', '记下释义，继续');
+      }
+    }
+    
+    function completeStudy() {
+      const item = state.current;
+      item.studyCount++;
+      item.status = 'studied';
+      record(item, 'study', true, 'reviewed examples');
+      advanceQueue();
+    }
+    
+    function loadCurrentFromQueue() {
+      if (state.phaseIndex >= state.phaseQueue.length) return finishPhase();
+      state.current = itemById(state.phaseQueue[state.phaseIndex]);
+      renderQuestion();
+    }
+    
+    function advanceQueue() {
+      state.phaseIndex++;
+      loadCurrentFromQueue();
+    }
+    
+    function startPhase(phase, ids, incrementRound = false) {
+      if (incrementRound) state.round++;
+      state.phase = phase;
+      state.phaseQueue = shuffle(ids);
+      state.phaseIndex = 0;
+      loadCurrentFromQueue();
+    }
+    
+    function unmasteredIds() {
+      return state.items.filter(item => !item.finalPassed).map(item => item.id);
+    }
+    
+    function finishPhase() {
+      const remaining = unmasteredIds();
+      if (!remaining.length) return finish();
+      if (state.phase === 'cloze') return startPhase('study', remaining);
+      if (state.phase === 'study') return startPhase('meaning', remaining);
+      const notMeaningPassed = state.items.filter(item => !item.finalPassed && !item.meaningPassed).map(item => item.id);
+      if (notMeaningPassed.length) return startPhase('study', notMeaningPassed);
+      return startPhase('cloze', remaining, true);
+    }
+    
+    function formatTime(ms) {
+      const sec = Math.max(0, Math.round(ms / 1000));
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+    }
+    
+    function scoreReport() {
+      const total = state.items.length;
+      const clozeWrong = state.items.reduce((sum, item) => sum + item.clozeWrong, 0);
+      const meaningWrong = state.items.reduce((sum, item) => sum + item.meaningWrong, 0);
+      const studyCount = state.items.reduce((sum, item) => sum + item.studyCount, 0);
+      const firstPass = state.items.filter(item => item.firstClozePassed).length;
+      const score = total ? Math.round(firstPass / total * 100) : 0;
+      const weak = state.items.filter(item => item.clozeWrong || item.meaningWrong || item.studyCount > 1).sort((a,b) => (b.clozeWrong + b.meaningWrong + b.studyCount) - (a.clozeWrong + a.meaningWrong + a.studyCount));
+      return { total, firstPass, score, clozeWrong, meaningWrong, studyCount, weak };
+    }
+    
+    function finish() {
+      state.endedAt = Date.now();
+      const report = scoreReport();
+      $('r-total').textContent = report.total;
+      $('r-time').textContent = formatTime(state.endedAt - state.startedAt);
+      $('r-cloze-wrong').textContent = report.clozeWrong;
+      $('r-study').textContent = report.studyCount;
+      $('result-list').innerHTML = report.weak.length ? report.weak.map((item, index) => {
+        const examples = commonExamples(item);
+        return `<details class="group border-b border-gray-100 last:border-b-0">
+          <summary class="flex cursor-pointer list-none flex-col gap-3 p-4 text-left sm:flex-row sm:items-center sm:justify-between">
+            <span><span class="mr-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-red-100 text-xs font-black text-red-600">${index + 1}</span><span class="font-black text-gray-900">${escapeHtml(phraseLabel(item.en))}</span><span class="ml-2 text-sm font-bold text-gray-500">${escapeHtml(item.zh)}</span></span>
+            <span class="flex flex-wrap gap-2 text-xs font-black">
+              <span class="rounded-full bg-red-50 px-2.5 py-1 text-red-600">完形错 ${item.clozeWrong}</span>
+              <span class="rounded-full bg-purple-50 px-2.5 py-1 text-purple-600">释义错 ${item.meaningWrong}</span>
+              <span class="rounded-full bg-blue-50 px-2.5 py-1 text-blue-600">复习 ${item.studyCount}</span>
+            </span>
+          </summary>
+          <div class="space-y-3 bg-gray-50 px-4 pb-4 pt-1 text-left">
+            <div class="rounded-2xl bg-white p-4"><p class="text-xs font-black uppercase tracking-[.16em] text-gray-400">Cloze Question</p><p class="mt-2 text-sm font-bold leading-7 text-gray-800">${escapeHtml(displayCloze(item))}</p><p class="mt-2 text-sm font-bold leading-7 text-red-500">${escapeHtml(displayCn(item))}</p></div>
+            ${examples.map((ex, i) => `<div class="rounded-2xl bg-white p-4"><p class="text-xs font-black uppercase tracking-[.16em] text-gray-400">Common Example ${i + 1}</p><p class="mt-2 text-sm font-bold leading-7 text-gray-800">${escapeHtml(ex.en)}</p><p class="mt-1 text-sm font-semibold leading-6 text-gray-500">${escapeHtml(ex.zh)}</p></div>`).join('')}
+          </div>
+        </details>`;
+      }).join('') : '<div class="p-8 text-center text-sm font-black text-green-600">本次没有错过的词组。</div>';
+      const detail = {
+        homework_id: HOMEWORK_ID,
+        module_title: MODULE_TITLE,
+        selected_category: state.selectedCategory,
+        started_at: new Date(state.startedAt).toISOString(),
+        finished_at: new Date(state.endedAt).toISOString(),
+        duration_seconds: Math.round((state.endedAt - state.startedAt) / 1000),
+        metrics: {
+          total_phrases: report.total,
+          first_cloze_pass: report.firstPass,
+          cloze_wrong_count: report.clozeWrong,
+          meaning_wrong_count: report.meaningWrong,
+          study_count: report.studyCount,
+          confidence: report.score
+        },
+        weak_phrases: report.weak.map(item => ({ id:item.id, phrase:item.en, meaning:item.zh, category:item.cat, clozeWrong:item.clozeWrong, meaningWrong:item.meaningWrong, studyCount:item.studyCount, clozeTimeSeconds:Math.round(item.clozeTimeMs / 1000), meaningTimeSeconds:Math.round(item.meaningTimeMs / 1000), studyTimeSeconds:Math.round(item.studyTimeMs / 1000) })),
+        phrase_details: state.items.map(item => ({ id:item.id, phrase:item.en, meaning:item.zh, category:item.cat, clozeAttempts:item.clozeAttempts, clozeWrong:item.clozeWrong, meaningAttempts:item.meaningAttempts, meaningWrong:item.meaningWrong, studyCount:item.studyCount, firstClozePassed:item.firstClozePassed, clozeTimeSeconds:Math.round(item.clozeTimeMs / 1000), meaningTimeSeconds:Math.round(item.meaningTimeMs / 1000), studyTimeSeconds:Math.round(item.studyTimeMs / 1000) })),
+        attempts: state.attempts
+      };
+      try {
+        window.XY_RECORD_SCORE?.({
+          homework_id: HOMEWORK_ID,
+          score: report.score,
+          correct_count: report.firstPass,
+          total_count: report.total,
+          module_title: MODULE_TITLE,
+          event_type: 'score_complete',
+          metadata: detail,
+          report: detail
+        });
+      } catch (err) {}
+      show('result');
+    }
+  </script>
+</body>
+</html>
