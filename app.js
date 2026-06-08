@@ -1176,6 +1176,9 @@ function reportObjectCandidates(meta) {
   add(meta);
   add(meta?.report);
   add(meta?.metadata);
+  add(meta?.payload);
+  add(meta?.payload?.report);
+  add(meta?.payload?.metadata);
   add(meta?.legacyPayload);
   add(meta?.legacyPayload?.report);
   add(meta?.legacyPayload?.metadata);

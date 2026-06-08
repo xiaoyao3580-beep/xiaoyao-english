@@ -333,6 +333,26 @@
       is_best_score: row.is_best_score
     };
   }
+  function objectOrNull(value) {
+    if (!value) return null;
+    if (typeof value === 'string') {
+      try { value = JSON.parse(value); } catch { return null; }
+    }
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+  }
+  function growthMetadata(payload, mergedMetrics, correctCount, totalCount) {
+    const meta = objectOrNull(payload.metadata) || {};
+    const report = objectOrNull(payload.report);
+    return {
+      ...meta,
+      ...(report ? { report } : {}),
+      href: meta.href || location.href,
+      text: meta.text || payload.triggerText || '',
+      metrics: { ...(meta.metrics || {}), ...mergedMetrics },
+      correct_count: correctCount,
+      total_count: totalCount
+    };
+  }
   async function insertGrowthLog(row) {
     const headers = {
       apikey: SUPABASE_KEY,
@@ -397,7 +417,7 @@
       source: payload.source || 'lesson_bridge',
       event_type: payload.event_type || payload.eventType || 'complete',
       module_title: payload.module_title || payload.moduleTitle || moduleTitle(),
-      metadata: payload.metadata || { href: location.href, text: payload.triggerText || '', metrics:mergedMetrics, correct_count: correctCount, total_count: totalCount },
+      metadata: growthMetadata(payload, mergedMetrics, correctCount, totalCount),
       created_at: new Date().toISOString()
     };
     if (!Number.isFinite(row.correct_count)) delete row.correct_count;
