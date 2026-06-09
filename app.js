@@ -8,7 +8,7 @@ const CLASS_ALIAS = { 'junior-ability': 'ms', economist: 'econ', others: 'adult'
 const REVERSE_ALIAS = { ms: 'junior-ability', econ: 'economist', adult: 'others' };
 const PERSONAL_COURSE_TYPES = ['one_to_one','coaching'];
 const HOME_LEVEL_ORDER = window.XY_HOME_LEVEL_ORDER || ['f2','a1','a1-plus','a2','a2-plus','junior-ability','swsy','others','economist','one_to_one','coaching'];
-const state = { page: 'home', level: null, homeTab: 'courses', slide: 0, teacherTab: 'students', studentManageView: 'classes', selectedStudentId: '', students: [], homework: [], banners: [], bannerError: '', logs: [], attendance: null, report: null, vote: null, pet: null, loading: true };
+const state = { page: 'home', level: null, homeTab: 'courses', slide: 0, teacherTab: 'students', studentManageView: 'classes', selectedStudentId: '', students: [], homework: [], banners: [], bannerError: '', logs: [], practiceReports: [], attendance: null, report: null, vote: null, pet: null, loading: true };
 const app = document.getElementById('app');
 const modalRoot = document.getElementById('modal-root');
 let lastRenderScope = '';
@@ -1221,10 +1221,61 @@ function reportBasicProcessSummary(lessonId, correct, total, score) {
   const firstPass = Number(correct || 0);
   return { basicOnly:true, totalPhrases, selectedCategory:'', durationSeconds:0, phraseDetails:[], weakPhrases:[], attempts:[], metrics:{ confidence:score }, firstPass, clozeWrongCount:Math.max(0, totalPhrases - firstPass), meaningWrongCount:0, studyCount:0 };
 }
+function rawPracticeReportRecords() {
+  const students = reportStudentMap();
+  const modules = reportModuleMap();
+  const cfg = reportCfg();
+  const start = reportBoundary(cfg.startDate, false);
+  const end = reportBoundary(cfg.endDate, true);
+  if (!start || !end) return [];
+  return (state.practiceReports || []).map(row => {
+    const studentId = row.student_id || row.studentId;
+    const lessonId = row.homework_id || row.homeworkId || '';
+    const student = students.get(studentId);
+    const meta = modules.get(lessonId);
+    const classes = classesOf(student);
+    const submittedAt = row.finished_at || row.created_at || new Date().toISOString();
+    const reportPayload = row.raw_report && typeof row.raw_report === 'object' ? row.raw_report : {
+      metrics:row.summary || {},
+      phrase_details:Array.isArray(row.phrase_details) ? row.phrase_details : [],
+      attempts:Array.isArray(row.attempts) ? row.attempts : [],
+      duration_seconds:row.duration_seconds,
+      started_at:row.started_at,
+      finished_at:row.finished_at
+    };
+    const processReport = reportProcessSummary(reportPayload);
+    return {
+      id:'practice:' + (row.id || studentId + ':' + lessonId + ':' + submittedAt),
+      logId:row.id || '',
+      reportTable:'student_practice_reports',
+      source:'practice',
+      sourceLabel:'专项报告',
+      studentId,
+      studentName:student?.name || studentId || '未命名学生',
+      className:classes.length ? classes.map(reportClassLabel).join(' / ') : '未分班',
+      lessonId,
+      moduleTitle:row.module_title || meta?.title || lessonId || '专项练习',
+      levelId:meta?.levelId || normalizeClass(row.class_code || ''),
+      levelCode:meta?.levelTitle || reportClassLabel(row.class_code || ''),
+      submittedAt,
+      correctCount:Number(row.correct_count ?? reportPayload.metrics?.first_cloze_pass ?? 0),
+      totalCount:Number(row.total_count ?? reportPayload.metrics?.total_phrases ?? 0),
+      scorePercent:reportScore(row.correct_count, row.total_count, row.score),
+      reportConfidence:Number(reportPayload.metrics?.confidence || 0),
+      reportNote:'',
+      metadata:reportPayload,
+      processReport
+    };
+  }).filter(record => {
+    const d = new Date(record.submittedAt);
+    return record.studentId && record.lessonId && record.processReport && d >= start && d <= end;
+  });
+}
 function rawReportRecords() { const students = reportStudentMap(); const modules = reportModuleMap(); const cfg = reportCfg(); const start = reportBoundary(cfg.startDate, false); const end = reportBoundary(cfg.endDate, true); if (!start || !end) return []; const make = (row) => { const studentId = row.student_id || row.studentId; const lessonId = reportLessonId(row); const student = students.get(studentId); const meta = modules.get(lessonId); const rowMeta = row && typeof row.metadata === 'object' && row.metadata ? row.metadata : {}; const classes = classesOf(student); const submittedAt = row.submitted_at || row.created_at || row.date || new Date().toISOString(); const correct = reportMetric(row, 'correct_count'); const total = reportMetric(row, 'total_count'); const score = reportScore(correct, total, row.score); const source = row.source === 'quiz' ? 'quiz' : row.source === 'diagnostic' ? 'diagnostic' : (String(row.event_type || '').includes('quiz') ? 'quiz' : String(row.event_type || '').includes('diagnostic') ? 'diagnostic' : 'lesson'); const confidence = Number(rowMeta.metrics && rowMeta.metrics.confidence || 0); const processReport = reportProcessSummary(rowMeta) || reportBasicProcessSummary(lessonId, correct, total, score); return { id:source + ':' + (row.id || studentId + ':' + lessonId + ':' + submittedAt), logId:row.id || '', source, sourceLabel:source === 'quiz' ? '测验' : source === 'diagnostic' ? '诊断' : '练习', studentId, studentName:student?.name || studentId || '未命名学生', className:classes.length ? classes.map(reportClassLabel).join(' / ') : '未分班', lessonId, moduleTitle:meta?.title || row.module_title || lessonId || '未命名单元', levelId:meta?.levelId || normalizeClass(row.class_code || ''), levelCode:meta?.levelTitle || reportClassLabel(row.class_code || ''), submittedAt, correctCount:correct ?? null, totalCount:total ?? null, scorePercent:score, reportConfidence:confidence, reportNote:String(rowMeta.text || rowMeta.triggerText || ''), metadata:rowMeta, processReport }; }; return state.logs.map(make).filter(record => { const d = new Date(record.submittedAt); return record.studentId && record.lessonId && !isExemptLessonId(record.lessonId) && d >= start && d <= end; }); }
 function computeReports() {
   const cfg = reportCfg();
   const records = rawReportRecords().filter(record => !isUnverifiedObserverReport(record) && (cfg.sourceFilter === 'all' || record.source === cfg.sourceFilter) && (cfg.selectedLevelId === 'all' || record.levelId === cfg.selectedLevelId) && (cfg.selectedLessonId === 'all' || record.lessonId === cfg.selectedLessonId));
+  const practiceRecords = rawPracticeReportRecords().filter(record => (cfg.selectedLevelId === 'all' || record.levelId === cfg.selectedLevelId || !record.levelId) && (cfg.selectedLessonId === 'all' || record.lessonId === cfg.selectedLessonId));
   const attemptCounts = new Map();
   records.slice().sort((a,b) => new Date(a.submittedAt) - new Date(b.submittedAt)).forEach(record => {
     const key = record.studentId + ':' + record.lessonId;
@@ -1266,7 +1317,13 @@ function computeReports() {
   const buckets = REPORT_BUCKETS.map(bucket => ({ ...bucket, count:latestRows.filter(r => r.scorePercent >= bucket.min && r.scorePercent <= bucket.max).length }));
   const studentCount = new Set(latestRows.map(r => r.studentId)).size;
   const classCount = new Set(latestRows.map(r => r.className)).size;
-  const processReports = latestRows.filter(r => r.processReport);
+  const practiceKeys = new Set(practiceRecords.map(record => [record.studentId, record.lessonId, Math.round(new Date(record.submittedAt).getTime() / 60000)].join(':')));
+  const legacyProcessReports = latestRows.filter(record => {
+    if (!record.processReport) return false;
+    const key = [record.studentId, record.lessonId, Math.round(new Date(record.submittedAt).getTime() / 60000)].join(':');
+    return !practiceKeys.has(key);
+  });
+  const processReports = practiceRecords.concat(legacyProcessReports).sort((a,b) => new Date(b.submittedAt) - new Date(a.submittedAt));
   return { records, latestRows, summaryRows, comparisonOptions, selected, keys, chart, buckets, processReports, stats:{ studentCount, classCount, submitCount:latestRows.length, averageScore:reportAverage(latestRows.map(r => r.scorePercent)) }, lessons:reportLessonOptions(cfg, rawReportRecords()) };
 }
 function reportPieBackground(buckets) { const total = buckets.reduce((s,b) => s + b.count, 0); if (!total) return 'conic-gradient(#e2e8f0 0deg 360deg)'; let cursor = 0; return 'conic-gradient(' + buckets.map(b => { const start = cursor; const end = cursor + b.count / total * 360; cursor = end; return b.color + ' ' + start + 'deg ' + end + 'deg'; }).join(',') + ')'; }
@@ -1358,7 +1415,7 @@ function reportProcessSection(records) {
       const ok = item.correct === true || item.isCorrect === true;
       return '<span class="inline-flex items-center gap-1 rounded-full ' + (ok ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500') + ' px-2.5 py-1 text-[11px] font-black">' + reportProcessPhaseLabel(item.phase || item.stage) + ' ' + (ok ? '对' : '错') + ' ' + reportTimeText(Number(item.duration_ms || item.durationMs || 0) / 1000) + '</span>';
     }).join('');
-    return '<details class="rounded-[1.25rem] border border-gray-100 bg-[#F8F8FC] p-4 shadow-sm" open><summary class="cursor-pointer list-none"><div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between"><div class="min-w-0"><p class="text-base font-black text-[#2D2A4A]">' + esc(record.studentName) + ' · ' + esc(record.moduleTitle) + '</p><p class="mt-1 text-xs font-bold text-gray-400">' + esc(record.className) + ' · ' + reportDateTime(record.submittedAt) + '</p></div><div class="flex shrink-0 flex-wrap gap-2"><span class="rounded-full bg-white px-3 py-1.5 text-xs font-black text-[#6B48FF] shadow-sm">' + record.scorePercent + '%</span><span class="rounded-full bg-white px-3 py-1.5 text-xs font-black text-gray-500 shadow-sm">' + reportTimeText(p.durationSeconds) + '</span>' + (record.logId ? '<button data-delete-report-record="' + esc(record.logId) + '" data-report-record-title="' + esc(record.studentName + ' · ' + reportDateTime(record.submittedAt)) + '" class="inline-flex min-h-[28px] items-center gap-1 rounded-full bg-red-50 px-3 py-1 text-xs font-black text-red-500 active-scale"><i class="fa-solid fa-trash-can text-[10px]"></i>删除</button>' : '') + '</div></div></summary>' + (p.basicOnly ? '<div class="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-700">这条是旧提交记录，只保存了分数和正确题数；当时没有写入词组过程数据，所以无法还原每个词组的用时和错因。之后的新提交会显示完整明细。</div>' : '') + '<div class="mt-4 grid gap-3 md:grid-cols-4"><div class="rounded-xl bg-white px-3 py-3 text-center shadow-sm"><p class="text-[10px] font-black text-gray-400">词组总数</p><p class="mt-1 text-lg font-black text-[#2D2A4A]">' + p.totalPhrases + '</p></div><div class="rounded-xl bg-white px-3 py-3 text-center shadow-sm"><p class="text-[10px] font-black text-gray-400">首轮过关</p><p class="mt-1 text-lg font-black text-[#2D2A4A]">' + p.firstPass + '</p></div><div class="rounded-xl bg-white px-3 py-3 text-center shadow-sm"><p class="text-[10px] font-black text-gray-400">完形错次</p><p class="mt-1 text-lg font-black text-[#2D2A4A]">' + p.clozeWrongCount + '</p></div><div class="rounded-xl bg-white px-3 py-3 text-center shadow-sm"><p class="text-[10px] font-black text-gray-400">中文错次</p><p class="mt-1 text-lg font-black text-[#2D2A4A]">' + p.meaningWrongCount + '</p></div></div><div class="mt-4 space-y-3">' + weakRows + '</div>' + (attemptRows ? '<div class="mt-4 rounded-xl bg-white px-4 py-3 shadow-sm"><p class="mb-2 text-xs font-black uppercase tracking-[0.16em] text-gray-400">Recent Steps</p><div class="flex flex-wrap gap-2">' + attemptRows + '</div></div>' : '') + '</details>';
+    return '<details class="rounded-[1.25rem] border border-gray-100 bg-[#F8F8FC] p-4 shadow-sm" open><summary class="cursor-pointer list-none"><div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between"><div class="min-w-0"><p class="text-base font-black text-[#2D2A4A]">' + esc(record.studentName) + ' · ' + esc(record.moduleTitle) + '</p><p class="mt-1 text-xs font-bold text-gray-400">' + esc(record.className) + ' · ' + reportDateTime(record.submittedAt) + '</p></div><div class="flex shrink-0 flex-wrap gap-2"><span class="rounded-full bg-white px-3 py-1.5 text-xs font-black text-[#6B48FF] shadow-sm">' + record.scorePercent + '%</span><span class="rounded-full bg-white px-3 py-1.5 text-xs font-black text-gray-500 shadow-sm">' + reportTimeText(p.durationSeconds) + '</span>' + (record.logId ? '<button data-delete-report-record="' + esc(record.logId) + '" data-report-record-table="' + esc(record.reportTable || 'growth_logs') + '" data-report-record-title="' + esc(record.studentName + ' · ' + reportDateTime(record.submittedAt)) + '" class="inline-flex min-h-[28px] items-center gap-1 rounded-full bg-red-50 px-3 py-1 text-xs font-black text-red-500 active-scale"><i class="fa-solid fa-trash-can text-[10px]"></i>删除</button>' : '') + '</div></div></summary>' + (p.basicOnly ? '<div class="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-700">这条是旧提交记录，只保存了分数和正确题数；当时没有写入词组过程数据，所以无法还原每个词组的用时和错因。之后的新提交会显示完整明细。</div>' : '') + '<div class="mt-4 grid gap-3 md:grid-cols-4"><div class="rounded-xl bg-white px-3 py-3 text-center shadow-sm"><p class="text-[10px] font-black text-gray-400">词组总数</p><p class="mt-1 text-lg font-black text-[#2D2A4A]">' + p.totalPhrases + '</p></div><div class="rounded-xl bg-white px-3 py-3 text-center shadow-sm"><p class="text-[10px] font-black text-gray-400">首轮过关</p><p class="mt-1 text-lg font-black text-[#2D2A4A]">' + p.firstPass + '</p></div><div class="rounded-xl bg-white px-3 py-3 text-center shadow-sm"><p class="text-[10px] font-black text-gray-400">完形错次</p><p class="mt-1 text-lg font-black text-[#2D2A4A]">' + p.clozeWrongCount + '</p></div><div class="rounded-xl bg-white px-3 py-3 text-center shadow-sm"><p class="text-[10px] font-black text-gray-400">中文错次</p><p class="mt-1 text-lg font-black text-[#2D2A4A]">' + p.meaningWrongCount + '</p></div></div><div class="mt-4 space-y-3">' + weakRows + '</div>' + (attemptRows ? '<div class="mt-4 rounded-xl bg-white px-4 py-3 shadow-sm"><p class="mb-2 text-xs font-black uppercase tracking-[0.16em] text-gray-400">Recent Steps</p><div class="flex flex-wrap gap-2">' + attemptRows + '</div></div>' : '') + '</details>';
   }).join('');
   return '<section class="card-solid overflow-hidden"><div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-5 md:flex-row md:items-center md:justify-between md:px-6"><div><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Process Report</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">全景做题报告</h3></div><span class="rounded-full bg-[#F4F2FF] px-3 py-1 text-xs font-black text-[#6B48FF]">专项练习元数据</span></div><div class="space-y-3 px-4 py-4 md:px-6">' + (cards || empty) + '</div></section>';
 }
@@ -2139,26 +2196,32 @@ async function loadReportData(showDone = true) {
   cfg.loading = true;
   cfg.error = '';
   render();
-  const logs = await fetchOptionalTable('growth_logs', '*', 'created_at', cfg);
-  const errors = [logs.error].filter(Boolean);
+  const [logs, practiceReports] = await Promise.all([
+    fetchOptionalTable('growth_logs', '*', 'created_at', cfg),
+    fetchOptionalTable('student_practice_reports', '*', 'created_at', cfg)
+  ]);
+  const errors = [logs.error, practiceReports.error].filter(Boolean);
   if (errors.length) cfg.error = errors.map(e => e.message).join(' / ');
-  else if (logs.truncated) cfg.error = '当前日期范围数据较多，已先加载最近 ' + (cfg.maxRows || 3000) + ' 条。缩小日期范围可以查看更完整的数据。';
+  else if (logs.truncated || practiceReports.truncated) cfg.error = '当前日期范围数据较多，已先加载最近 ' + (cfg.maxRows || 3000) + ' 条。缩小日期范围可以查看更完整的数据。';
   cfg.quizAttempts = [];
   cfg.diagnosticAttempts = [];
   if (!logs.error) state.logs = logs.data || state.logs;
+  if (!practiceReports.error) state.practiceReports = practiceReports.data || state.practiceReports;
   cfg.loaded = true;
   cfg.loading = false;
   render();
   if (showDone) toast('报表数据已同步');
 }
-async function deleteReportRecord(id, label = '') {
+async function deleteReportRecord(id, label = '', table = 'growth_logs') {
   if (currentUser()?.role !== 'teacher') return;
   const cleanId = String(id || '').trim();
   if (!cleanId) return showAlert('没有找到这条提交记录的 ID。', '无法删除');
   showConfirm('确定删除这条做题记录吗？\n\n' + (label || cleanId) + '\n\n删除后，成绩统计和全景报告里都会移除这一次提交。', '删除测试记录', '确认删除', 'bg-red-500 shadow-red-500/30', async () => {
-    const result = await sb.from('growth_logs').delete().eq('id', cleanId);
+    const targetTable = table === 'student_practice_reports' ? 'student_practice_reports' : 'growth_logs';
+    const result = await sb.from(targetTable).delete().eq('id', cleanId);
     if (result.error) return showAlert(result.error.message, '删除失败');
-    state.logs = (state.logs || []).filter(row => String(row.id) !== cleanId);
+    if (targetTable === 'student_practice_reports') state.practiceReports = (state.practiceReports || []).filter(row => String(row.id) !== cleanId);
+    else state.logs = (state.logs || []).filter(row => String(row.id) !== cleanId);
     render();
     toast('这次做题记录已删除');
     await loadReportData(false);
@@ -2735,7 +2798,7 @@ document.addEventListener('touchstart', e => {
   if (open) prefetchLesson(open.dataset.moduleId, open.dataset.file);
 }, { passive:true });
 window.addEventListener('pageshow', clearLessonLaunchOverlay);
-document.addEventListener('click', e => { if (e.target.closest('button,a,[data-route],[data-toast],[data-home-tab],[data-slide-index],[data-carousel-slide],[data-login],[data-logout],[data-open-lesson],[data-teacher-tab],[data-open-pet-switch]') && !suppressCarouselClick) playClick(); const route = e.target.closest('[data-route]'); if (route) return routeTo(route.dataset.route, route.dataset.level || null, true); const t = e.target.closest('[data-toast]'); if (t) return toast(t.dataset.toast); const homeTab = e.target.closest('[data-home-tab]'); if (homeTab) { state.homeTab = homeTab.dataset.homeTab; return render(); } const dot = e.target.closest('[data-slide-index]'); if (dot) return updateCarousel(Number(dot.dataset.slideIndex) || 0); const slide = e.target.closest('[data-carousel-slide]'); if (slide) return openCarouselSlide(Number(slide.dataset.carouselSlide) || 0); if (e.target.closest('[data-login]')) return showLogin(); if (e.target.closest('[data-logout]')) return logout(); const open = e.target.closest('[data-open-lesson]'); if (open) return openLesson(open.dataset.moduleId, open.dataset.file); const tab = e.target.closest('[data-teacher-tab]'); if (tab) { state.teacherTab = tab.dataset.teacherTab; render(); setTimeout(() => document.querySelector('[data-teacher-tab="' + state.teacherTab + '"]')?.scrollIntoView({ behavior:'smooth', inline:'center', block:'nearest' }), 40); return; } const chip = e.target.closest('[data-toggle-chip]'); if (chip) { chip.classList.toggle('selected'); return; } if (e.target.closest('[data-regen-pwd]')) return regenPwd(); if (e.target.closest('[data-save-student]') || e.target.closest('[data-add-student]')) return addStudent(); const studentInfo = e.target.closest('[data-student-info]'); if (studentInfo) return showStudentInfo(studentInfo.dataset.studentInfo); const delStudent = e.target.closest('[data-delete-student]'); if (delStudent) return deleteStudent(delStudent.dataset.deleteStudent); const pub = e.target.closest('[data-publish-lesson]'); if (pub) return syncLesson(pub.dataset.publishLesson, 'open'); if (e.target.closest('[data-add-homework]')) return addHomework(); if (e.target.closest('[data-migrate-lessons]')) return migrateRegistryLessonsToStorage(); const editHw = e.target.closest('[data-edit-homework]'); if (editHw) return showHomeworkEditor(editHw.dataset.editHomework); if (e.target.closest('[data-save-homework-edit]')) return saveHomeworkEdit(); if (e.target.closest('[data-close-old-hw]')) return closeAllOldHw(); const delHw = e.target.closest('[data-delete-homework]'); if (delHw) return deleteHomework(delHw.dataset.deleteHomework); if (e.target.closest('[data-generate-attendance]')) return generateAttendance(); const exempt = e.target.closest('[data-open-exempt]'); if (exempt) return openExemptModal(exempt.dataset.openExempt, exempt.dataset.studentName); const applyExemptBtn = e.target.closest('[data-apply-exempt]'); if (applyExemptBtn) return applyExempt(applyExemptBtn.dataset.applyExempt, applyExemptBtn.dataset.studentName); if (e.target.closest('[data-report-refresh]')) return loadReportData(true); const deleteReport = e.target.closest('[data-delete-report-record]'); if (deleteReport) { e.preventDefault(); e.stopPropagation(); return deleteReportRecord(deleteReport.dataset.deleteReportRecord, deleteReport.dataset.reportRecordTitle || ''); } const compare = e.target.closest('[data-report-compare]'); if (compare) return toggleReportCompare(compare.dataset.reportCompare); if (e.target.closest('[data-confirm-action]') && window.__xy_confirm_action) return window.__xy_confirm_action(); const previewBanner = e.target.closest('[data-preview-banner]'); if (previewBanner) return showBannerPreview(previewBanner.dataset.previewBanner); const editBanner = e.target.closest('[data-edit-banner]'); if (editBanner) return showBannerEditor(editBanner.dataset.editBanner); if (e.target.closest('[data-save-banner-edit]')) return saveBannerEdit(); if (e.target.closest('[data-add-banner]')) return addBanner(); const bannerPageStep = e.target.closest('[data-banner-page-step]'); if (bannerPageStep) return shiftBannerPage(bannerPageStep.dataset.bannerPageStep, Number(bannerPageStep.dataset.bannerPageDelta)); const delBanner = e.target.closest('[data-delete-banner]'); if (delBanner) return deleteBanner(delBanner.dataset.deleteBanner); if (e.target.closest('[data-do-login]')) return doLogin(); if (e.target.closest('[data-close-modal]')) return closeModal(); });
+document.addEventListener('click', e => { if (e.target.closest('button,a,[data-route],[data-toast],[data-home-tab],[data-slide-index],[data-carousel-slide],[data-login],[data-logout],[data-open-lesson],[data-teacher-tab],[data-open-pet-switch]') && !suppressCarouselClick) playClick(); const route = e.target.closest('[data-route]'); if (route) return routeTo(route.dataset.route, route.dataset.level || null, true); const t = e.target.closest('[data-toast]'); if (t) return toast(t.dataset.toast); const homeTab = e.target.closest('[data-home-tab]'); if (homeTab) { state.homeTab = homeTab.dataset.homeTab; return render(); } const dot = e.target.closest('[data-slide-index]'); if (dot) return updateCarousel(Number(dot.dataset.slideIndex) || 0); const slide = e.target.closest('[data-carousel-slide]'); if (slide) return openCarouselSlide(Number(slide.dataset.carouselSlide) || 0); if (e.target.closest('[data-login]')) return showLogin(); if (e.target.closest('[data-logout]')) return logout(); const open = e.target.closest('[data-open-lesson]'); if (open) return openLesson(open.dataset.moduleId, open.dataset.file); const tab = e.target.closest('[data-teacher-tab]'); if (tab) { state.teacherTab = tab.dataset.teacherTab; render(); setTimeout(() => document.querySelector('[data-teacher-tab="' + state.teacherTab + '"]')?.scrollIntoView({ behavior:'smooth', inline:'center', block:'nearest' }), 40); return; } const chip = e.target.closest('[data-toggle-chip]'); if (chip) { chip.classList.toggle('selected'); return; } if (e.target.closest('[data-regen-pwd]')) return regenPwd(); if (e.target.closest('[data-save-student]') || e.target.closest('[data-add-student]')) return addStudent(); const studentInfo = e.target.closest('[data-student-info]'); if (studentInfo) return showStudentInfo(studentInfo.dataset.studentInfo); const delStudent = e.target.closest('[data-delete-student]'); if (delStudent) return deleteStudent(delStudent.dataset.deleteStudent); const pub = e.target.closest('[data-publish-lesson]'); if (pub) return syncLesson(pub.dataset.publishLesson, 'open'); if (e.target.closest('[data-add-homework]')) return addHomework(); if (e.target.closest('[data-migrate-lessons]')) return migrateRegistryLessonsToStorage(); const editHw = e.target.closest('[data-edit-homework]'); if (editHw) return showHomeworkEditor(editHw.dataset.editHomework); if (e.target.closest('[data-save-homework-edit]')) return saveHomeworkEdit(); if (e.target.closest('[data-close-old-hw]')) return closeAllOldHw(); const delHw = e.target.closest('[data-delete-homework]'); if (delHw) return deleteHomework(delHw.dataset.deleteHomework); if (e.target.closest('[data-generate-attendance]')) return generateAttendance(); const exempt = e.target.closest('[data-open-exempt]'); if (exempt) return openExemptModal(exempt.dataset.openExempt, exempt.dataset.studentName); const applyExemptBtn = e.target.closest('[data-apply-exempt]'); if (applyExemptBtn) return applyExempt(applyExemptBtn.dataset.applyExempt, applyExemptBtn.dataset.studentName); if (e.target.closest('[data-report-refresh]')) return loadReportData(true); const deleteReport = e.target.closest('[data-delete-report-record]'); if (deleteReport) { e.preventDefault(); e.stopPropagation(); return deleteReportRecord(deleteReport.dataset.deleteReportRecord, deleteReport.dataset.reportRecordTitle || '', deleteReport.dataset.reportRecordTable || 'growth_logs'); } const compare = e.target.closest('[data-report-compare]'); if (compare) return toggleReportCompare(compare.dataset.reportCompare); if (e.target.closest('[data-confirm-action]') && window.__xy_confirm_action) return window.__xy_confirm_action(); const previewBanner = e.target.closest('[data-preview-banner]'); if (previewBanner) return showBannerPreview(previewBanner.dataset.previewBanner); const editBanner = e.target.closest('[data-edit-banner]'); if (editBanner) return showBannerEditor(editBanner.dataset.editBanner); if (e.target.closest('[data-save-banner-edit]')) return saveBannerEdit(); if (e.target.closest('[data-add-banner]')) return addBanner(); const bannerPageStep = e.target.closest('[data-banner-page-step]'); if (bannerPageStep) return shiftBannerPage(bannerPageStep.dataset.bannerPageStep, Number(bannerPageStep.dataset.bannerPageDelta)); const delBanner = e.target.closest('[data-delete-banner]'); if (delBanner) return deleteBanner(delBanner.dataset.deleteBanner); if (e.target.closest('[data-do-login]')) return doLogin(); if (e.target.closest('[data-close-modal]')) return closeModal(); });
 document.addEventListener('touchstart', e => { const carousel = e.target.closest('[data-carousel]'); if (!carousel) return; const touch = e.touches && e.touches[0]; if (!touch) return; if (carouselSuppressTimer) clearTimeout(carouselSuppressTimer); suppressCarouselClick = false; carouselStartX = touch.clientX; carouselStartY = touch.clientY; }, { passive:true });
 document.addEventListener('touchend', e => { const carousel = e.target.closest('[data-carousel]'); if (!carousel) return; const touch = e.changedTouches && e.changedTouches[0]; if (!touch) return; const dx = touch.clientX - carouselStartX; const dy = touch.clientY - carouselStartY; const ax = Math.abs(dx); const ay = Math.abs(dy); if (ax < 56 || ax <= ay + 12) { suppressCarouselClick = false; return; } suppressCarouselClick = true; if (carouselSuppressTimer) clearTimeout(carouselSuppressTimer); carouselSuppressTimer = setTimeout(() => { suppressCarouselClick = false; carouselSuppressTimer = null; }, 260); updateCarousel(state.slide + (dx < 0 ? 1 : -1)); }, { passive:true });
 document.addEventListener('visibilitychange', () => { if (document.hidden) stopCarouselAuto(); else { clearLessonLaunchOverlay(); scheduleCarouselAuto(); } });

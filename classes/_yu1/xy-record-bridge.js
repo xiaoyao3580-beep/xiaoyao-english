@@ -380,6 +380,63 @@
     }
     throw new Error(text || 'growth_logs insert failed');
   }
+  function isoOrNull(value) {
+    if (!value) return null;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  }
+  function normalizePracticeReportPayload(payload) {
+    const user = readUser();
+    if (!user || user.role !== 'student' || !user.id) return { error:'not-student' };
+    const report = objectOrNull(payload.report) || objectOrNull(payload.metadata) || objectOrNull(payload) || {};
+    const metrics = objectOrNull(report.metrics) || {};
+    const homeworkId = payload.homework_id || payload.homeworkId || report.homework_id || report.homeworkId || moduleId();
+    if (!homeworkId) return { error:'missing-homework-id' };
+    const score = clampScore(payload.score ?? metrics.confidence ?? report.score ?? 0);
+    return {
+      row:{
+        student_id:String(user.id),
+        homework_id:String(homeworkId),
+        module_title:payload.module_title || payload.moduleTitle || report.module_title || report.moduleTitle || moduleTitle(),
+        score,
+        correct_count:finiteNumber(payload.correct_count ?? payload.correctCount ?? metrics.first_cloze_pass ?? metrics.correct_count),
+        total_count:finiteNumber(payload.total_count ?? payload.totalCount ?? metrics.total_phrases ?? metrics.total_count),
+        started_at:isoOrNull(report.started_at || report.startedAt),
+        finished_at:isoOrNull(report.finished_at || report.finishedAt),
+        duration_seconds:finiteNumber(report.duration_seconds || report.durationSeconds || metrics.duration_seconds),
+        summary:metrics,
+        phrase_details:Array.isArray(report.phrase_details) ? report.phrase_details : [],
+        attempts:Array.isArray(report.attempts) ? report.attempts : [],
+        raw_report:report,
+        source:payload.source || 'lesson_bridge',
+        created_at:new Date().toISOString()
+      }
+    };
+  }
+  async function recordPracticeReport(payload) {
+    const normalized = normalizePracticeReportPayload(payload || {});
+    if (normalized.error) return { skipped:normalized.error };
+    const headers = {
+      apikey: SUPABASE_KEY,
+      Authorization: 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation'
+    };
+    const response = await fetch(SUPABASE_URL + '/rest/v1/student_practice_reports', {
+      method:'POST',
+      headers,
+      body:JSON.stringify(normalized.row)
+    });
+    if (response.ok) {
+      const rows = await response.json().catch(() => []);
+      const row = Array.isArray(rows) ? rows[0] : rows;
+      window.dispatchEvent(new CustomEvent('xy:practice-report-recorded', { detail:row || normalized.row }));
+      return { ok:true, row:row || normalized.row };
+    }
+    const text = await response.text().catch(() => '');
+    console.warn('[xy-record-bridge] practice report failed:', text);
+    return { error:new Error(text || 'practice report insert failed') };
+  }
   async function recordLesson(payload, sourceDoc) {
     const user = readUser();
     if (!user || user.role !== 'student' || !user.id) return { skipped: 'not-student' };
@@ -491,6 +548,7 @@
 
   window.XY_RECORD_LESSON = recordLesson;
   window.XY_RECORD_SCORE = payload => recordLesson({ ...(payload || {}), source:'manual_api', event_type:(payload && (payload.event_type || payload.eventType)) || 'score_complete', require_metric:true });
+  window.XY_RECORD_PRACTICE_REPORT = payload => recordPracticeReport({ ...(payload || {}), source:'manual_api' });
   function scheduleRecord(payload, doc) {
     [700, 1600, 3200].forEach(delay => {
       window.setTimeout(() => recordLesson(payload, doc), delay);

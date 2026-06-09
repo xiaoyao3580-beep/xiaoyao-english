@@ -193,6 +193,7 @@
         <h3 class="mb-3 text-lg font-black text-gray-900">词组掌握明细</h3>
         <div id="result-list" class="max-h-[28rem] overflow-y-auto rounded-2xl border border-gray-100"></div>
       </div>
+      <div id="sync-status" class="mt-5 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-black leading-6 text-blue-700">正在同步老师后台...</div>
       <div class="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-center">
         <button onclick="showHome()" class="rounded-2xl bg-red-600 px-6 py-3 font-black text-white hover:bg-red-700">返回主页</button>
       </div>
@@ -203,6 +204,7 @@
     const HOMEWORK_ID = 'amy_phrase_cloze_mastery';
     const MODULE_TITLE = 'Amy 词组-完形填空专项练习';
     const TEST_REPORT_PARAM = 'xy_report_test';
+    const PENDING_REPORT_KEY = 'xy_pending_practice_report:' + HOMEWORK_ID;
 
     const PHRASES = [
       { id:1, en:"pull one's leg", zh:"开玩笑、逗某人", cat:"字面≠实意", cloze:"Tom looked serious, but Amy soon realized he was only ____ when he said the exam was cancelled.", cn:"Tom看起来很认真，但Amy很快发现他说考试取消只是开玩笑。", examples:["Don't be angry. I was only pulling your leg.","If someone pulls your leg, they are joking, not telling a real fact."] },
@@ -630,10 +632,81 @@
       const weak = state.items.filter(item => item.clozeWrong || item.meaningWrong || item.studyCount > 1).sort((a,b) => (b.clozeWrong + b.meaningWrong + b.studyCount) - (a.clozeWrong + a.meaningWrong + a.studyCount));
       return { total, firstPass, score, clozeWrong, meaningWrong, studyCount, weak };
     }
-    
-    function finish() {
-      state.endedAt = Date.now();
-      const report = scoreReport();
+    function buildPracticeDetail(report) {
+      return {
+        homework_id: HOMEWORK_ID,
+        module_title: MODULE_TITLE,
+        selected_category: state.selectedCategory,
+        started_at: new Date(state.startedAt).toISOString(),
+        finished_at: new Date(state.endedAt).toISOString(),
+        duration_seconds: Math.round((state.endedAt - state.startedAt) / 1000),
+        metrics: {
+          total_phrases: report.total,
+          first_cloze_pass: report.firstPass,
+          cloze_wrong_count: report.clozeWrong,
+          meaning_wrong_count: report.meaningWrong,
+          study_count: report.studyCount,
+          confidence: report.score
+        },
+        weak_phrases: report.weak.map(item => ({ id:item.id, phrase:item.en, meaning:item.zh, category:item.cat, clozeWrong:item.clozeWrong, meaningWrong:item.meaningWrong, studyCount:item.studyCount, clozeTimeSeconds:Math.round(item.clozeTimeMs / 1000), meaningTimeSeconds:Math.round(item.meaningTimeMs / 1000), studyTimeSeconds:Math.round(item.studyTimeMs / 1000), clozeQuestion:displayCloze(item), examples:commonExamples(item) })),
+        phrase_details: state.items.map(item => ({ id:item.id, phrase:item.en, meaning:item.zh, category:item.cat, clozeAttempts:item.clozeAttempts, clozeWrong:item.clozeWrong, meaningAttempts:item.meaningAttempts, meaningWrong:item.meaningWrong, studyCount:item.studyCount, firstClozePassed:item.firstClozePassed, clozeTimeSeconds:Math.round(item.clozeTimeMs / 1000), meaningTimeSeconds:Math.round(item.meaningTimeMs / 1000), studyTimeSeconds:Math.round(item.studyTimeMs / 1000), clozeQuestion:displayCloze(item), examples:commonExamples(item) })),
+        attempts: state.attempts
+      };
+    }
+    function setSyncStatus(type, text, canRetry = false) {
+      const box = $('sync-status');
+      if (!box) return;
+      const cls = type === 'ok'
+        ? 'border-green-100 bg-green-50 text-green-700'
+        : type === 'fail'
+          ? 'border-red-100 bg-red-50 text-red-700'
+          : 'border-blue-100 bg-blue-50 text-blue-700';
+      box.className = 'mt-5 rounded-2xl border px-4 py-3 text-sm font-black leading-6 ' + cls;
+      box.innerHTML = escapeHtml(text) + (canRetry ? '<button onclick="retryPracticeReport()" class="ml-2 rounded-full bg-white px-3 py-1 text-xs font-black shadow-sm">重试</button>' : '');
+    }
+    async function submitPracticeReport(detail, report) {
+      localStorage.setItem(PENDING_REPORT_KEY, JSON.stringify({ detail, report }));
+      setSyncStatus('loading', '正在同步老师后台...');
+      try {
+        window.XY_RECORD_SCORE?.({
+          homework_id: HOMEWORK_ID,
+          score: report.score,
+          correct_count: report.firstPass,
+          total_count: report.total,
+          module_title: MODULE_TITLE,
+          event_type: 'score_complete',
+          metadata: detail,
+          report: detail
+        });
+      } catch (err) {}
+      try {
+        if (typeof window.XY_RECORD_PRACTICE_REPORT !== 'function') throw new Error('详细报告通道未加载，请从大站作业入口打开。');
+        const result = await window.XY_RECORD_PRACTICE_REPORT({
+          homework_id: HOMEWORK_ID,
+          score: report.score,
+          correct_count: report.firstPass,
+          total_count: report.total,
+          module_title: MODULE_TITLE,
+          metadata: detail,
+          report: detail
+        });
+        if (!result || result.error || result.skipped) throw (result && result.error) || new Error(result && result.skipped || '详细报告未写入');
+        localStorage.removeItem(PENDING_REPORT_KEY);
+        setSyncStatus('ok', '已同步老师后台。');
+      } catch (err) {
+        setSyncStatus('fail', '详细报告同步失败：' + (err.message || err), true);
+      }
+    }
+    function retryPracticeReport() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(PENDING_REPORT_KEY) || 'null');
+        if (!saved) return setSyncStatus('fail', '没有找到可重试的报告。');
+        submitPracticeReport(saved.detail, saved.report);
+      } catch (err) {
+        setSyncStatus('fail', '重试失败：' + (err.message || err), true);
+      }
+    }
+    function renderResult(report) {
       $('r-total').textContent = report.total;
       $('r-time').textContent = formatTime(state.endedAt - state.startedAt);
       $('r-cloze-wrong').textContent = report.clozeWrong;
@@ -655,38 +728,14 @@
           </div>
         </details>`;
       }).join('') : '<div class="p-8 text-center text-sm font-black text-green-600">本次没有错过的词组。</div>';
-      const detail = {
-        homework_id: HOMEWORK_ID,
-        module_title: MODULE_TITLE,
-        selected_category: state.selectedCategory,
-        started_at: new Date(state.startedAt).toISOString(),
-        finished_at: new Date(state.endedAt).toISOString(),
-        duration_seconds: Math.round((state.endedAt - state.startedAt) / 1000),
-        metrics: {
-          total_phrases: report.total,
-          first_cloze_pass: report.firstPass,
-          cloze_wrong_count: report.clozeWrong,
-          meaning_wrong_count: report.meaningWrong,
-          study_count: report.studyCount,
-          confidence: report.score
-        },
-        weak_phrases: report.weak.map(item => ({ id:item.id, phrase:item.en, meaning:item.zh, category:item.cat, clozeWrong:item.clozeWrong, meaningWrong:item.meaningWrong, studyCount:item.studyCount, clozeTimeSeconds:Math.round(item.clozeTimeMs / 1000), meaningTimeSeconds:Math.round(item.meaningTimeMs / 1000), studyTimeSeconds:Math.round(item.studyTimeMs / 1000) })),
-        phrase_details: state.items.map(item => ({ id:item.id, phrase:item.en, meaning:item.zh, category:item.cat, clozeAttempts:item.clozeAttempts, clozeWrong:item.clozeWrong, meaningAttempts:item.meaningAttempts, meaningWrong:item.meaningWrong, studyCount:item.studyCount, firstClozePassed:item.firstClozePassed, clozeTimeSeconds:Math.round(item.clozeTimeMs / 1000), meaningTimeSeconds:Math.round(item.meaningTimeMs / 1000), studyTimeSeconds:Math.round(item.studyTimeMs / 1000) })),
-        attempts: state.attempts
-      };
-      try {
-        window.XY_RECORD_SCORE?.({
-          homework_id: HOMEWORK_ID,
-          score: report.score,
-          correct_count: report.firstPass,
-          total_count: report.total,
-          module_title: MODULE_TITLE,
-          event_type: 'score_complete',
-          metadata: detail,
-          report: detail
-        });
-      } catch (err) {}
+    }
+    function finish() {
+      state.endedAt = Date.now();
+      const report = scoreReport();
+      const detail = buildPracticeDetail(report);
+      renderResult(report);
       show('result');
+      submitPracticeReport(detail, report);
     }
     function samplePhraseDetail(item, index) {
       const clozeWrong = index % 2;
@@ -710,7 +759,7 @@
         examples:commonExamples(item)
       };
     }
-    function submitSampleReport() {
+    async function submitSampleReport() {
       const picked = PHRASES.slice(35, 41);
       const phraseDetails = picked.map(samplePhraseDetail);
       const weak = phraseDetails.filter(item => item.clozeWrong || item.meaningWrong || item.studyCount).sort((a,b) => (b.clozeWrong + b.meaningWrong + b.studyCount) - (a.clozeWrong + a.meaningWrong + a.studyCount));
@@ -749,6 +798,17 @@
           metadata: detail,
           report: detail
         });
+        if (typeof window.XY_RECORD_PRACTICE_REPORT !== 'function') throw new Error('详细报告通道未加载，请从大站作业入口打开。');
+        const result = await window.XY_RECORD_PRACTICE_REPORT({
+          homework_id: HOMEWORK_ID,
+          score: detail.metrics.confidence,
+          correct_count: firstPass,
+          total_count: phraseDetails.length,
+          module_title: detail.module_title,
+          metadata: detail,
+          report: detail
+        });
+        if (!result || result.error || result.skipped) throw (result && result.error) || new Error(result && result.skipped || '详细报告未写入');
         alert('测试报告已发送。请回老师端报表刷新查看，全景报告里可删除这条测试记录。');
       } catch (err) {
         alert('测试报告发送失败：' + (err.message || err));
