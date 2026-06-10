@@ -421,7 +421,8 @@
       round: 1, reinforceRounds: 0,
       currentBatch: [], initialBatch: [],
       initialCorrect: 0, initialTotal: DAY_TARGET,
-      wrongItems: [], attempts: [], skillStats: {}, usedIds: new Set(), timer: null
+      wrongItems: [], attempts: [], skillStats: {}, usedIds: new Set(), timer: null,
+      inputTimes: {}, activeInput: null
     };
 
     function q(id, prompt, answer, skill, explanation) { return { id, section:'passage', prompt, answer, answers:[answer], skill, explanation }; }
@@ -475,7 +476,7 @@
     function startSession() {
       state.startedAt = Date.now(); state.endedAt = 0; state.batchStart = Date.now();
       state.round = 1; state.reinforceRounds = 0; state.initialCorrect = 0; state.initialTotal = DAY_TARGET;
-      state.wrongItems = []; state.attempts = []; state.skillStats = {}; state.usedIds = new Set();
+      state.wrongItems = []; state.attempts = []; state.skillStats = {}; state.usedIds = new Set(); state.inputTimes = {}; state.activeInput = null;
 
       const passage = shuffle(PASSAGES)[0];
       const passageItems = passage.questions.map((item, index) => ({ ...item, passageTitle:passage.title, stem:'Passage blank ' + (index + 1) + ': ' + item.prompt }));
@@ -509,7 +510,26 @@
     };
 
     function getDynamicInputProps(index) {
-      return `id="answer-${index}" class="inline-input" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" size="8" oninput="this.setAttribute('size', Math.max(this.value.length || 8, 8))"`;
+      return `id="answer-${index}" data-answer-index="${index}" class="inline-input" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" size="8" onfocus="startInputTimer(${index})" onblur="stopInputTimer(${index})" oninput="markInputActivity(${index}); this.setAttribute('size', Math.max(this.value.length || 8, 8))"`;
+    }
+
+    function startInputTimer(index) {
+      stopActiveInputTimer();
+      state.activeInput = { index, startedAt: Date.now() };
+    }
+    function stopInputTimer(index) {
+      if (!state.activeInput || state.activeInput.index !== index) return;
+      state.inputTimes[index] = (state.inputTimes[index] || 0) + Math.max(0, Date.now() - state.activeInput.startedAt);
+      state.activeInput = null;
+    }
+    function stopActiveInputTimer() {
+      if (!state.activeInput) return;
+      const active = state.activeInput;
+      state.inputTimes[active.index] = (state.inputTimes[active.index] || 0) + Math.max(0, Date.now() - active.startedAt);
+      state.activeInput = null;
+    }
+    function markInputActivity(index) {
+      if (!state.activeInput || state.activeInput.index !== index) startInputTimer(index);
     }
 
     function passageHtml(passage, items) {
@@ -557,6 +577,8 @@
       }
 
       $('question-area').innerHTML = html;
+      state.inputTimes = {};
+      state.activeInput = null;
       $('action-box').innerHTML = '<button class="fixed-action" onclick="submitBatch()">提交批改本卷答案</button>';
       updateActionReserve();
     }
@@ -567,6 +589,7 @@
     }
 
     function submitBatch() {
+      stopActiveInputTimer();
       const elapsed = Math.max(1000, Date.now() - state.batchStart);
       const avgTime = elapsed / Math.max(1, state.currentBatch.length);
       const wrong = [];
@@ -581,9 +604,10 @@
         input.classList.toggle('wrong', !ok);
         input.disabled = true;
 
-        const stat = statFor(item.skill);
-        stat.attempts += 1; stat.timeMs += avgTime;
         const questionText = item.stem || item.prompt || '';
+        const durationMs = Math.max(1000, Math.round(state.inputTimes[index] || avgTime));
+        const stat = statFor(item.skill);
+        stat.attempts += 1; stat.timeMs += durationMs;
         const detailRow = {
           question: questionText,
           selected: value || '(空白)',
@@ -593,7 +617,7 @@
           skillLabel: skillLabel(item.skill),
           section: item.section,
           round: state.round,
-          duration_ms: Math.round(avgTime)
+          duration_ms: durationMs
         };
         if (ok) { correctCount += 1; stat.correct += 1; }
         else {
@@ -602,7 +626,7 @@
           stat.wrongQuestions.push(detailRow);
           wrong.push({ ...item, selected:value || '(空白)' });
         }
-        state.attempts.push({ time:new Date().toISOString(), id:item.id, phrase:skillLabel(item.skill), category:item.section, phase:state.round === 1 ? 'initial' : 'reinforce', round:state.round, correct:ok, selected:value, answer:item.answer, question:questionText, explanation:item.explanation, skill:item.skill, duration_ms:Math.round(avgTime) });
+        state.attempts.push({ time:new Date().toISOString(), id:item.id, phrase:skillLabel(item.skill), category:item.section, phase:state.round === 1 ? 'initial' : 'reinforce', round:state.round, correct:ok, selected:value, answer:item.answer, question:questionText, explanation:item.explanation, skill:item.skill, duration_ms:durationMs });
 
         // 内联解析注入
         if (item.section === 'passage') {
