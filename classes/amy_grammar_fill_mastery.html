@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Amy 语法填空专项·25题循环诊断</title>
+  <script src="_yu1/xy-record-bridge.js"></script>
+  <style>
+    :root {
+      --red: #dc2626;
+      --red-dark: #b91c1c;
+      --red-soft: #fef2f2;
+      --border: #fee2e2;
+      --ink: #171717;
+      --muted: #737373;
+      --action-bottom: max(16px, env(safe-area-inset-bottom));
+      --action-reserve: 0px;
+    }
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; }
+    body {
+      margin: 0;
+      padding: 0 14px calc(var(--action-reserve) + 24px);
+      background: var(--red-soft);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    button, input { font: inherit; }
+    .hide { display: none !important; }
+    .shell { width: min(980px, 100%); margin: 0 auto; padding: 22px 0 34px; }
+    .card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 30px;
+      box-shadow: 0 22px 60px -36px rgba(185, 28, 28, .45);
+    }
+    .home { padding: 28px; text-align: center; margin-top: 18px; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      padding: 7px 12px;
+      background: #fee2e2;
+      color: var(--red);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+    h1 { margin: 18px 0 10px; color: var(--red); font-size: clamp(30px, 6vw, 44px); line-height: 1.08; letter-spacing: -0.02em; }
+    .lead { margin: 0 auto; max-width: 680px; color: var(--muted); font-size: 15px; line-height: 1.8; font-weight: 700; }
+    .stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin: 26px 0; }
+    .stat { border-radius: 20px; background: #fafafa; padding: 16px 12px; }
+    .stat strong { display: block; color: var(--red); font-size: 24px; margin-top: 4px; }
+    .stat span { color: #a3a3a3; font-size: 11px; font-weight: 900; text-transform: uppercase; }
+    .primary {
+      border: 0;
+      border-radius: 18px;
+      background: var(--red);
+      color: #fff;
+      padding: 16px 22px;
+      min-height: 56px;
+      font-weight: 950;
+      box-shadow: 0 16px 32px -18px rgba(220, 38, 38, .9);
+      cursor: pointer;
+    }
+    .secondary {
+      border: 2px solid #fee2e2;
+      border-radius: 18px;
+      background: #fff;
+      color: var(--red);
+      padding: 14px 18px;
+      min-height: 52px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+    .primary:active, .secondary:active { transform: scale(.985); }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 10px 0 14px; }
+    .topbar .left { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .small-btn { border: 0; border-radius: 999px; background: #fff; color: #737373; padding: 10px 14px; font-size: 13px; font-weight: 900; box-shadow: 0 10px 26px -22px rgba(0,0,0,.45); }
+    .progress { height: 9px; border-radius: 999px; background: #fee2e2; overflow: hidden; margin-bottom: 16px; }
+    .progress > div { height: 100%; width: 0%; border-radius: 999px; background: var(--red); transition: width .25s ease; }
+    .paper { padding: 22px; }
+    .paper-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; padding-bottom: 18px; border-bottom: 1px solid #f5f5f5; }
+    .paper-title { margin: 0; font-size: clamp(22px, 5vw, 32px); line-height: 1.18; }
+    .paper-sub { margin: 8px 0 0; color: #737373; font-size: 13px; font-weight: 800; line-height: 1.7; }
+    .timer { white-space: nowrap; border-radius: 18px; background: #fef2f2; color: var(--red); padding: 10px 13px; font-weight: 950; }
+    .section-title { margin: 22px 0 12px; color: #991b1b; font-size: 15px; font-weight: 950; letter-spacing: .08em; text-transform: uppercase; }
+    .passage {
+      border-radius: 22px;
+      background: #fff7f7;
+      border: 1px solid #fee2e2;
+      padding: 18px;
+      color: #404040;
+      font-size: 16px;
+      line-height: 2.15;
+      font-weight: 700;
+    }
+    .q-list { display: grid; gap: 12px; }
+    .q-card { border: 1px solid #f5f5f5; border-radius: 20px; background: #fff; padding: 15px; }
+    .q-row { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start; }
+    .q-num { display: inline-flex; width: 34px; height: 34px; align-items: center; justify-content: center; border-radius: 50%; background: #fee2e2; color: var(--red); font-weight: 950; }
+    .q-text { font-size: 15px; line-height: 1.7; font-weight: 800; color: #262626; }
+    .answer-input {
+      width: 100%;
+      margin-top: 10px;
+      border: 2px solid #f5f5f5;
+      border-radius: 15px;
+      padding: 13px 14px;
+      outline: none;
+      background: #fafafa;
+      color: #171717;
+      font-weight: 900;
+    }
+    .answer-input:focus { border-color: #fca5a5; background: #fff; }
+    .answer-input.correct { border-color: #16a34a; background: #f0fdf4; }
+    .answer-input.wrong { border-color: #ef4444; background: #fef2f2; }
+    .feedback { margin-top: 18px; display: grid; gap: 12px; }
+    .wrong-card { border: 1px solid #fecaca; background: #fff7f7; border-radius: 20px; padding: 15px; }
+    .wrong-card h3 { margin: 0 0 8px; color: #991b1b; font-size: 16px; }
+    .wrong-card p { margin: 6px 0; color: #525252; line-height: 1.65; font-size: 14px; font-weight: 750; }
+    .ok-box { border: 1px solid #bbf7d0; background: #f0fdf4; color: #166534; border-radius: 20px; padding: 18px; font-weight: 900; line-height: 1.7; }
+    #action-container {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: var(--action-bottom);
+      z-index: 2147483647;
+      display: flex;
+      justify-content: center;
+      padding: 0 14px;
+      pointer-events: none;
+    }
+    #action-box {
+      width: min(760px, 100%);
+      pointer-events: auto;
+      position: relative;
+    }
+    #action-box::before {
+      content: "";
+      position: absolute;
+      inset: -18px -10px -14px;
+      border-radius: 24px;
+      background: linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,.98) 44%, #fff);
+      filter: drop-shadow(0 12px 22px rgba(15,23,42,.12));
+      z-index: -1;
+    }
+    .fixed-action {
+      width: 100%;
+      min-height: 64px;
+      border: 0;
+      border-radius: 18px;
+      padding: 15px 18px;
+      background: var(--red);
+      color: #fff;
+      font-size: 17px;
+      font-weight: 950;
+      box-shadow: 0 18px 38px -19px rgba(185, 28, 28, .9);
+      cursor: pointer;
+    }
+    .fixed-action.green { background: #16a34a; box-shadow: 0 18px 38px -19px rgba(22, 163, 74, .75); }
+    .result { padding: 28px; text-align: center; }
+    .result h2 { margin: 14px 0 8px; font-size: clamp(30px, 6vw, 42px); }
+    .result-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin: 24px 0; padding: 14px; border-radius: 24px; background: #fafafa; }
+    .detail-list { text-align: left; max-height: 430px; overflow: auto; border: 1px solid #f5f5f5; border-radius: 22px; }
+    details.report-item { border-bottom: 1px solid #f5f5f5; }
+    details.report-item:last-child { border-bottom: 0; }
+    details.report-item summary { cursor: pointer; list-style: none; padding: 15px; font-weight: 950; display: flex; justify-content: space-between; gap: 12px; }
+    details.report-item div { padding: 0 15px 15px; color: #525252; font-size: 14px; font-weight: 750; line-height: 1.7; }
+    .sync { margin-top: 18px; border-radius: 18px; padding: 14px; font-size: 14px; font-weight: 950; line-height: 1.65; }
+    .sync.loading { border: 1px solid #bfdbfe; background: #eff6ff; color: #1d4ed8; }
+    .sync.ok { border: 1px solid #bbf7d0; background: #f0fdf4; color: #166534; }
+    .sync.fail { border: 1px solid #fecaca; background: #fef2f2; color: #991b1b; }
+    @media (max-width: 680px) {
+      :root { --action-bottom: calc(82px + env(safe-area-inset-bottom)); }
+      body { padding-left: 10px; padding-right: 10px; }
+      .shell { padding-top: 12px; }
+      .home, .paper, .result { padding: 18px; border-radius: 26px; }
+      .stats-grid, .result-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .topbar, .paper-head { flex-direction: column; align-items: stretch; }
+      .timer { width: fit-content; }
+      .passage { font-size: 15px; line-height: 2; padding: 15px; }
+      .q-row { grid-template-columns: 1fr; gap: 8px; }
+      .q-num { width: 30px; height: 30px; }
+      .fixed-action { min-height: 62px; font-size: 16px; }
+    }
+  </style>
+</head>
+<body data-module-id="amy_grammar_fill_mastery">
+  <main class="shell">
+    <section id="view-home" class="card home">
+      <span class="pill">Grammar Fill Mastery</span>
+      <h1>Amy 语法填空专项</h1>
+      <p class="lead">每次随机生成 25 题：一篇 10 空语法填空 + 15 道时态专项。提交后立刻看错题解析；错过的考点会进入补强循环，直到同考点新题过关。</p>
+      <div class="stats-grid">
+        <div class="stat"><span>基础套题</span><strong>25</strong></div>
+        <div class="stat"><span>建议周期</span><strong>4天</strong></div>
+        <div class="stat"><span>题库容量</span><strong>160+</strong></div>
+        <div class="stat"><span>后台报告</span><strong>ON</strong></div>
+      </div>
+      <button class="primary" onclick="startSession()">随机生成今天的 25 题</button>
+    </section>
+
+    <section id="view-practice" class="hide">
+      <div class="topbar">
+        <button class="small-btn" onclick="showHome()">← 返回主页</button>
+        <div class="left">
+          <span id="round-pill" class="pill">第 1 轮</span>
+          <span id="batch-pill" class="pill">25题</span>
+        </div>
+      </div>
+      <div class="progress"><div id="progress-bar"></div></div>
+      <article class="card paper">
+        <div class="paper-head">
+          <div>
+            <h2 id="paper-title" class="paper-title">今日语法填空</h2>
+            <p id="paper-sub" class="paper-sub">先独立完成整套题，再统一提交查看解析。</p>
+          </div>
+          <div id="timer" class="timer">00:00</div>
+        </div>
+        <div id="question-area"></div>
+        <div id="feedback-area" class="feedback hide"></div>
+      </article>
+    </section>
+
+    <section id="view-result" class="card result hide">
+      <span class="pill">Completed</span>
+      <h2>语法专项完成</h2>
+      <p class="lead">本次所有错点已经完成补强，报告会同步到老师端全景做题报告。</p>
+      <div class="result-grid">
+        <div class="stat"><span>基础正确</span><strong id="r-basic">0/25</strong></div>
+        <div class="stat"><span>初始正确率</span><strong id="r-score">0%</strong></div>
+        <div class="stat"><span>补强轮数</span><strong id="r-rounds">0</strong></div>
+        <div class="stat"><span>总用时</span><strong id="r-time">00:00</strong></div>
+      </div>
+      <h3 style="text-align:left;margin:0 0 12px;">知识点掌握明细</h3>
+      <div id="result-list" class="detail-list"></div>
+      <div id="sync-status" class="sync loading">正在同步老师后台...</div>
+      <div style="margin-top:18px;">
+        <button class="primary" onclick="showHome()">返回主页</button>
+      </div>
+    </section>
+  </main>
+
+  <div id="action-container" class="hide"><div id="action-box"></div></div>
+
+  <script>
+    const HOMEWORK_ID = 'amy_grammar_fill_mastery';
+    const MODULE_TITLE = 'Amy 语法填空25题循环诊断';
+    const PENDING_REPORT_KEY = 'xy_pending_practice_report:' + HOMEWORK_ID;
+    const DAY_TARGET = 25;
+
+    const SKILLS = {
+      article_superlative: 'the + 最高级',
+      the_other: 'the other / the same',
+      ordinal: '序数词',
+      passive: '被动语态',
+      gerund_subject: '动名词作主语',
+      infinitive: '不定式',
+      virtual_without: 'Without 虚拟语气',
+      relative: '关系代词 which/who',
+      present_simple: '一般现在时',
+      simple_past: '一般过去时',
+      present_perfect: '现在完成时',
+      past_perfect: '过去完成时'
+    };
+
+    const PASSAGES = [
+      {
+        title: 'The Long Journey of the Bicycle',
+        text: 'The bicycle is one of {{1}} inventions in everyday life. The first wooden running machine {{2}} in Germany in the early {{3}} century. By the time pedals were added in the 1860s, the design {{4}} a great deal. A modern bicycle has two wheels: one in front and {{5}} behind. {{6}} one is both fun and healthy. Since the safety bicycle appeared, cycling {{7}} part of daily life. Over the past hundred years, engineers {{8}} it again and again. Today bicycles {{9}} all over the world. {{10}} this simple invention, many people could not have travelled so freely.',
+        questions: [
+          q('p1-1','great','the greatest','article_superlative','最高级前通常要加 the，one of 后接最高级：one of the greatest inventions。'),
+          q('p1-2','invent','was invented','passive','机器是“被发明”，in the early... 提示过去时，所以用 was invented。'),
+          q('p1-3','nine','ninth','ordinal','century 前需要序数词，nine 的序数词是 ninth。'),
+          q('p1-4','already, change','had already changed','past_perfect','By the time + 过去动作，主句表示更早完成，用过去完成时。'),
+          q('p1-5','other','the other','the_other','两者中的另一个用 the other。'),
+          q('p1-6','ride','Riding','gerund_subject','句首作主语，动词要变动名词 Riding。'),
+          q('p1-7','become','has become','present_perfect','Since... appeared 表示从过去到现在，用现在完成时。'),
+          q('p1-8','improve','have improved','present_perfect','Over the past hundred years 是现在完成时关键词。'),
+          q('p1-9','use','are used','passive','bicycles 与 use 是被动关系，Today 用一般现在时被动 are used。'),
+          q('p1-10','Without','Without','virtual_without','Without 表示“没有/要不是”，后面 could not have travelled 是虚拟语气。')
+        ]
+      },
+      {
+        title: 'The Story of Paper',
+        text: 'Paper is one of {{1}} Chinese inventions. Before it {{2}}, people wrote on bamboo. In the {{3}} century, a man named Cai Lun {{4}} the first real paper. His method {{5}} widely ever since. By the eighth century, paper-making {{6}} to many other countries. {{7}} cheap paper changed the way people shared ideas. Today paper {{8}} every day. Few inventions {{9}} such a deep effect on human history. Paper, {{10}} is still important today, changed the world.',
+        questions: [
+          q('p2-1','important','the most important','article_superlative','one of 后接 the + 最高级。important 的最高级是 the most important。'),
+          q('p2-2','invent','was invented','passive','it 指 paper，纸是被发明，用 was invented。'),
+          q('p2-3','two','second','ordinal','century 前用序数词：second century。'),
+          q('p2-4','make','made','simple_past','In the second century 是明确过去时间，用 made。'),
+          q('p2-5','use','has been used','present_perfect','ever since 提示现在完成时；method 被使用，用 has been used。'),
+          q('p2-6','spread','had spread','past_perfect','By the eighth century 表示到过去某时已经完成，用 had spread。'),
+          q('p2-7','produce','Producing','gerund_subject','句首作主语，用动名词 Producing。'),
+          q('p2-8','still, use','is still used','passive','Today 现在时，paper 被使用，用 is still used。'),
+          q('p2-9','have','have had','present_perfect','Few inventions 到现在为止有如此影响，用 have had。'),
+          q('p2-10','which','which','relative','非限制性定语从句修饰 Paper，用 which。')
+        ]
+      },
+      {
+        title: 'A Lesson from Grandma',
+        text: 'Last summer I stayed with my grandmother, who has {{1}} thumb I have ever seen. One morning she asked me {{2}} her plant some seeds. "{{3}} teaches us patience," she said. By the time the sun {{4}} down, we {{5}} over fifty seeds. I could not help {{6}} proud. A week later, the first tiny leaf {{7}}. Grandma said it was {{8}} news she had had all week. That summer {{9}} me that good things take time. Without her patience, I {{10}} the lesson so deeply.',
+        questions: [
+          q('p3-1','green','the greenest','article_superlative','I have ever seen 常和最高级连用：the greenest thumb。'),
+          q('p3-2','help','to help','infinitive','ask sb to do sth，所以填 to help。'),
+          q('p3-3','garden','Gardening','gerund_subject','“园艺”作主语，用动名词 Gardening。'),
+          q('p3-4','go','went','simple_past','By the time 从句描述过去动作，用一般过去时 went。'),
+          q('p3-5','plant','had planted','past_perfect','到太阳落山时已经种完，用过去完成时。'),
+          q('p3-6','feel','feeling','gerund_subject','cannot help doing sth，表示忍不住做某事。'),
+          q('p3-7','already, appear','had already appeared','past_perfect','A week later 回看之前叶子已经出现，用 had already appeared。'),
+          q('p3-8','good','the best','article_superlative','all week 提示范围内最好，用 the best。'),
+          q('p3-9','teach','taught','simple_past','That summer 是过去时间，用 taught。'),
+          q('p3-10','not understand','could not have understood','virtual_without','Without + 名词，主句用 could not have done 表示虚拟。')
+        ]
+      },
+      {
+        title: 'Saving the Pandas',
+        text: 'The giant panda is one of {{1}} animals on Earth. Many years ago, pandas almost {{2}} out because the bamboo they {{3}} on was disappearing. Since people began to protect them, their numbers {{4}} again. Today special reserves {{5}} all over the country, and baby pandas {{6}} there with great care. {{7}} these gentle animals is by no means {{8}} work. Over the past thirty years, China {{9}} great progress. Without the hard work of many scientists, the panda {{10}} forever.',
+        questions: [
+          q('p4-1','rare','the rarest','article_superlative','one of 后接最高级：one of the rarest animals。'),
+          q('p4-2','die','died','simple_past','Many years ago 提示一般过去时。'),
+          q('p4-3','live','lived','simple_past','they lived on 是过去背景。'),
+          q('p4-4','rise','have risen','present_perfect','Since people began... 用现在完成时。'),
+          q('p4-5','build','are built','passive','reserves 是被建造，Today 用一般现在时被动。'),
+          q('p4-6','raise','are raised','passive','baby pandas 是被饲养，用 are raised。'),
+          q('p4-7','protect','Protecting','gerund_subject','句首作主语，用 Protecting。'),
+          q('p4-8','simple','simple','present_simple','by no means 后接形容词原形，表示“一点也不简单”。'),
+          q('p4-9','make','has made','present_perfect','Over the past thirty years 是现在完成时关键词。'),
+          q('p4-10','disappear','might have disappeared','virtual_without','Without... 主句用 might have done 表示过去虚拟。')
+        ]
+      },
+      {
+        title: 'A Young Inventor',
+        text: 'At only fifteen, Lin Hao has become one of {{1}} inventors in his city. He says that {{2}} things has been his hobby since childhood. Last year, after he {{3}} how much water was wasted at school, he designed a clever tap. By the time he finished it, he {{4}} more than twenty designs. His invention {{5}} as the best in a national contest last month, and now it {{6}} in several schools. He has two favourite ideas: one saves water, and {{7}} saves power. He cannot help but {{8}} of bigger projects. Teachers and students all {{9}} up to him. Without his hard work, none of this {{10}}.',
+        questions: [
+          q('p5-1','young','the youngest','article_superlative','one of + the + 最高级，youngest 前加 the。'),
+          q('p5-2','make','making','gerund_subject','动名词 making things 作主语。'),
+          q('p5-3','notice','noticed','simple_past','Last year 是过去时间，after 从句用 noticed。'),
+          q('p5-4','test','had tested','past_perfect','By the time he finished it，测试发生得更早，用 had tested。'),
+          q('p5-5','choose','was chosen','passive','invention 是被选择，last month 用 was chosen。'),
+          q('p5-6','use','is used','passive','now 表现在，it 被使用，用 is used。'),
+          q('p5-7','other','the other','the_other','两种想法，一个 one，另一个 the other。'),
+          q('p5-8','dream','dream','infinitive','cannot help but do，but 后用动词原形。'),
+          q('p5-9','look','look','present_simple','Teachers and students 是复数主语，一般现在时用 look。'),
+          q('p5-10','happen','would have happened','virtual_without','Without his hard work 表过去虚拟，would have happened。')
+        ]
+      },
+      {
+        title: 'The School Library',
+        text: 'Our school library is one of {{1}} places on campus. It {{2}} twenty years ago, and since then thousands of books {{3}} to its shelves. Last month, a reading corner {{4}} for younger students. By the time the opening day arrived, volunteers {{5}} every table. {{6}} quietly is the first rule there. The library has two floors: one for reading and {{7}} for discussion. Without the new corner, many students {{8}} a quiet place after class. The librarian, {{9}} helps everyone patiently, {{10}} many students to love books.',
+        questions: [
+          q('p6-1','popular','the most popular','article_superlative','one of 后接 the most popular。'),
+          q('p6-2','build','was built','passive','library 被建造，twenty years ago 用 was built。'),
+          q('p6-3','add','have been added','present_perfect','since then 提示现在完成时，被加入用 have been added。'),
+          q('p6-4','set up','was set up','passive','reading corner 被建立，last month 用 was set up。'),
+          q('p6-5','clean','had cleaned','past_perfect','By the time... arrived，清理已经完成，用 had cleaned。'),
+          q('p6-6','read','Reading','gerund_subject','动名词 Reading 作主语。'),
+          q('p6-7','other','the other','the_other','两层中的另一层用 the other。'),
+          q('p6-8','not find','could not have found','virtual_without','Without... 主句用 could not have done。'),
+          q('p6-9','who','who','relative','修饰 librarian，指人，用 who。'),
+          q('p6-10','encourage','encourages','present_simple','librarian 第三人称单数，一般现在时 encourages。')
+        ]
+      },
+      {
+        title: 'A Clean River',
+        text: 'The river near our town used to be one of {{1}} places in the area. Years ago, rubbish {{2}} into it almost every day. Since a clean-up project started, the water {{3}} much clearer. Last spring, new rules {{4}} to protect it. By the time summer came, workers {{5}} most of the waste. {{6}} the river is not only good for nature but also good for people. There are two walking paths: one on this side and {{7}} across the bridge. Without these changes, fish {{8}} there again. The project, {{9}} many students joined, {{10}} everyone a lesson about responsibility.',
+        questions: [
+          q('p7-1','dirty','the dirtiest','article_superlative','one of 后用最高级，dirty 的最高级是 dirtiest。'),
+          q('p7-2','throw','was thrown','passive','rubbish 被扔进河里，用被动。'),
+          q('p7-3','become','has become','present_perfect','Since... started 提示现在完成时。'),
+          q('p7-4','make','were made','passive','rules 被制定，复数用 were made。'),
+          q('p7-5','remove','had removed','past_perfect','By the time summer came 表过去某时前已完成。'),
+          q('p7-6','protect','Protecting','gerund_subject','动名词 Protecting 作主语。'),
+          q('p7-7','other','the other','the_other','两条路中的另一条用 the other。'),
+          q('p7-8','not live','could not have lived','virtual_without','Without these changes 表过去虚拟。'),
+          q('p7-9','which','which','relative','修饰 project，用 which。'),
+          q('p7-10','teach','teaches','present_simple','project 单数，一般现在时 teaches。')
+        ]
+      },
+      {
+        title: 'The First School Trip',
+        text: 'The museum was one of {{1}} buildings I had ever visited. It {{2}} more than a hundred years ago. Before we arrived, our teacher {{3}} the rules twice. During the trip, old paintings {{4}} carefully by the guide. Since that day, I {{5}} more interested in history. {{6}} notes helped me remember the stories. The hall had two doors: one for visitors and {{7}} for workers. Without the guide, we {{8}} so much. The trip, {{9}} lasted only two hours, {{10}} my view of museums.',
+        questions: [
+          q('p8-1','beautiful','the most beautiful','article_superlative','I had ever visited 常和最高级连用。'),
+          q('p8-2','build','was built','passive','building 被建造，ago 用过去时被动。'),
+          q('p8-3','explain','had explained','past_perfect','Before we arrived，老师已经解释过，用过去完成时。'),
+          q('p8-4','introduce','were introduced','passive','paintings 被介绍，复数用 were introduced。'),
+          q('p8-5','become','have become','present_perfect','Since that day 用现在完成时。'),
+          q('p8-6','take','Taking','gerund_subject','Taking notes 作主语。'),
+          q('p8-7','other','the other','the_other','两扇门中的另一扇用 the other。'),
+          q('p8-8','not learn','could not have learned','virtual_without','Without the guide，主句用 could not have done。'),
+          q('p8-9','which','which','relative','非限制性定语从句修饰 trip，用 which。'),
+          q('p8-10','change','changed','simple_past','这次旅行发生在过去，用 changed。')
+        ]
+      }
+    ];
+
+    const TENSE_BANK = [
+      t('t-pr-1','Every morning, Mia ___ (review) her notes before school.','reviews','present_simple','Every morning 表习惯动作；Mia 第三人称单数，动词加 s。'),
+      t('t-pr-2','The earth ___ (move) around the sun.','moves','present_simple','客观事实用一般现在时；earth 单数，moves。'),
+      t('t-pr-3','Leo usually ___ (finish) homework before dinner.','finishes','present_simple','usually 表习惯；Leo 单数，finish 变 finishes。'),
+      t('t-pr-4','Good practice ___ (make) grammar easier.','makes','present_simple','practice 是不可数/单数概念，一般现在时 makes。'),
+      t('t-pr-5','My sister often ___ (carry) a small notebook.','carries','present_simple','often 表习惯；carry 变 carries。'),
+      t('t-pr-6','This kind of question ___ (appear) in exams every year.','appears','present_simple','every year 表常态；This kind 单数。'),
+      t('t-pr-7','Amy ___ (go) over wrong answers after each lesson.','goes','present_simple','描述学习习惯，用一般现在时；go 变 goes。'),
+      t('t-pr-8','The story ___ (teach) us to be patient.','teaches','present_simple','story 单数，teach 变 teaches。'),
+      t('t-pr-9','Water ___ (turn) into ice when it is cold enough.','turns','present_simple','科学事实用一般现在时。'),
+      t('t-pr-10','A careful reader ___ (notice) keywords first.','notices','present_simple','reader 单数，notice 变 notices。'),
+      t('t-pa-1','Yesterday, Nora ___ (find) a useful grammar note.','found','simple_past','Yesterday 是明确过去时间，用 found。'),
+      t('t-pa-2','Last Friday, the class ___ (visit) the science museum.','visited','simple_past','Last Friday 提示一般过去时。'),
+      t('t-pa-3','Two years ago, Eric ___ (move) to this city.','moved','simple_past','ago 是一般过去时关键词。'),
+      t('t-pa-4','In 2024, the school ___ (build) a new reading room.','built','simple_past','In 2024 是过去时间，用 built。'),
+      t('t-pa-5','She ___ (write) the answer too quickly and made a mistake.','wrote','simple_past','made 是过去时，前后时态一致，用 wrote。'),
+      t('t-pa-6','The rain ___ (stop) before the match started.','stopped','simple_past','描述过去发生的动作，用 stopped。'),
+      t('t-pa-7','Ben ___ (choose) the wrong form in the test.','chose','simple_past','过去语境，用 choose 的过去式 chose。'),
+      t('t-pa-8','The teacher ___ (explain) the rule again after class.','explained','simple_past','after class 的过去叙述，用 explained。'),
+      t('t-pa-9','They ___ (begin) the project last month.','began','simple_past','last month 提示一般过去时。'),
+      t('t-pa-10','Lily ___ (keep) a diary when she was younger.','kept','simple_past','when she was younger 是过去背景，用 kept。'),
+      t('t-pp-1','Over the years, Amy ___ (make) great progress.','has made','present_perfect','Over the years 表从过去到现在，用现在完成时。'),
+      t('t-pp-2','Since last winter, she ___ (read) ten English stories.','has read','present_perfect','Since last winter 是现在完成时关键词。'),
+      t('t-pp-3','So far, the team ___ (finish) three tasks.','has finished','present_perfect','So far 表到目前为止，用 has finished。'),
+      t('t-pp-4','In the past few weeks, I ___ (learn) many grammar rules.','have learned','present_perfect','In the past few weeks 表最近一段时间到现在。'),
+      t('t-pp-5','The city ___ (change) a lot in recent years.','has changed','present_perfect','in recent years 是现在完成时常见标志。'),
+      t('t-pp-6','She ___ (never, see) such a difficult question before.','has never seen','present_perfect','never...before 表到现在为止从未见过。'),
+      t('t-pp-7','Many students ___ (join) the club since it opened.','have joined','present_perfect','since it opened 提示现在完成时，students 复数用 have。'),
+      t('t-pp-8','The library ___ (become) quieter since the new rule started.','has become','present_perfect','since 从句提示 has become。'),
+      t('t-pp-9','I ___ (already, correct) the mistakes in my notebook.','have already corrected','present_perfect','already 常与完成时连用，表示已经完成。'),
+      t('t-pp-10','He ___ (not finish) the report yet.','has not finished','present_perfect','yet 用在否定句末，常配现在完成时。'),
+      t('t-hp-1','By the time Amy arrived, the movie ___ (start).','had started','past_perfect','By the time + 过去动作，主句更早发生，用过去完成时。'),
+      t('t-hp-2','Before the teacher checked it, Jack ___ (correct) three mistakes.','had corrected','past_perfect','Before + 过去动作，表示之前已经完成。'),
+      t('t-hp-3','When we got to the station, the train ___ (leave).','had left','past_perfect','到车站时火车已经离开，用 had left。'),
+      t('t-hp-4','By nine o’clock last night, she ___ (finish) the whole passage.','had finished','past_perfect','By + 过去时间点，用过去完成时。'),
+      t('t-hp-5','After he ___ (test) the idea many times, he showed it to his teacher.','had tested','past_perfect','test 发生在 showed 之前，用 had tested。'),
+      t('t-hp-6','The classroom was clean because students ___ (clean) it earlier.','had cleaned','past_perfect','earlier 表更早完成，所以 had cleaned。'),
+      t('t-hp-7','By the end of last term, Amy ___ (master) many phrases.','had mastered','past_perfect','By the end of last term 是过去完成时标志。'),
+      t('t-hp-8','She understood the story because she ___ (read) it before.','had read','past_perfect','before 指过去的过去，had read。'),
+      t('t-hp-9','Before Dad came home, Leo ___ (prepare) dinner.','had prepared','past_perfect','prepare 发生在 came home 之前。'),
+      t('t-hp-10','By the time the rain stopped, they ___ (wait) for an hour.','had waited','past_perfect','到雨停时已经等了一小时，用 had waited。')
+    ];
+
+    const EXTRA_BANK = [
+      t('e-art-1','This is one of ___ (useful) methods I have learned.','the most useful','article_superlative','one of 后接 the + 最高级。'),
+      t('e-art-2','It was ___ (bad) mistake in the whole test.','the worst','article_superlative','范围 in the whole test 中最糟糕，用 the worst。'),
+      t('e-art-3','She gave me ___ (clear) explanation of all.','the clearest','article_superlative','of all 提示最高级。'),
+      t('e-oth-1','I have two plans: one is easy, and ___ is safer.','the other','the_other','两者中的另一个用 the other。'),
+      t('e-oth-2','The two answers are not ___ same.','the same','the_other','固定表达 the same。'),
+      t('e-ord-1','May is the ___ (five) month of the year.','fifth','ordinal','five 的序数词是 fifth。'),
+      t('e-ord-2','She came ___ (nine) in the race.','ninth','ordinal','nine 的序数词去 e 加 th：ninth。'),
+      t('e-ord-3','The office is on the ___ (twenty-one) floor.','twenty-first','ordinal','合成序数词只变最后一位。'),
+      t('e-pass-1','The old bridge ___ (repair) every spring.','is repaired','passive','bridge 被修理，every spring 用一般现在时被动。'),
+      t('e-pass-2','The letter ___ (send) yesterday.','was sent','passive','letter 被寄出，yesterday 用过去时被动。'),
+      t('e-pass-3','New trees ___ (plant) in the park every year.','are planted','passive','trees 被种植，复数一般现在时被动。'),
+      t('e-ger-1','___ (learn) from mistakes is important.','Learning','gerund_subject','句首作主语，用动名词。'),
+      t('e-ger-2','___ (check) keywords first can save time.','Checking','gerund_subject','动词短语作主语，用 Checking。'),
+      t('e-inf-1','The teacher told us ___ (read) the sentence twice.','to read','infinitive','tell sb to do sth。'),
+      t('e-inf-2','She decided ___ (try) again after reading the explanation.','to try','infinitive','decide to do sth。'),
+      t('e-vir-1','Without your help, I ___ (not finish) the task on time.','could not have finished','virtual_without','Without 表过去虚拟，could not have done。'),
+      t('e-vir-2','Without the map, they ___ (lose) their way.','might have lost','virtual_without','Without the map 表虚拟，might have done。'),
+      t('e-rel-1','The book, ___ I borrowed yesterday, is useful.','which','relative','非限制性定语从句修饰 book，用 which。'),
+      t('e-rel-2','The girl, ___ won the prize, studies very hard.','who','relative','修饰人 girl，用 who。')
+    ];
+
+    const state = {
+      view: 'home',
+      startedAt: 0,
+      endedAt: 0,
+      batchStart: 0,
+      round: 1,
+      reinforceRounds: 0,
+      currentBatch: [],
+      initialBatch: [],
+      initialCorrect: 0,
+      initialTotal: DAY_TARGET,
+      wrongItems: [],
+      attempts: [],
+      skillStats: {},
+      usedIds: new Set(),
+      timer: null
+    };
+
+    function q(id, prompt, answer, skill, explanation) {
+      return { id, section:'passage', prompt, answer, answers:[answer], skill, explanation };
+    }
+    function t(id, stem, answer, skill, explanation) {
+      return { id, section:'tense', stem, answer, answers:[answer], skill, explanation };
+    }
+    const $ = id => document.getElementById(id);
+    const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    function shuffle(list) {
+      const arr = list.slice();
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+    function normalizeAnswer(value) {
+      return String(value || '').trim().toLowerCase().replace(/[’']/g, "'").replace(/[.,!?;:]/g, '').replace(/\s+/g, ' ');
+    }
+    function isCorrect(item, value) {
+      const answer = normalizeAnswer(value);
+      return (item.answers || [item.answer]).some(option => normalizeAnswer(option) === answer);
+    }
+    function skillLabel(skill) { return SKILLS[skill] || skill || '综合语法'; }
+    function formatTime(ms) {
+      const total = Math.max(0, Math.floor(ms / 1000));
+      const m = String(Math.floor(total / 60)).padStart(2, '0');
+      const s = String(total % 60).padStart(2, '0');
+      return m + ':' + s;
+    }
+    function show(name) {
+      ['home','practice','result'].forEach(view => $('view-' + view).classList.toggle('hide', view !== name));
+      state.view = name;
+      $('action-container').classList.toggle('hide', name !== 'practice');
+      updateActionReserve();
+    }
+    function showHome() {
+      stopTimer();
+      show('home');
+      $('action-container').classList.add('hide');
+      document.documentElement.style.setProperty('--action-reserve', '0px');
+    }
+    function startTimer() {
+      stopTimer();
+      state.timer = setInterval(() => {
+        if (state.startedAt) $('timer').textContent = formatTime(Date.now() - state.startedAt);
+      }, 1000);
+    }
+    function stopTimer() {
+      if (state.timer) clearInterval(state.timer);
+      state.timer = null;
+    }
+    function pickUnused(pool, count, skills = null) {
+      const source = shuffle(pool.filter(item => !state.usedIds.has(item.id) && (!skills || skills.includes(item.skill))));
+      const picked = source.slice(0, count);
+      picked.forEach(item => state.usedIds.add(item.id));
+      return picked;
+    }
+    function pickTenseSet() {
+      const groups = ['present_simple','simple_past','present_perfect','past_perfect'];
+      const counts = [4,4,4,3];
+      let result = [];
+      groups.forEach((skill, index) => {
+        result = result.concat(pickUnused(TENSE_BANK, counts[index], [skill]));
+      });
+      while (result.length < 15) result = result.concat(pickUnused(TENSE_BANK.concat(EXTRA_BANK), 1));
+      return shuffle(result).slice(0, 15);
+    }
+    function startSession() {
+      state.startedAt = Date.now();
+      state.endedAt = 0;
+      state.batchStart = Date.now();
+      state.round = 1;
+      state.reinforceRounds = 0;
+      state.initialCorrect = 0;
+      state.initialTotal = DAY_TARGET;
+      state.wrongItems = [];
+      state.attempts = [];
+      state.skillStats = {};
+      state.usedIds = new Set();
+      const passage = shuffle(PASSAGES)[0];
+      const passageItems = passage.questions.map((item, index) => ({ ...item, passageTitle:passage.title, stem:'Passage blank ' + (index + 1) + ': ' + item.prompt }));
+      passageItems.forEach(item => state.usedIds.add(item.id));
+      const tenseItems = pickTenseSet();
+      state.currentBatch = passageItems.concat(tenseItems).map((item, index) => ({ ...item, no:index + 1 }));
+      state.initialBatch = state.currentBatch.slice();
+      show('practice');
+      startTimer();
+      renderBatch(passage);
+    }
+    function updateActionReserve() {
+      const visible = !$('action-container').classList.contains('hide');
+      if (!visible) {
+        document.documentElement.style.setProperty('--action-reserve', '0px');
+        return;
+      }
+      const box = $('action-box');
+      const boxHeight = box ? Math.ceil(box.getBoundingClientRect().height) : 70;
+      document.documentElement.style.setProperty('--action-reserve', (boxHeight + 132) + 'px');
+    }
+    window.addEventListener('resize', updateActionReserve);
+    window.addEventListener('orientationchange', () => setTimeout(updateActionReserve, 250));
+    function passageHtml(passage, items) {
+      let text = passage.text;
+      items.forEach((item, index) => {
+        text = text.replace('{{' + (index + 1) + '}}', '<strong style="color:#dc2626">(' + (index + 1) + ') ____</strong>');
+      });
+      return '<div class="passage">' + text + '</div>';
+    }
+    function renderBatch(passage = null) {
+      state.batchStart = Date.now();
+      const isInitial = state.round === 1;
+      $('round-pill').textContent = isInitial ? '第 1 轮' : '补强第 ' + state.reinforceRounds + ' 轮';
+      $('batch-pill').textContent = state.currentBatch.length + '题';
+      $('progress-bar').style.width = Math.min(96, Math.round((state.round - 1) * 18)) + '%';
+      $('paper-title').textContent = isInitial ? '今日随机套题' : '错点补强循环';
+      $('paper-sub').textContent = isInitial ? '一篇 10 空语法填空 + 15 道时态专项。全部填完后统一提交。' : '这些是刚才错点的同考点新题，题目已更换。';
+      $('feedback-area').classList.add('hide');
+      $('feedback-area').innerHTML = '';
+      const passageItems = state.currentBatch.filter(item => item.section === 'passage');
+      const tenseItems = state.currentBatch.filter(item => item.section !== 'passage');
+      let html = '';
+      if (passageItems.length && passage) {
+        html += '<h3 class="section-title">Part A · 语法填空文章</h3>' + passageHtml(passage, passageItems);
+      }
+      html += '<h3 class="section-title">' + (isInitial ? 'Answer Sheet' : 'Reinforcement') + '</h3><div class="q-list">';
+      state.currentBatch.forEach((item, index) => {
+        const text = item.section === 'passage'
+          ? '第 ' + (index + 1) + ' 空：(' + esc(item.prompt) + ')'
+          : esc(item.stem);
+        html += '<div class="q-card"><div class="q-row"><span class="q-num">' + (index + 1) + '</span><div><div class="q-text">' + text + '</div><input id="answer-' + index + '" class="answer-input" autocomplete="off" autocapitalize="none" placeholder="填写答案"></div></div></div>';
+      });
+      html += '</div>';
+      $('question-area').innerHTML = html;
+      $('action-box').innerHTML = '<button class="fixed-action" onclick="submitBatch()">提交本轮答案</button>';
+      updateActionReserve();
+    }
+    function statFor(skill) {
+      if (!state.skillStats[skill]) state.skillStats[skill] = { skill, attempts:0, wrong:0, correct:0, timeMs:0, examples:[], reinforce:0 };
+      return state.skillStats[skill];
+    }
+    function submitBatch() {
+      const elapsed = Math.max(1000, Date.now() - state.batchStart);
+      const avgTime = elapsed / Math.max(1, state.currentBatch.length);
+      const wrong = [];
+      let correctCount = 0;
+      state.currentBatch.forEach((item, index) => {
+        const input = $('answer-' + index);
+        const value = input.value;
+        const ok = isCorrect(item, value);
+        input.classList.toggle('correct', ok);
+        input.classList.toggle('wrong', !ok);
+        input.disabled = true;
+        const stat = statFor(item.skill);
+        stat.attempts += 1;
+        stat.timeMs += avgTime;
+        if (ok) {
+          correctCount += 1;
+          stat.correct += 1;
+        } else {
+          stat.wrong += 1;
+          stat.examples.push({ question:item.stem || item.prompt, selected:value || '(空白)', answer:item.answer, explanation:item.explanation });
+          wrong.push({ ...item, selected:value || '(空白)' });
+        }
+        state.attempts.push({ time:new Date().toISOString(), id:item.id, phrase:skillLabel(item.skill), category:item.section, phase:state.round === 1 ? 'initial' : 'reinforce', round:state.round, correct:ok, selected:value, answer:item.answer, duration_ms:Math.round(avgTime) });
+      });
+      if (state.round === 1) state.initialCorrect = correctCount;
+      state.wrongItems = wrong;
+      renderFeedback(wrong, correctCount);
+    }
+    function renderFeedback(wrong, correctCount) {
+      $('feedback-area').classList.remove('hide');
+      if (!wrong.length) {
+        $('feedback-area').innerHTML = '<div class="ok-box">本轮全部正确。' + (state.round === 1 ? '基础套题一遍过，可以直接完成。' : '刚才的错点补强已经通过。') + '</div>';
+        $('action-box').innerHTML = '<button class="fixed-action green" onclick="finish()">完成并生成诊断报告</button>';
+        $('progress-bar').style.width = '100%';
+        updateActionReserve();
+        return;
+      }
+      const grouped = wrong.map((item, idx) => {
+        return '<div class="wrong-card"><h3>' + (idx + 1) + '. ' + esc(skillLabel(item.skill)) + '</h3><p><b>你的答案：</b>' + esc(item.selected) + '</p><p><b>正确答案：</b>' + esc(item.answer) + '</p><p><b>解析：</b>' + esc(item.explanation) + '</p></div>';
+      }).join('');
+      $('feedback-area').innerHTML = grouped;
+      $('action-box').innerHTML = '<button class="fixed-action" onclick="continueReinforce()">看完解析，继续巩固同类考点</button>';
+      updateActionReserve();
+      setTimeout(() => $('feedback-area').scrollIntoView({ behavior:'smooth', block:'nearest' }), 80);
+    }
+    function continueReinforce() {
+      const skills = Array.from(new Set(state.wrongItems.map(item => item.skill)));
+      state.reinforceRounds += 1;
+      state.round += 1;
+      skills.forEach(skill => { statFor(skill).reinforce += 1; });
+      let next = [];
+      skills.forEach(skill => {
+        next = next.concat(pickUnused(TENSE_BANK.concat(EXTRA_BANK), 2, [skill]));
+      });
+      while (next.length < Math.min(12, skills.length * 3)) {
+        const more = pickUnused(TENSE_BANK.concat(EXTRA_BANK), 1, skills);
+        if (!more.length) break;
+        next = next.concat(more);
+      }
+      if (!next.length) {
+        next = state.wrongItems.map((item, index) => ({ ...item, id:item.id + '-retry-' + state.round + '-' + index }));
+      }
+      state.currentBatch = shuffle(next).slice(0, 14).map((item, index) => ({ ...item, no:index + 1 }));
+      renderBatch(null);
+      window.scrollTo({ top:0, behavior:'smooth' });
+    }
+    function buildPracticeDetail(report) {
+      const phraseDetails = Object.values(state.skillStats).map(stat => {
+        const examples = stat.examples.slice(-3).map(ex => ({ en:ex.question, zh:'正确答案：' + ex.answer + '；解析：' + ex.explanation }));
+        return {
+          id:stat.skill,
+          phrase:skillLabel(stat.skill),
+          meaning:'语法考点',
+          category:'语法填空',
+          clozeAttempts:stat.attempts,
+          clozeWrong:stat.wrong,
+          meaningAttempts:0,
+          meaningWrong:0,
+          studyCount:stat.reinforce,
+          firstClozePassed:stat.wrong === 0,
+          clozeTimeSeconds:Math.round(stat.timeMs / 1000),
+          meaningTimeSeconds:0,
+          studyTimeSeconds:0,
+          clozeQuestion:examples[0]?.en || '',
+          examples
+        };
+      }).sort((a,b) => b.clozeWrong - a.clozeWrong || b.studyCount - a.studyCount);
+      const weak = phraseDetails.filter(item => item.clozeWrong || item.studyCount);
+      return {
+        homework_id:HOMEWORK_ID,
+        module_title:MODULE_TITLE,
+        selected_category:'语法填空 + 四大时态',
+        total_phrases:phraseDetails.length,
+        started_at:new Date(state.startedAt).toISOString(),
+        finished_at:new Date(state.endedAt).toISOString(),
+        duration_seconds:Math.round((state.endedAt - state.startedAt) / 1000),
+        metrics:{
+          total_questions:state.initialTotal,
+          initial_correct:state.initialCorrect,
+          initial_wrong:state.initialTotal - state.initialCorrect,
+          initial_accuracy:report.score,
+          reinforcement_rounds:state.reinforceRounds,
+          confidence:report.score
+        },
+        weak_phrases:weak,
+        phrase_details:phraseDetails,
+        attempts:state.attempts
+      };
+    }
+    function renderResult(report, detail) {
+      $('r-basic').textContent = state.initialCorrect + '/' + state.initialTotal;
+      $('r-score').textContent = report.score + '%';
+      $('r-rounds').textContent = state.reinforceRounds;
+      $('r-time').textContent = formatTime(state.endedAt - state.startedAt);
+      const rows = detail.phrase_details.map((item, idx) => {
+        const samples = (item.examples || []).map(ex => '<p><b>题目：</b>' + esc(ex.en) + '<br><b>' + esc(ex.zh) + '</b></p>').join('');
+        return '<details class="report-item" ' + (idx < 3 ? 'open' : '') + '><summary><span>' + (idx + 1) + '. ' + esc(item.phrase) + '</span><span style="color:#dc2626">错 ' + item.clozeWrong + ' · 补 ' + item.studyCount + '</span></summary><div><p>尝试 ' + item.clozeAttempts + ' 次，用时约 ' + item.clozeTimeSeconds + ' 秒。</p>' + (samples || '<p>本次没有错题样本。</p>') + '</div></details>';
+      }).join('');
+      $('result-list').innerHTML = rows || '<div style="padding:22px;color:#16a34a;font-weight:900;">没有明显薄弱考点。</div>';
+    }
+    async function submitPracticeReport(detail, report) {
+      localStorage.setItem(PENDING_REPORT_KEY, JSON.stringify({ detail, report }));
+      setSyncStatus('loading', '正在同步老师后台...');
+      try {
+        window.XY_RECORD_SCORE?.({
+          homework_id:HOMEWORK_ID,
+          score:report.score,
+          correct_count:state.initialCorrect,
+          total_count:state.initialTotal,
+          module_title:MODULE_TITLE,
+          event_type:'score_complete',
+          metadata:detail,
+          report:detail
+        });
+      } catch (err) {}
+      try {
+        if (typeof window.XY_RECORD_PRACTICE_REPORT !== 'function') throw new Error('详细报告通道未加载，请从大站作业入口打开。');
+        const result = await window.XY_RECORD_PRACTICE_REPORT({
+          homework_id:HOMEWORK_ID,
+          score:report.score,
+          correct_count:state.initialCorrect,
+          total_count:state.initialTotal,
+          module_title:MODULE_TITLE,
+          metadata:detail,
+          report:detail
+        });
+        if (!result || result.error || result.skipped) throw (result && result.error) || new Error(result && result.skipped || '详细报告未写入');
+        localStorage.removeItem(PENDING_REPORT_KEY);
+        setSyncStatus('ok', '已同步老师后台。');
+      } catch (err) {
+        setSyncStatus('fail', '详细报告同步失败：' + (err.message || err), true);
+      }
+    }
+    function setSyncStatus(type, text, canRetry = false) {
+      const box = $('sync-status');
+      box.className = 'sync ' + type;
+      box.innerHTML = esc(text) + (canRetry ? ' <button class="secondary" style="min-height:36px;padding:7px 12px;margin-left:8px;" onclick="retryPracticeReport()">重试</button>' : '');
+    }
+    function retryPracticeReport() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(PENDING_REPORT_KEY) || 'null');
+        if (!saved) return setSyncStatus('fail', '没有找到可重试的报告。');
+        submitPracticeReport(saved.detail, saved.report);
+      } catch (err) {
+        setSyncStatus('fail', '重试失败：' + (err.message || err), true);
+      }
+    }
+    function finish() {
+      state.endedAt = Date.now();
+      stopTimer();
+      const score = Math.round(state.initialCorrect / Math.max(1, state.initialTotal) * 100);
+      const report = { score };
+      const detail = buildPracticeDetail(report);
+      renderResult(report, detail);
+      show('result');
+      $('action-container').classList.add('hide');
+      document.documentElement.style.setProperty('--action-reserve', '0px');
+      submitPracticeReport(detail, report);
+    }
+  </script>
+</body>
+</html>
