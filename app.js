@@ -1159,6 +1159,29 @@ function reportStudentMap() { return new Map(state.students.map(s => [s.id, s]))
 function reportRecordQuality(record) { let score = 0; if (Number.isFinite(Number(record.correctCount)) && Number.isFinite(Number(record.totalCount)) && Number(record.totalCount) > 0) score += 4; if (Number(record.reportConfidence || 0) >= 2) score += 2; if (record.source === 'quiz' || record.source === 'diagnostic') score += 2; return score; }
 function isUnverifiedObserverReport(record) { return record.source === 'lesson' && record.reportNote === 'result-observer' && Number(record.reportConfidence || 0) < 2 && reportRecordQuality(record) === 0; }
 function isLaterSubmission(a, b) { if (!b) return true; return new Date(a.submittedAt).getTime() > new Date(b.submittedAt).getTime(); }
+function reportAttemptWindowKey(record) {
+  const t = new Date(record.submittedAt || 0).getTime();
+  const bucket = Number.isFinite(t) ? Math.floor(t / 120000) : 0;
+  return [record.studentId || '', record.lessonId || '', bucket].join(':');
+}
+function betterReportRecord(next, current) {
+  if (!current) return next;
+  const qNext = reportRecordQuality(next);
+  const qCurrent = reportRecordQuality(current);
+  if (qNext !== qCurrent) return qNext > qCurrent ? next : current;
+  const hasNextFraction = Number.isFinite(Number(next.correctCount)) && Number.isFinite(Number(next.totalCount)) && Number(next.totalCount) > 0;
+  const hasCurrentFraction = Number.isFinite(Number(current.correctCount)) && Number.isFinite(Number(current.totalCount)) && Number(current.totalCount) > 0;
+  if (hasNextFraction !== hasCurrentFraction) return hasNextFraction ? next : current;
+  return isLaterSubmission(next, current) ? next : current;
+}
+function dedupeRealReportAttempts(records) {
+  const grouped = new Map();
+  (records || []).forEach(record => {
+    const key = reportAttemptWindowKey(record);
+    grouped.set(key, betterReportRecord(record, grouped.get(key)));
+  });
+  return Array.from(grouped.values()).sort((a,b) => new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0));
+}
 function isExemptLessonId(id) { return String(id || '').startsWith('EXEMP_'); }
 function reportEntityId(record, viewMode) { return viewMode === 'class' ? 'class:' + (record.className || '未分班') : record.studentId; }
 function reportEntityLabel(record, viewMode) { return viewMode === 'class' ? (record.className || '未分班') : record.studentName; }
@@ -1274,7 +1297,7 @@ function rawPracticeReportRecords() {
 function rawReportRecords() { const students = reportStudentMap(); const modules = reportModuleMap(); const cfg = reportCfg(); const start = reportBoundary(cfg.startDate, false); const end = reportBoundary(cfg.endDate, true); if (!start || !end) return []; const make = (row) => { const studentId = row.student_id || row.studentId; const lessonId = reportLessonId(row); const student = students.get(studentId); const meta = modules.get(lessonId); const rowMeta = row && typeof row.metadata === 'object' && row.metadata ? row.metadata : {}; const classes = classesOf(student); const submittedAt = row.submitted_at || row.created_at || row.date || new Date().toISOString(); const correct = reportMetric(row, 'correct_count'); const total = reportMetric(row, 'total_count'); const score = reportScore(correct, total, row.score); const source = row.source === 'quiz' ? 'quiz' : row.source === 'diagnostic' ? 'diagnostic' : (String(row.event_type || '').includes('quiz') ? 'quiz' : String(row.event_type || '').includes('diagnostic') ? 'diagnostic' : 'lesson'); const confidence = Number(rowMeta.metrics && rowMeta.metrics.confidence || 0); const processReport = reportProcessSummary(rowMeta) || reportBasicProcessSummary(lessonId, correct, total, score); return { id:source + ':' + (row.id || studentId + ':' + lessonId + ':' + submittedAt), logId:row.id || '', source, sourceLabel:source === 'quiz' ? '测验' : source === 'diagnostic' ? '诊断' : '练习', studentId, studentName:student?.name || studentId || '未命名学生', className:classes.length ? classes.map(reportClassLabel).join(' / ') : '未分班', lessonId, moduleTitle:meta?.title || row.module_title || lessonId || '未命名单元', levelId:meta?.levelId || normalizeClass(row.class_code || ''), levelCode:meta?.levelTitle || reportClassLabel(row.class_code || ''), submittedAt, correctCount:correct ?? null, totalCount:total ?? null, scorePercent:score, reportConfidence:confidence, reportNote:String(rowMeta.text || rowMeta.triggerText || ''), metadata:rowMeta, processReport }; }; return state.logs.map(make).filter(record => { const d = new Date(record.submittedAt); return record.studentId && record.lessonId && !isExemptLessonId(record.lessonId) && d >= start && d <= end; }); }
 function computeReports() {
   const cfg = reportCfg();
-  const records = rawReportRecords().filter(record => !isUnverifiedObserverReport(record) && (cfg.sourceFilter === 'all' || record.source === cfg.sourceFilter) && (cfg.selectedLevelId === 'all' || record.levelId === cfg.selectedLevelId) && (cfg.selectedLessonId === 'all' || record.lessonId === cfg.selectedLessonId));
+  const records = dedupeRealReportAttempts(rawReportRecords().filter(record => !isUnverifiedObserverReport(record))).filter(record => (cfg.sourceFilter === 'all' || record.source === cfg.sourceFilter) && (cfg.selectedLevelId === 'all' || record.levelId === cfg.selectedLevelId) && (cfg.selectedLessonId === 'all' || record.lessonId === cfg.selectedLessonId));
   const practiceRecords = rawPracticeReportRecords().filter(record => (cfg.selectedLevelId === 'all' || record.levelId === cfg.selectedLevelId || !record.levelId) && (cfg.selectedLessonId === 'all' || record.lessonId === cfg.selectedLessonId));
   const attemptCounts = new Map();
   records.slice().sort((a,b) => new Date(a.submittedAt) - new Date(b.submittedAt)).forEach(record => {
