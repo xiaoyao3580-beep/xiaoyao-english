@@ -377,8 +377,9 @@
     const isObserver = triggerText === 'result-observer';
     const isManualCompleteClick = triggerText && COMPLETE_RE.test(triggerText);
     if (!hasFraction && isObserver) return false;
+    if (hasFraction) return true;
     const last = recentSubmission(scopeKey);
-    if ((isObserver || isManualCompleteClick) && Date.now() - last < REAL_SUBMISSION_COOLDOWN_MS) return false;
+    if (isManualCompleteClick && Date.now() - last < REAL_SUBMISSION_COOLDOWN_MS) return false;
     return true;
   }
   async function insertGrowthLog(row) {
