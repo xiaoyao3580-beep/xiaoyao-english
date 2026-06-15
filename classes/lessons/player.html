@@ -166,6 +166,10 @@
           '<link rel="stylesheet" href="' + localFontAwesomeCss.replace(/"/g, '&quot;') + '">' +
           lessonThemeCss +
           arbitraryTailwindFallbackCss(html);
+        const localFrameworkTags =
+          '<script src="' + localReactJs.replace(/"/g, '&quot;') + '"><\/script>' +
+          '<script src="' + localReactDomJs.replace(/"/g, '&quot;') + '"><\/script>' +
+          '<script src="' + localHtml2CanvasJs.replace(/"/g, '&quot;') + '"><\/script>';
         const tailwindRuntimeTagPattern = /<script\b[^>]*src=["']https:\/\/cdn\.tailwindcss\.com\/?["'][^>]*>\s*<\/script>/gi;
         const hasTailwindRuntime = tailwindRuntimeTagPattern.test(html);
         tailwindRuntimeTagPattern.lastIndex = 0;
@@ -177,11 +181,11 @@
           : html.replace(tailwindRuntimeTagPattern, '');
         html = html.replace(/<link\b[^>]*href=["']https:\/\/fonts\.(?:googleapis|gstatic)\.com[^"']*["'][^>]*>\s*/gi, '');
         html = html.replace(/<link\b[^>]*href=["']https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/font-awesome\/[^"']*\/css\/all\.min\.css["'][^>]*>\s*(?:<\/link>)?/gi, '');
-        html = html.replace(/<script\b([^>]*)src=["']https:\/\/unpkg\.com\/react@18\/umd\/react\.production\.min\.js["']([^>]*)>\s*<\/script>/gi, '<script src="' + localReactJs.replace(/"/g, '&quot;') + '"><\/script>');
-        html = html.replace(/<script\b([^>]*)src=["']https:\/\/unpkg\.com\/react-dom@18\/umd\/react-dom\.production\.min\.js["']([^>]*)>\s*<\/script>/gi, '<script src="' + localReactDomJs.replace(/"/g, '&quot;') + '"><\/script>');
-        html = html.replace(/<script\b([^>]*)src=["']https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/html2canvas\/1\.4\.1\/html2canvas\.min\.js["']([^>]*)>\s*<\/script>/gi, '<script src="' + localHtml2CanvasJs.replace(/"/g, '&quot;') + '"><\/script>');
+        html = html.replace(/<script\b([^>]*)src=["']https:\/\/unpkg\.com\/react@18\/umd\/react\.production\.min\.js["']([^>]*)>\s*<\/script>/gi, '');
+        html = html.replace(/<script\b([^>]*)src=["']https:\/\/unpkg\.com\/react-dom@18\/umd\/react-dom\.production\.min\.js["']([^>]*)>\s*<\/script>/gi, '');
+        html = html.replace(/<script\b([^>]*)src=["']https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/html2canvas\/1\.4\.1\/html2canvas\.min\.js["']([^>]*)>\s*<\/script>/gi, '');
         html = html.replace(/<script\b([^>]*)src=["']https:\/\/unpkg\.com\/@babel\/standalone(?:@[^\/"']+)?\/babel\.min\.js["']([^>]*)>\s*<\/script>/gi, '<script src="' + localBabelJs.replace(/"/g, '&quot;') + '"><\/script>');
-        html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, localResourceTags + '</head>') : localResourceTags + html;
+        html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, localResourceTags + localFrameworkTags + '</head>') : localResourceTags + localFrameworkTags + html;
         html = html.replace(/lesson-standalone\.html(?:\?v=[^"'#<\s]*)?/g, 'lesson-standalone.html?v=20260511-lesson-only');
         const standaloneSrc = new URL('../_yu1/lesson-standalone.html?v=20260511-lesson-only', location.href).href;
         html = html.replace(/(["'])((?:\.\.\/|\.\/)?_yu1\/)?lesson-standalone\.html(?:\?v=[^"'#<\s]*)?/g, '$1' + standaloneSrc);
