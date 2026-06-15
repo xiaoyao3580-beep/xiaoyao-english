@@ -47,6 +47,8 @@
   const observedDocs = new WeakSet();
   const observerTimers = new WeakMap();
   let useExtendedGrowthLog = true;
+  const REAL_SUBMISSION_COOLDOWN_MS = 2 * 60 * 1000;
+  const OBSERVER_STRONG_RESULT_RE = /(答对题数|完成时间|交卷时间|成绩报告|学习报告|结果报告|Quiz Report|Magic Grade Report|Report Card|Final Score|View Report)/i;
 
   function readUser() {
     try { return JSON.parse(localStorage.getItem('xy_user') || 'null'); } catch { return null; }
@@ -353,6 +355,32 @@
       total_count: totalCount
     };
   }
+  function recordScopeKey(userId, homeworkId) {
+    return String(userId || '') + ':' + String(homeworkId || '');
+  }
+  function recentSubmission(scopeKey) {
+    const memory = sentKeys.get('scope:' + scopeKey) || 0;
+    let shared = 0;
+    try { shared = Number(sessionStorage.getItem('xy_lesson_record_scope:' + scopeKey) || 0); } catch {}
+    return Math.max(memory, shared);
+  }
+  function markSubmission(scopeKey) {
+    const now = Date.now();
+    sentKeys.set('scope:' + scopeKey, now);
+    try { sessionStorage.setItem('xy_lesson_record_scope:' + scopeKey, String(now)); } catch {}
+  }
+  function shouldAllowRealSubmission(scopeKey, payload, correctCount, totalCount) {
+    const eventType = String(payload.event_type || payload.eventType || 'complete');
+    if (eventType === 'score_complete') return true;
+    const hasFraction = Number.isFinite(correctCount) && Number.isFinite(totalCount) && totalCount > 0;
+    const triggerText = String(payload.triggerText || '');
+    const isObserver = triggerText === 'result-observer';
+    const isManualCompleteClick = triggerText && COMPLETE_RE.test(triggerText);
+    if (!hasFraction && isObserver) return false;
+    const last = recentSubmission(scopeKey);
+    if ((isObserver || isManualCompleteClick) && Date.now() - last < REAL_SUBMISSION_COOLDOWN_MS) return false;
+    return true;
+  }
   async function insertGrowthLog(row) {
     const headers = {
       apikey: SUPABASE_KEY,
@@ -450,6 +478,8 @@
     const hasFraction = Number.isFinite(correctCount) && Number.isFinite(totalCount) && totalCount > 0;
     const hasTrustedMetrics = hasFraction || payloadMetrics.confidence >= 2 || docMetrics.confidence >= 2;
     if ((payload.triggerText === 'result-observer' || payload.require_metric) && !hasTrustedMetrics) return { skipped: 'unverified-result' };
+    const scopeKey = recordScopeKey(user.id, homeworkId);
+    if (!shouldAllowRealSubmission(scopeKey, payload, correctCount, totalCount)) return { skipped: 'same-submission-window' };
     const score = clampScore(payloadScore ?? (hasFraction ? Math.round(correctCount / totalCount * 100) : docMetrics.score) ?? 100);
     const mergedMetrics = payloadMetrics.confidence > docMetrics.confidence
       ? { ...docMetrics, ...payloadMetrics, payload:payloadMetrics }
@@ -481,6 +511,7 @@
     if (!Number.isFinite(row.total_count)) delete row.total_count;
     try {
       await insertGrowthLog(row);
+      markSubmission(scopeKey);
       window.dispatchEvent(new CustomEvent('xy:lesson-recorded', { detail: row }));
       return { ok: true, row };
     } catch (error) {
@@ -550,7 +581,7 @@
   window.XY_RECORD_SCORE = payload => recordLesson({ ...(payload || {}), source:'manual_api', event_type:(payload && (payload.event_type || payload.eventType)) || 'score_complete', require_metric:true });
   window.XY_RECORD_PRACTICE_REPORT = payload => recordPracticeReport({ ...(payload || {}), source:'manual_api' });
   function scheduleRecord(payload, doc) {
-    [700, 1600, 3200].forEach(delay => {
+    [900, 2400].forEach(delay => {
       window.setTimeout(() => recordLesson(payload, doc), delay);
     });
   }
@@ -565,7 +596,7 @@
     observedDocs.add(doc);
     const observer = new MutationObserver(() => {
       const text = textOf(doc);
-      if (!RESULT_RE.test(text)) return;
+      if (!RESULT_RE.test(text) || !OBSERVER_STRONG_RESULT_RE.test(text)) return;
       const metrics = extractResultMetrics(doc);
       if (metrics.confidence < 2) return;
       const existing = observerTimers.get(doc);
