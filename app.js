@@ -547,7 +547,7 @@ async function loadHomeData(showLoading = true) {
     render();
   }
 }
-function teacherTabNeedsStudents(tab = state.teacherTab) { return ['students','homework','attendance','reports','pets'].includes(tab); }
+function teacherTabNeedsStudents(tab = state.teacherTab) { return ['students','homework','attendance','reports','oneReports','pets'].includes(tab); }
 async function loadTeacherStudents(showLoading = true) {
   if (currentUser()?.role !== 'teacher') return;
   if (teacherStudentsLoaded) return;
@@ -580,7 +580,7 @@ async function ensureTeacherTabData(tab = state.teacherTab, showLoading = false)
   if (currentUser()?.role !== 'teacher') return;
   const tasks = [];
   if (teacherTabNeedsStudents(tab) && !teacherStudentsLoaded && !teacherStudentsPromise) tasks.push(loadTeacherStudents(showLoading));
-  if (tab === 'reports') {
+  if (tab === 'reports' || tab === 'oneReports') {
     const cfg = reportCfg();
     if (!cfg.loaded && !cfg.loading) tasks.push(loadReportData(false));
   }
@@ -710,12 +710,13 @@ function levelPage() {
 function teacherPage() {
   const u = currentUser();
   if (!u || u.role !== 'teacher') { setTimeout(showLogin,0); return homePage(); }
-  const tabs = [['students','学生管理','fa-user-graduate'],['homework','作业管理','fa-book'],['banners','主页宣传','fa-image'],['attendance','考勤管理','fa-calendar-check'],['reports','报表','fa-chart-line'],['vote','选题管理','fa-square-poll-vertical'],['pets','宠物管理','fa-paw']];
+  const tabs = [['students','学生管理','fa-user-graduate'],['homework','作业管理','fa-book'],['banners','主页宣传','fa-image'],['attendance','考勤管理','fa-calendar-check'],['reports','报表','fa-chart-line'],['oneReports','一对一诊断','fa-user-check'],['vote','选题管理','fa-square-poll-vertical'],['pets','宠物管理','fa-paw']];
   const tabBtns = tabs.map(t => {
     const active = state.teacherTab === t[0];
     return '<button data-teacher-tab="' + t[0] + '" class="shrink-0 rounded-full px-5 py-3.5 text-[14px] font-extrabold transition-all duration-200 shadow-sm flex items-center gap-2 active-scale md:shrink md:px-5 md:text-[14px] lg:px-6 ' + (active ? 'scale-[1.02] bg-[#6B48FF] text-white shadow-lg shadow-[#6B48FF]/30 ring-4 ring-[#6B48FF]/10' : 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50') + '"><i class="fa-solid ' + t[2] + '"></i><span class="whitespace-nowrap">' + t[1] + '</span>' + (active ? '<span class="ml-0.5 h-2 w-2 rounded-full bg-white/90 shadow-sm"></span>' : '') + '</button>';
   }).join('');
-  return '<div class="min-h-screen bg-[#F8F8FC] pb-40 md:pb-44 text-[#1C1C28]">' + teacherHeader(false) + '<section class="px-4 sm:px-6 md:px-10 pt-4 mb-8 max-w-6xl mx-auto"><h1 class="text-[30px] md:text-[36px] font-extrabold text-[#2D2A4A] mb-2 tracking-tight">Teacher Admin</h1><p class="text-sm md:text-base text-gray-500 mb-6">工作室数据管理中心</p><div data-teacher-tabs data-preserve-scroll="teacher-tabs" class="flex gap-2.5 overflow-x-auto hide-scrollbar pb-5 mb-5 -mx-4 px-4 sm:-mx-6 sm:px-6 md:mx-0 md:flex-wrap md:overflow-visible md:px-0 md:pb-2 md:touch-auto lg:gap-3 touch-pan-x">' + tabBtns + '</div><div class="motion-panel-enter">' + teacherPanel() + '</div></section>' + teacherBottomNav() + '</div>';
+  const shellWidth = state.teacherTab === 'oneReports' ? 'max-w-[92rem]' : 'max-w-6xl';
+  return '<div class="min-h-screen bg-[#F8F8FC] pb-40 md:pb-44 text-[#1C1C28]">' + teacherHeader(false) + '<section class="px-4 sm:px-6 md:px-10 pt-4 mb-8 ' + shellWidth + ' mx-auto"><h1 class="text-[30px] md:text-[36px] font-extrabold text-[#2D2A4A] mb-2 tracking-tight">Teacher Admin</h1><p class="text-sm md:text-base text-gray-500 mb-6">工作室数据管理中心</p><div data-teacher-tabs data-preserve-scroll="teacher-tabs" class="flex gap-2.5 overflow-x-auto hide-scrollbar pb-5 mb-5 -mx-4 px-4 sm:-mx-6 sm:px-6 md:mx-0 md:flex-wrap md:overflow-visible md:px-0 md:pb-2 md:touch-auto lg:gap-3 touch-pan-x">' + tabBtns + '</div><div class="motion-panel-enter">' + teacherPanel() + '</div></section>' + teacherBottomNav() + '</div>';
 }
 function teacherHeader(showBack = false) {
   const u = currentUser();
@@ -726,7 +727,7 @@ function teacherHeader(showBack = false) {
 function teacherBottomNav() {
   return '<nav class="motion-dock-enter fixed inset-x-0 bottom-0 z-50 mx-auto flex w-full max-w-[42rem] items-center justify-around rounded-t-[3rem] border-t border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.72)_0%,rgba(255,255,255,0.92)_36%,rgba(239,240,247,0.96)_100%)] px-4 py-3 backdrop-blur-[18px] shadow-[0_-12px_40px_-8px_rgba(92,45,255,0.12)] sm:w-[calc(100%_-_2rem)] md:bottom-5 md:rounded-full md:border" style="padding-bottom:calc(0.75rem + env(safe-area-inset-bottom,0px));background-color:rgba(239,240,247,0.94)"><button data-route="home" class="motion-tab flex min-h-[44px] flex-col items-center justify-center px-4 py-2 md:px-6 text-[#74777c]"><span class="material-symbols-outlined">home</span><span class="mt-0.5 text-[10px] font-medium uppercase tracking-[0.18em]">Home</span></button><button data-route="teacher" class="motion-tab flex min-h-[44px] flex-col items-center justify-center rounded-full bg-[#5c2dff] px-4 py-2 text-white shadow-[0_8px_20px_-4px_rgba(92,45,255,0.4)] md:px-6"><span class="material-symbols-outlined">dashboard_customize</span><span class="mt-0.5 text-[10px] font-medium uppercase tracking-[0.18em]">Teacher</span></button></nav>';
 }
-function teacherPanel() { setTimeout(() => ensureTeacherTabData(state.teacherTab, false), 0); if (state.teacherTab === 'students') return studentsPanel(); if (state.teacherTab === 'homework') return homeworkUploadPanel(); if (state.teacherTab === 'banners') return bannersPanel(); if (state.teacherTab === 'attendance') return attendancePanel(); if (state.teacherTab === 'reports') return reportsPanelV2(); if (state.teacherTab === 'vote') return voteResultsPanel(); if (state.teacherTab === 'pets') return petsPanel(); state.teacherTab = 'students'; return studentsPanel(); }
+function teacherPanel() { setTimeout(() => ensureTeacherTabData(state.teacherTab, false), 0); if (state.teacherTab === 'students') return studentsPanel(); if (state.teacherTab === 'homework') return homeworkUploadPanel(); if (state.teacherTab === 'banners') return bannersPanel(); if (state.teacherTab === 'attendance') return attendancePanel(); if (state.teacherTab === 'reports') return reportsPanelV2(); if (state.teacherTab === 'oneReports') return oneToOneReportsPanel(); if (state.teacherTab === 'vote') return voteResultsPanel(); if (state.teacherTab === 'pets') return petsPanel(); state.teacherTab = 'students'; return studentsPanel(); }
 function teacherClasses() { return orderedLevels().filter(l => !isPersonalCourse(l.id)).map((l, i) => ({ code:l.id, name:l.title, icon:['fa-face-smile','fa-graduation-cap','fa-star','fa-trophy','fa-wand-magic-sparkles','fa-comments','fa-book-open','fa-user-tie','fa-newspaper'][i % 9] })); }
 function teacherPermissionCourses() {
   const classIcons = ['fa-face-smile','fa-graduation-cap','fa-star','fa-trophy','fa-wand-magic-sparkles','fa-comments','fa-book-open','fa-user-tie','fa-newspaper'];
@@ -1091,7 +1092,7 @@ const REPORT_BUCKETS = [{ label:'90-100', min:90, max:100, color:'#059669' },{ l
 function dateInputValue(date) { const d = new Date(date); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
 function datetimeInputValue(date) { const d = new Date(date); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') + 'T' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); }
 function reportBoundary(value, isEnd) { if (!value) return null; const text = String(value); const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(text) ? text + (isEnd ? 'T23:59:59' : 'T00:00:00') : text); return Number.isNaN(d.getTime()) ? null : d; }
-function reportDefaults() { const end = new Date(); const start = new Date(); start.setDate(start.getDate() - 29); return { startDate:datetimeInputValue(start), endDate:datetimeInputValue(end), selectedLevelId:'all', selectedLessonId:'all', sourceFilter:'all', viewMode:'student', selectedComparisonIds:[], quizAttempts:[], diagnosticAttempts:[], loading:false, loaded:false, error:'' }; }
+function reportDefaults() { const end = new Date(); const start = new Date(); start.setDate(start.getDate() - 29); return { startDate:datetimeInputValue(start), endDate:datetimeInputValue(end), selectedLevelId:'all', selectedLessonId:'all', sourceFilter:'all', viewMode:'student', selectedOneStudentId:'', selectedComparisonIds:[], quizAttempts:[], diagnosticAttempts:[], loading:false, loaded:false, error:'' }; }
 function reportCfg() { if (!state.report) state.report = reportDefaults(); if (/^\d{4}-\d{2}-\d{2}$/.test(state.report.startDate || '')) state.report.startDate += 'T00:00'; if (/^\d{4}-\d{2}-\d{2}$/.test(state.report.endDate || '')) state.report.endDate += 'T23:59'; state.report.sourceFilter = 'all'; return state.report; }
 function reportDateKeys(startValue, endValue) { const start = reportBoundary(startValue, false); const end = reportBoundary(endValue, true); if (!start || !end || start > end) return []; const keys = []; const cursor = new Date(start); cursor.setHours(0,0,0,0); while (cursor <= end) { keys.push(dateInputValue(cursor)); cursor.setDate(cursor.getDate()+1); } return keys; }
 function reportAverage(values) { const valid = values.filter(v => Number.isFinite(v)); return valid.length ? Math.round(valid.reduce((a,b) => a + b, 0) / valid.length) : 0; }
@@ -1419,6 +1420,164 @@ function grammarLeaderboardSection(records) {
   }).join('');
   return '<section class="card-solid overflow-hidden"><div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-5 md:flex-row md:items-center md:justify-between md:px-6"><div><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Grammar Error Rank</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">语法错误排行榜</h3></div><span class="rounded-full bg-red-50 px-3 py-1 text-xs font-black text-red-500">按错次和波动排序</span></div><div class="space-y-3 px-4 py-4 md:px-6">' + (cards || empty) + '</div></section>';
 }
+function oneReportStudents() {
+  return (state.students || []).filter(s => studentTypeOf(s) === 'one_to_one').sort((a,b) => String(a.name || a.id).localeCompare(String(b.name || b.id)));
+}
+function reportAnswerText(value) {
+  if (Array.isArray(value)) return value.map(reportAnswerText).filter(Boolean).join(' / ');
+  if (value && typeof value === 'object') return Object.values(value).map(reportAnswerText).filter(Boolean).join(' / ');
+  return String(value ?? '').trim();
+}
+function reportAttemptQuestion(attempt) {
+  return attempt?.question || attempt?.question_text || attempt?.text || attempt?.prompt || attempt?.sentence || '';
+}
+function reportAttemptSelected(attempt) {
+  return reportAnswerText(attempt?.student_answer ?? attempt?.selected ?? attempt?.answer_given ?? attempt?.userAnswer ?? attempt?.value ?? '');
+}
+function reportAttemptAnswer(attempt) {
+  return reportAnswerText(attempt?.correct_answer ?? attempt?.answer ?? attempt?.correctAnswer ?? attempt?.expected ?? '');
+}
+function reportAttemptDuration(attempt) {
+  const ms = Number(attempt?.duration_ms ?? attempt?.durationMs ?? attempt?.time_ms ?? 0);
+  if (ms > 0) return ms / 1000;
+  return Number(attempt?.duration_seconds ?? attempt?.durationSeconds ?? attempt?.time_seconds ?? 0);
+}
+function reportAttemptSection(attempt, record) {
+  return String(attempt?.section || attempt?.part || attempt?.stage || attempt?.phase || attempt?.skill || attempt?.category || record?.moduleTitle || '综合题').trim();
+}
+function reportAttemptRows(record) {
+  const attempts = record?.processReport?.attempts || [];
+  const rows = [];
+  attempts.forEach((attempt, index) => {
+    if (Array.isArray(attempt?.item_results)) {
+      attempt.item_results.forEach((item, subIndex) => rows.push({ ...item, section:attempt.section || item.section, round:attempt.round, parentIndex:index, itemIndex:subIndex }));
+    } else {
+      rows.push({ ...attempt, parentIndex:index, itemIndex:0 });
+    }
+  });
+  return rows;
+}
+function oneReportAllAttempts(records) {
+  return (records || []).flatMap(record => reportAttemptRows(record).map(attempt => ({ record, attempt, ok:attempt.correct === true || attempt.isCorrect === true })));
+}
+function oneReportIssueKey(attempt, record) {
+  const section = reportAttemptSection(attempt, record);
+  const id = attempt?.question_id || attempt?.id || attempt?.skill || attempt?.category || reportAttemptQuestion(attempt).slice(0, 72) || section;
+  return section + '::' + id;
+}
+function oneReportIssueLabel(attempt, record) {
+  const section = reportAttemptSection(attempt, record);
+  const skill = attempt?.skill || attempt?.category || attempt?.question_id || '';
+  return skill ? section + ' · ' + skill : section;
+}
+function oneReportIssueRows(records) {
+  const byKey = new Map();
+  oneReportAllAttempts(records).forEach(({ record, attempt, ok }) => {
+    const key = oneReportIssueKey(attempt, record);
+    if (!byKey.has(key)) byKey.set(key, { key, label:oneReportIssueLabel(attempt, record), total:0, correct:0, wrong:0, firstWrong:null, lastWrong:null, waves:[], examples:[] });
+    const row = byKey.get(key);
+    row.total += 1;
+    if (ok) row.correct += 1;
+    else {
+      row.wrong += 1;
+      row.firstWrong = row.firstWrong || record.submittedAt;
+      row.lastWrong = record.submittedAt;
+      row.examples.push({ record, attempt });
+    }
+    row.waves.push({ submittedAt:record.submittedAt, ok, scorePercent:record.scorePercent, moduleTitle:record.moduleTitle });
+  });
+  return Array.from(byKey.values()).map(row => ({ ...row, mastery:row.total ? Math.round(row.correct / row.total * 100) : 100, repeatedWrong:row.wrong > 1, stillWrong:Boolean(row.waves.length && row.waves[row.waves.length - 1].ok === false) })).filter(row => row.wrong || row.total).sort((a,b) => b.wrong - a.wrong || a.mastery - b.mastery || a.label.localeCompare(b.label));
+}
+function oneReportModuleRows(records) {
+  const map = new Map();
+  (records || []).forEach(record => {
+    const key = record.moduleTitle || record.lessonId || '未命名练习';
+    if (!map.has(key)) map.set(key, { title:key, count:0, scores:[], totalSeconds:0, latest:null, wrong:0, totalQuestions:0 });
+    const row = map.get(key);
+    row.count += 1;
+    row.scores.push(record.scorePercent);
+    row.totalSeconds += Number(record.processReport?.durationSeconds || 0);
+    row.latest = isLaterSubmission(record, row.latest) ? record : row.latest;
+    const attempts = reportAttemptRows(record);
+    if (attempts.length) {
+      row.totalQuestions += attempts.length;
+      row.wrong += attempts.filter(a => !(a.correct === true || a.isCorrect === true)).length;
+    } else if (Number(record.totalCount || 0) > 0) {
+      row.totalQuestions += Number(record.totalCount || 0);
+      row.wrong += Math.max(0, Number(record.totalCount || 0) - Number(record.correctCount || 0));
+    }
+  });
+  return Array.from(map.values()).map(row => ({ ...row, averageScore:reportAverage(row.scores) })).sort((a,b) => new Date(b.latest?.submittedAt || 0) - new Date(a.latest?.submittedAt || 0));
+}
+function oneReportStatCard(label, value, icon, tone) {
+  const cls = tone === 'red' ? 'bg-red-50 text-red-500' : tone === 'green' ? 'bg-emerald-50 text-emerald-600' : tone === 'amber' ? 'bg-amber-50 text-amber-600' : 'bg-[#F4F2FF] text-[#6B48FF]';
+  return '<div class="rounded-[1.35rem] border border-white bg-white p-5 shadow-sm"><div class="mb-4 flex h-11 w-11 items-center justify-center rounded-full ' + cls + '"><i class="fa-solid ' + icon + '"></i></div><p class="text-xs font-black uppercase tracking-[0.18em] text-gray-400">' + label + '</p><p class="mt-2 text-3xl font-black text-[#2D2A4A]">' + value + '</p></div>';
+}
+function oneReportIssueCards(issues) {
+  const empty = '<div class="rounded-[1.4rem] border border-dashed border-gray-200 bg-[#F8F8FC] px-5 py-8 text-center text-sm font-bold text-gray-400">还没有可分析的详细错题。学生完成支持全景 metadata 的一对一作业后，这里会自动生成。</div>';
+  const cards = issues.slice(0, 16).map((issue, index) => {
+    const samples = issue.examples.slice(-4).reverse().map(({ record, attempt }) => {
+      const q = reportAttemptQuestion(attempt) || '未记录题干';
+      const selected = reportAttemptSelected(attempt) || '空白';
+      const answer = reportAttemptAnswer(attempt) || '未记录';
+      const explanation = attempt.explanation || attempt.reason || attempt.analysis || '';
+      return '<div class="rounded-xl bg-white px-4 py-3 shadow-sm"><p class="text-sm font-black leading-6 text-[#2D2A4A]">' + esc(q) + '</p><p class="mt-2 text-xs font-bold leading-5 text-gray-500">学生答案：<span class="text-red-500">' + esc(selected) + '</span> · 正解：<span class="text-emerald-600">' + esc(answer) + '</span></p>' + (explanation ? '<p class="mt-1 text-xs font-bold leading-5 text-gray-500">解析：' + esc(explanation) + '</p>' : '') + '<p class="mt-2 text-[10px] font-black text-gray-300">' + esc(record.moduleTitle || '') + ' · ' + reportDateTime(record.submittedAt) + ' · 用时 ' + reportTimeText(reportAttemptDuration(attempt)) + '</p></div>';
+    }).join('');
+    const status = issue.stillWrong ? '最近仍错' : '最近已转对';
+    const statusCls = issue.stillWrong ? 'bg-red-50 text-red-500' : 'bg-emerald-50 text-emerald-600';
+    return '<details class="rounded-[1.35rem] border border-gray-100 bg-[#F8F8FC] p-4 shadow-sm" ' + (index < 4 ? 'open' : '') + '><summary class="cursor-pointer list-none"><div class="grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center"><div class="min-w-0"><div class="flex items-center gap-3"><span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-sm font-black text-[#6B48FF] shadow-sm">' + (index + 1) + '</span><p class="truncate text-base font-black text-[#2D2A4A]">' + esc(issue.label) + '</p></div><p class="mt-2 text-xs font-bold text-gray-400">首次错：' + (issue.firstWrong ? reportDateTime(issue.firstWrong) : '--') + ' · ' + (issue.repeatedWrong ? '反复错' : '只错过一次') + ' · 同类正确 ' + issue.correct + ' 次</p></div><div class="flex flex-wrap gap-2 xl:justify-end"><span class="rounded-full bg-white px-3 py-1.5 text-xs font-black text-red-500 shadow-sm">错 ' + issue.wrong + '</span><span class="rounded-full bg-white px-3 py-1.5 text-xs font-black text-[#6B48FF] shadow-sm">掌握 ' + issue.mastery + '%</span><span class="rounded-full px-3 py-1.5 text-xs font-black ' + statusCls + '">' + status + '</span></div></div></summary><div class="mt-4 grid gap-3 xl:grid-cols-[17rem_minmax(0,1fr)]"><div class="rounded-xl bg-white p-4 shadow-sm"><p class="text-xs font-black uppercase tracking-[0.16em] text-gray-400">波动</p><div class="mt-3 flex flex-wrap gap-1.5">' + grammarTrendDots(issue.waves.map(w => ({ submittedAt:w.submittedAt, wrong:w.ok ? 0 : 1, correct:w.ok ? 1 : 0 }))) + '</div><p class="mt-3 text-xs font-bold leading-5 text-gray-400">总尝试 ' + issue.total + ' 次，错 ' + issue.wrong + ' 次，对 ' + issue.correct + ' 次。</p></div><div class="space-y-2">' + samples + '</div></div></details>';
+  }).join('');
+  return cards || empty;
+}
+function oneReportAttemptCards(records) {
+  const empty = '<div class="rounded-[1.4rem] border border-dashed border-gray-200 bg-[#F8F8FC] px-5 py-8 text-center text-sm font-bold text-gray-400">暂无提交记录。</div>';
+  const cards = (records || []).slice(0, 20).map((record, index) => {
+    const attempts = reportAttemptRows(record);
+    const wrongAttempts = attempts.filter(a => !(a.correct === true || a.isCorrect === true));
+    const wrongCards = wrongAttempts.slice(0, 8).map(attempt => '<div class="rounded-xl bg-white px-4 py-3 shadow-sm"><p class="text-sm font-black leading-6 text-[#2D2A4A]">' + esc(reportAttemptQuestion(attempt) || '未记录题干') + '</p><p class="mt-2 text-xs font-bold leading-5 text-gray-500">学生答案：<span class="text-red-500">' + esc(reportAttemptSelected(attempt) || '空白') + '</span> · 正解：<span class="text-emerald-600">' + esc(reportAttemptAnswer(attempt) || '未记录') + '</span></p>' + (attempt.explanation ? '<p class="mt-1 text-xs font-bold leading-5 text-gray-500">解析：' + esc(attempt.explanation) + '</p>' : '') + '</div>').join('');
+    return '<details class="rounded-[1.35rem] border border-gray-100 bg-white p-4 shadow-sm" ' + (index < 3 ? 'open' : '') + '><summary class="cursor-pointer list-none"><div class="grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center"><div class="min-w-0"><p class="truncate text-base font-black text-[#2D2A4A]">' + esc(record.moduleTitle || record.lessonId) + '</p><p class="mt-1 text-xs font-bold text-gray-400">' + reportDateTime(record.submittedAt) + ' · 第 ' + (record.attemptNumber || index + 1) + ' 次提交 · ' + esc(record.sourceLabel || '') + '</p></div><div class="flex flex-wrap gap-2 xl:justify-end"><span class="rounded-full bg-[#F4F2FF] px-3 py-1.5 text-xs font-black text-[#6B48FF]">' + record.scorePercent + '%</span><span class="rounded-full bg-[#F8F8FC] px-3 py-1.5 text-xs font-black text-gray-500">' + (Number(record.totalCount || 0) ? (record.correctCount + '/' + record.totalCount) : '明细 ' + attempts.length) + '</span><span class="rounded-full bg-red-50 px-3 py-1.5 text-xs font-black text-red-500">错 ' + (wrongAttempts.length || Math.max(0, Number(record.totalCount || 0) - Number(record.correctCount || 0))) + '</span><span class="rounded-full bg-[#F8F8FC] px-3 py-1.5 text-xs font-black text-gray-500">' + reportTimeText(record.processReport?.durationSeconds) + '</span><button data-export-practice-report="' + esc(record.id) + '" class="inline-flex min-h-[28px] items-center gap-1 rounded-full bg-[#F4F2FF] px-3 py-1 text-xs font-black text-[#6B48FF] active-scale"><i class="fa-solid fa-file-pdf text-[10px]"></i>PDF</button></div></div></summary><div class="mt-4 border-t border-gray-100 pt-4">' + (wrongCards || '<div class="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-600">这次提交没有记录到错题明细。</div>') + '</div></details>';
+  }).join('');
+  return cards || empty;
+}
+function oneToOneReportsPanel() {
+  const cfg = reportCfg();
+  const students = oneReportStudents();
+  const data = computeReports();
+  const oneIds = new Set(students.map(s => String(s.id)));
+  const allRecords = data.processReports.concat(data.records.filter(r => !data.processReports.some(p => p.id === r.id))).filter(r => oneIds.has(String(r.studentId))).sort((a,b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+  if (!cfg.selectedOneStudentId || !oneIds.has(String(cfg.selectedOneStudentId))) cfg.selectedOneStudentId = allRecords[0]?.studentId || students[0]?.id || '';
+  const selectedStudent = students.find(s => String(s.id) === String(cfg.selectedOneStudentId));
+  const records = allRecords.filter(r => String(r.studentId) === String(cfg.selectedOneStudentId));
+  const issues = oneReportIssueRows(records);
+  const modules = oneReportModuleRows(records);
+  const latest = records[0] || null;
+  const best = records.reduce((max, r) => Math.max(max, Number(r.scorePercent || 0)), 0);
+  const avg = reportAverage(records.map(r => r.scorePercent));
+  const firstScore = records.length ? Number(records[records.length - 1].scorePercent || 0) : 0;
+  const delta = latest ? Number(latest.scorePercent || 0) - firstScore : 0;
+  const totalSeconds = records.reduce((sum,r) => sum + Number(r.processReport?.durationSeconds || 0), 0);
+  const studentOptions = students.map(s => '<option value="' + esc(s.id) + '" ' + (String(cfg.selectedOneStudentId) === String(s.id) ? 'selected' : '') + '>' + esc(s.name || s.id) + ' · ' + esc(s.id) + '</option>').join('');
+  const moduleRows = modules.map(row => '<tr class="bg-white text-sm font-semibold text-gray-600 shadow-sm"><td class="rounded-l-[1rem] px-4 py-3"><div class="font-black text-[#2D2A4A]">' + esc(row.title) + '</div><div class="mt-1 text-xs font-bold text-gray-400">最近 ' + reportDateTime(row.latest?.submittedAt) + '</div></td><td class="px-4 py-3">' + row.count + '</td><td class="px-4 py-3">' + row.averageScore + '%</td><td class="px-4 py-3 text-red-500">' + row.wrong + '</td><td class="rounded-r-[1rem] px-4 py-3">' + reportTimeText(row.totalSeconds) + '</td></tr>').join('');
+  return '<div class="tab-content active -mx-2 space-y-5 md:-mx-6 lg:-mx-10">' +
+    '<section class="overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#2D1A7F] via-[#6B48FF] to-[#F26A35] p-6 text-white shadow-[0_24px_70px_-34px_rgba(92,45,255,0.65)] md:p-8 xl:p-10">' +
+      '<div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem] xl:items-end"><div><p class="text-xs font-black uppercase tracking-[0.3em] text-white/70">One-to-One Diagnosis</p><h2 class="mt-3 text-3xl font-black tracking-tight md:text-5xl">一对一全景诊断</h2><p class="mt-4 max-w-3xl text-sm font-bold leading-7 text-white/82">这里单独查看一对一学生的每一次真实提交、错题波动、用时和详细过程。班课学生继续使用原来的报表。</p></div><div class="rounded-[1.4rem] bg-white/14 p-4 backdrop-blur-md"><label class="block"><span class="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-white/70">学生</span><select data-report-field="selectedOneStudentId" class="min-h-[48px] w-full rounded-2xl border border-white/20 bg-white px-4 text-sm font-black text-[#2D2A4A] outline-none">' + studentOptions + '</select></label></div></div>' +
+    '</section>' +
+    '<section class="grid gap-4 px-2 md:px-6 xl:grid-cols-[22rem_minmax(0,1fr)]">' +
+      '<aside class="space-y-4">' +
+        '<div class="card-solid overflow-hidden p-5"><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Student</p><h3 class="mt-2 text-2xl font-black text-[#2D2A4A]">' + esc(selectedStudent?.name || '暂无一对一学生') + '</h3><p class="mt-2 font-mono text-sm font-bold text-gray-400">' + esc(selectedStudent?.id || '') + '</p>' + (selectedStudent ? '<p class="mt-3 rounded-full bg-[#F4F2FF] px-3 py-2 text-xs font-black text-[#6B48FF]">一对一学生</p>' : '') + '</div>' +
+        '<div class="card-solid space-y-3 p-5"><label><span class="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-gray-400">开始日期</span><input data-report-field="startDate" type="datetime-local" value="' + esc(cfg.startDate) + '" max="' + esc(cfg.endDate) + '" class="w-full rounded-2xl border border-gray-200 bg-[#F8F8FC] px-4 py-3 text-sm font-bold text-[#2D2A4A] outline-none"></label><label><span class="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-gray-400">结束日期</span><input data-report-field="endDate" type="datetime-local" value="' + esc(cfg.endDate) + '" min="' + esc(cfg.startDate) + '" class="w-full rounded-2xl border border-gray-200 bg-[#F8F8FC] px-4 py-3 text-sm font-bold text-[#2D2A4A] outline-none"></label><button data-report-refresh class="mt-2 inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-full bg-[#6B48FF] px-5 text-sm font-black text-white shadow-lg shadow-[#6B48FF]/25 active-scale">' + (cfg.loading ? '<i class="fa-solid fa-spinner fa-spin"></i>刷新中' : '<i class="fa-solid fa-rotate"></i>刷新数据') + '</button>' + (cfg.error ? '<p class="rounded-xl bg-red-50 px-4 py-3 text-sm font-bold text-red-500">' + esc(cfg.error) + '</p>' : '') + '</div>' +
+        oneReportStatCard('提交次数', cfg.loading ? '--' : records.length, 'fa-file-circle-check') +
+        oneReportStatCard('累计用时', reportTimeText(totalSeconds), 'fa-clock') +
+      '</aside>' +
+      '<main class="space-y-4">' +
+        '<section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">' + oneReportStatCard('最近正确率', latest ? latest.scorePercent + '%' : '--', 'fa-bullseye', latest && latest.scorePercent >= 80 ? 'green' : 'amber') + oneReportStatCard('平均正确率', records.length ? avg + '%' : '--', 'fa-chart-line') + oneReportStatCard('最高正确率', records.length ? best + '%' : '--', 'fa-trophy', 'green') + oneReportStatCard('首末变化', records.length > 1 ? (delta >= 0 ? '+' : '') + delta + '%' : '--', 'fa-arrow-trend-up', delta >= 0 ? 'green' : 'red') + '</section>' +
+        '<section class="card-solid overflow-hidden"><div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-5 xl:flex-row xl:items-center xl:justify-between"><div><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Module Overview</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">练习模块概览</h3></div><span class="rounded-full bg-[#F8F8FC] px-3 py-1 text-xs font-black text-gray-500">按最近提交排序</span></div><div class="overflow-x-auto px-5 py-5">' + (moduleRows ? '<table class="w-full min-w-[760px] border-separate border-spacing-y-2"><thead><tr class="text-left text-xs font-black uppercase tracking-[0.16em] text-gray-400"><th class="px-4 py-2">练习</th><th class="px-4 py-2">次数</th><th class="px-4 py-2">均分</th><th class="px-4 py-2">错次</th><th class="px-4 py-2">累计用时</th></tr></thead><tbody>' + moduleRows + '</tbody></table>' : '<div class="rounded-[1.4rem] border border-dashed border-gray-200 bg-[#F8F8FC] px-5 py-8 text-center text-sm font-bold text-gray-400">暂无一对一提交记录。</div>') + '</div></section>' +
+        '<section class="card-solid overflow-hidden"><div class="border-b border-gray-100 px-5 py-5"><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Error Rank</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">一对一错因排行榜</h3></div><div class="space-y-3 px-4 py-4 md:px-6">' + oneReportIssueCards(issues) + '</div></section>' +
+        '<section class="card-solid overflow-hidden"><div class="border-b border-gray-100 px-5 py-5"><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Attempts</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">每次提交明细</h3></div><div class="space-y-3 px-4 py-4 md:px-6">' + oneReportAttemptCards(records) + '</div></section>' +
+      '</main>' +
+    '</section>' +
+    '</div>';
+}
 function reportPieBackground(buckets) { const total = buckets.reduce((s,b) => s + b.count, 0); if (!total) return 'conic-gradient(#e2e8f0 0deg 360deg)'; let cursor = 0; return 'conic-gradient(' + buckets.map(b => { const start = cursor; const end = cursor + b.count / total * 360; cursor = end; return b.color + ' ' + start + 'deg ' + end + 'deg'; }).join(',') + ')'; }
 function reportTrendSvg(data) { if (!data.chart.length) return '<div class="rounded-[1.4rem] border border-dashed border-gray-200 bg-[#F8F8FC] px-5 py-8 text-center text-sm font-bold text-gray-400">暂无趋势数据。</div>'; const w = 720, h = 260, pad = { left:42, right:24, top:26, bottom:38 }; const point = (i, val, count) => { const iw = w - pad.left - pad.right; const ih = h - pad.top - pad.bottom; return { x:pad.left + (iw / ((count - 1) || 1)) * i, y:pad.top + ih - (Math.max(0, Math.min(100, val)) / 100) * ih }; }; const grid = [100,75,50,25,0].map(level => { const p = point(0, level, 2); return '<g><line x1="' + pad.left + '" x2="' + (w-pad.right) + '" y1="' + p.y + '" y2="' + p.y + '" stroke="#e2e8f0" stroke-dasharray="4 6"></line><text x="8" y="' + (p.y+4) + '" fill="#94a3b8" font-size="11" font-weight="900">' + level + '%</text></g>'; }).join(''); const dates = data.keys.map((key,i,arr) => { const p = point(i,0,arr.length); const show = arr.length <= 10 || i === 0 || i === arr.length - 1 || i % Math.ceil(arr.length/6) === 0; return '<g><line x1="' + p.x + '" x2="' + p.x + '" y1="' + pad.top + '" y2="' + (h-pad.bottom) + '" stroke="#f1f5f9"></line>' + (show ? '<text x="' + p.x + '" y="' + (h-12) + '" text-anchor="middle" fill="#94a3b8" font-size="11" font-weight="900">' + reportShortDate(key) + '</text>' : '') + '</g>'; }).join(''); const lines = data.chart.map(series => { const pts = series.values.map((v,i) => v === null ? null : point(i,v,series.values.length)); const path = pts.map((p,i) => p ? (i === 0 || !pts.slice(0,i).some(Boolean) ? 'M ' : 'L ') + p.x + ' ' + p.y : '').filter(Boolean).join(' '); const circles = pts.map((p,i) => p ? '<circle cx="' + p.x + '" cy="' + p.y + '" r="4.5" fill="' + series.color + '" stroke="#fff" stroke-width="2.5"><title>' + esc(series.label + ' ' + reportFullDate(data.keys[i]) + ' ' + series.values[i] + '%') + '</title></circle>' : '').join(''); return '<g><path d="' + path + '" fill="none" stroke="' + series.color + '" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path>' + circles + '</g>'; }).join(''); const legend = data.chart.map(s => '<div class="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-xs font-black text-gray-600 shadow-sm"><span class="h-2.5 w-2.5 rounded-full" style="background:' + s.color + '"></span>' + esc(s.label) + '</div>').join(''); return '<div class="rounded-[1.35rem] border border-gray-200 bg-[#F8F8FC] p-3 md:p-5"><svg viewBox="0 0 720 260" class="h-auto w-full overflow-visible" role="img" aria-label="成绩趋势折线图">' + grid + dates + lines + '</svg><div class="mt-4 flex flex-wrap gap-3">' + legend + '</div></div>'; }
 function reportsPanelV2() {
@@ -1726,7 +1885,7 @@ function initTeacherForm() {
     const cfg = attendanceCfg();
     if (!cfg.loaded && !cfg.loading) loadAttendanceRecords(false);
   }
-  if (state.teacherTab === 'reports') {
+  if (state.teacherTab === 'reports' || state.teacherTab === 'oneReports') {
     const cfg = reportCfg();
     if (!cfg.loaded && !cfg.loading) loadReportData(false);
   }
