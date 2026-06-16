@@ -1422,6 +1422,100 @@ function grammarLeaderboardSection(records) {
   }).join('');
   return '<section class="card-solid overflow-hidden"><div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-5 md:flex-row md:items-center md:justify-between md:px-6"><div><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Grammar Error Rank</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">语法错误排行榜</h3></div><span class="rounded-full bg-red-50 px-3 py-1 text-xs font-black text-red-500">按错次和波动排序</span></div><div class="space-y-3 px-4 py-4 md:px-6">' + (cards || empty) + '</div></section>';
 }
+function reportIssueTypicalProblem(skill) {
+  const sample = (skill.examples || []).find(ex => ex.explanation || ex.zh || ex.cn || ex.question || ex.text);
+  const text = String(skill.label || '').toLowerCase();
+  if (sample?.explanation) return sample.explanation;
+  if (text.includes('passive') || text.includes('被动')) return '没看出主语和动作关系';
+  if (text.includes('clause') || text.includes('从句')) return '不分析句子结构直接填';
+  if (text.includes('tense') || text.includes('时态')) return '时间线和关键词对应不稳';
+  if (text.includes('verb') || text.includes('动词')) return '动词形式判断不稳定';
+  if (text.includes('phrase') || text.includes('词组')) return '词组语义迁移到语境时不够快';
+  return sample?.question || sample?.text || '需要结合错题样本进一步判断';
+}
+function reportIssueType(skill) {
+  const modules = Array.from(new Set((skill.waves || []).map(w => w.moduleTitle).filter(Boolean))).slice(-3).reverse();
+  return modules.length ? modules.join(' / ') : '综合练习';
+}
+function reportIssueTagRows(skills, tag) {
+  if (tag === 'high') return skills.filter(s => s.totalWrong >= 3).slice(0, 10);
+  if (tag === 'new') {
+    const latestWrong = skills.map(s => s.firstWrong ? new Date(s.firstWrong).getTime() : 0).filter(Boolean).sort((a,b) => b - a)[0] || 0;
+    const floor = latestWrong ? latestWrong - 1000 * 60 * 60 * 24 * 7 : 0;
+    return skills.filter(s => s.firstWrong && new Date(s.firstWrong).getTime() >= floor).slice(0, 10);
+  }
+  if (tag === 'repeat') return skills.filter(s => s.repeatedWrong || s.totalWrong >= 2).slice(0, 10);
+  if (tag === 'resolved') return skills.filter(s => s.totalWrong && !s.stillWrong).slice(0, 10);
+  return skills.slice(0, 10);
+}
+function reportIssueTableRows(rows) {
+  return rows.map(skill => {
+    const action = skill.stillWrong ? (skill.repeatedWrong ? '生成补强题' : '加入本周任务') : '查看错题';
+    const actionTone = skill.stillWrong ? 'bg-[#6B48FF] text-white' : 'bg-[#F4F2FF] text-[#6B48FF]';
+    const status = skill.stillWrong ? (skill.repeatedWrong ? '需补强' : '观察中') : '已补强';
+    const statusCls = skill.stillWrong ? 'bg-red-50 text-red-500' : 'bg-emerald-50 text-emerald-600';
+    return '<tr class="bg-[#F8F8FC] align-top text-sm font-semibold text-gray-600 shadow-sm"><td class="rounded-l-[1.1rem] px-4 py-4"><div class="font-black text-[#2D2A4A]">' + esc(skill.label) + '</div><div class="mt-1 text-xs font-bold text-gray-400">' + (skill.repeatedWrong ? '反复错点' : '错点') + '</div></td><td class="px-4 py-4 text-red-500">' + skill.totalWrong + '次</td><td class="px-4 py-4 whitespace-nowrap">' + (skill.lastWrong ? reportDateTime(skill.lastWrong) : '--') + '</td><td class="px-4 py-4"><span class="rounded-full bg-white px-3 py-1.5 font-black text-[#2D2A4A] shadow-sm">' + skill.mastery + '%</span></td><td class="max-w-[19rem] px-4 py-4 leading-6">' + esc(reportIssueTypicalProblem(skill)) + '<div class="mt-1 text-xs font-bold text-gray-400">关联题型：' + esc(reportIssueType(skill)) + '</div><span class="mt-2 inline-flex rounded-full px-2.5 py-1 text-[11px] font-black ' + statusCls + '">' + status + '</span></td><td class="rounded-r-[1.1rem] px-4 py-4"><button data-toast="' + esc(action + '：后续可接入自动出题。') + '" class="rounded-full px-3 py-2 text-xs font-black active-scale ' + actionTone + '">' + action + '</button></td></tr>';
+  }).join('');
+}
+function reportIssueDiagnosisSection(records) {
+  const insights = grammarInsights(records);
+  const skills = insights.skills.filter(s => s.totalWrong || s.attempts);
+  const empty = '<div class="rounded-[1.4rem] border border-dashed border-gray-200 bg-[#F8F8FC] px-5 py-8 text-center text-sm font-bold text-gray-400">暂无错点诊断数据。学生完成支持全景 metadata 的作业后，这里会自动生成错点、错因和补强状态。</div>';
+  if (!skills.length) return '<section class="card-solid overflow-hidden"><div class="border-b border-gray-100 px-5 py-5 md:px-6"><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Diagnosis</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">错点诊断</h3></div><div class="px-5 py-5 md:px-6">' + empty + '</div></section>';
+  const tags = [
+    ['高频错点','high','bg-red-50 text-red-500'],
+    ['新出现错点','new','bg-amber-50 text-amber-600'],
+    ['反复错点','repeat','bg-[#F4F2FF] text-[#6B48FF]'],
+    ['已解决错点','resolved','bg-emerald-50 text-emerald-600']
+  ].map(tag => {
+    const count = reportIssueTagRows(skills, tag[1]).length;
+    return '<span class="rounded-full px-3 py-1.5 text-xs font-black ' + tag[2] + '">' + tag[0] + ' ' + count + '</span>';
+  }).join('');
+  const rows = reportIssueTableRows(skills.slice(0, 16));
+  const mobileCards = skills.slice(0, 10).map(skill => '<details class="rounded-[1.15rem] border border-gray-100 bg-[#F8F8FC] p-4 shadow-sm"><summary class="cursor-pointer list-none"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><p class="truncate text-base font-black text-[#2D2A4A]">' + esc(skill.label) + '</p><p class="mt-1 text-xs font-bold text-gray-400">错 ' + skill.totalWrong + ' 次 · 最近 ' + (skill.lastWrong ? reportDateTime(skill.lastWrong) : '--') + '</p></div><span class="rounded-full bg-white px-3 py-1.5 text-xs font-black text-[#6B48FF]">' + skill.mastery + '%</span></div></summary><div class="mt-3 border-t border-gray-100 pt-3 text-xs font-bold leading-6 text-gray-500"><p>典型问题：' + esc(reportIssueTypicalProblem(skill)) + '</p><p>关联题型：' + esc(reportIssueType(skill)) + '</p><p>状态：' + (skill.stillWrong ? '需补强' : '已补强') + '</p></div></details>').join('');
+  return '<section class="card-solid overflow-hidden"><div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-5 md:flex-row md:items-center md:justify-between md:px-6"><div><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Diagnosis</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">错点诊断</h3></div><div class="flex flex-wrap gap-2">' + tags + '</div></div><div class="space-y-3 px-4 py-4 md:hidden">' + mobileCards + '</div><div class="hidden overflow-x-auto px-5 py-5 md:block md:px-6"><table class="w-full min-w-[980px] border-separate border-spacing-y-2"><thead><tr class="text-left text-xs font-black uppercase tracking-[0.16em] text-gray-400"><th class="px-4 py-2">错点</th><th class="px-4 py-2">错误次数</th><th class="px-4 py-2">最近错误</th><th class="px-4 py-2">掌握度</th><th class="px-4 py-2">典型问题</th><th class="px-4 py-2">操作</th></tr></thead><tbody>' + rows + '</tbody></table></div></section>';
+}
+function reportLearningTrajectorySection(data) {
+  const records = (data.latestRows || []).slice().sort((a,b) => new Date(a.submittedAt) - new Date(b.submittedAt));
+  const last = records.slice(-10);
+  const scoreLine = last.map(r => r.scorePercent + '%').join(' → ') || '--';
+  const completionLine = last.map((r,i) => String(i + 1)).join(' → ') || '--';
+  const processByTime = (data.processReports || []).slice().sort((a,b) => new Date(a.submittedAt) - new Date(b.submittedAt)).slice(-10);
+  const wrongCounts = processByTime.map(r => {
+    const p = r.processReport || {};
+    const phraseWrong = (p.phraseDetails || []).reduce((sum,item) => sum + reportItemWrongCount(item), 0);
+    const attemptWrong = (p.attempts || []).filter(a => !(a.correct === true || a.isCorrect === true)).length;
+    return phraseWrong || attemptWrong || Math.max(0, Number(r.totalCount || 0) - Number(r.correctCount || 0));
+  });
+  const wrongLine = wrongCounts.length ? wrongCounts.join(' → ') : '--';
+  const recent = last.slice(-5);
+  const previous = records.slice(Math.max(0, records.length - 10), Math.max(0, records.length - 5));
+  const recentAvg = reportAverage(recent.map(r => r.scorePercent));
+  const previousAvg = reportAverage(previous.map(r => r.scorePercent));
+  const delta = recent.length && previous.length ? recentAvg - previousAvg : 0;
+  const insights = grammarInsights(data.processReports || []);
+  const repeat = insights.skills.filter(s => s.repeatedWrong || s.totalWrong >= 3).slice(0, 3);
+  const below = recentAvg && recentAvg < 80 ? '语法或专项正确率仍低于 80%，建议保留错点复测。' : '近期正确率整体达到较稳水平，可以增加综合语境。';
+  const summary = [
+    '最近 ' + recent.length + ' 次平均正确率 ' + (recent.length ? recentAvg + '%' : '--') + (previous.length ? '，较上一段' + (delta >= 0 ? '提升 ' + delta + '%' : '下降 ' + Math.abs(delta) + '%') : '。'),
+    below,
+    repeat.length ? repeat.map(s => s.label).join('、') + ' 属于反复错点，建议优先补强。' : '暂未发现明显反复错点。'
+  ].map(text => '<li>' + esc(text) + '</li>').join('');
+  const trendBox = (title, value, icon, tone) => '<div class="rounded-[1.25rem] bg-[#F8F8FC] p-4"><div class="mb-3 flex items-center gap-2"><span class="flex h-8 w-8 items-center justify-center rounded-full ' + tone + '"><i class="fa-solid ' + icon + ' text-xs"></i></span><p class="text-sm font-black text-[#2D2A4A]">' + title + '</p></div><p class="break-words text-sm font-black leading-7 text-gray-600">' + esc(value) + '</p></div>';
+  return '<section class="card-solid overflow-hidden"><div class="border-b border-gray-100 px-5 py-5 md:px-6"><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Learning Trajectory</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">学习轨迹</h3></div><div class="grid gap-4 px-5 py-5 md:px-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(300px,0.85fr)]"><div class="grid gap-3">' + trendBox('正确率趋势', scoreLine, 'fa-chart-line', 'bg-emerald-50 text-emerald-600') + trendBox('完成率趋势', completionLine, 'fa-list-check', 'bg-[#F4F2FF] text-[#6B48FF]') + trendBox('错点数量趋势', wrongLine, 'fa-triangle-exclamation', 'bg-red-50 text-red-500') + '</div><div class="rounded-[1.25rem] bg-gradient-to-br from-[#F8F8FC] to-[#F4F2FF] p-5"><p class="text-xs font-black uppercase tracking-[0.2em] text-gray-400">最近变化总结</p><ul class="mt-4 list-disc space-y-2 pl-5 text-sm font-bold leading-7 text-gray-600">' + summary + '</ul></div></div></section>';
+}
+function reportCompactHomeworkSection(records) {
+  const sorted = (records || []).slice().sort((a,b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+  const rows = sorted.slice(0, 5).map(record => {
+    const p = record.processReport || {};
+    const skills = grammarInsights([record]).skills.filter(s => s.totalWrong).slice(0, 3).map(s => s.label).join('、');
+    const wrongText = skills || (p.weakPhrases || []).slice(0, 3).map(i => i.phrase || i.id).filter(Boolean).join('、') || '--';
+    return '<tr class="bg-[#F8F8FC] text-sm font-semibold text-gray-600 shadow-sm"><td class="rounded-l-[1.1rem] px-4 py-4 whitespace-nowrap">' + reportDateTime(record.submittedAt) + '</td><td class="px-4 py-4"><div class="font-black text-[#2D2A4A]">' + esc(record.moduleTitle || record.lessonId) + '</div><div class="mt-1 text-xs font-bold text-gray-400">' + esc(record.studentName || '') + '</div></td><td class="px-4 py-4"><span class="rounded-full bg-white px-3 py-1.5 font-black text-[#6B48FF] shadow-sm">' + record.scorePercent + '%</span></td><td class="px-4 py-4 whitespace-nowrap">' + reportTimeText(p.durationSeconds) + '</td><td class="rounded-r-[1.1rem] px-4 py-4 max-w-[18rem] truncate">' + esc(wrongText) + '</td></tr>';
+  }).join('');
+  const moreCards = sorted.slice(5, 30).map(record => '<div class="rounded-xl bg-[#F8F8FC] px-4 py-3"><div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"><div class="min-w-0"><p class="truncate text-sm font-black text-[#2D2A4A]">' + esc(record.moduleTitle || record.lessonId) + '</p><p class="mt-1 text-xs font-bold text-gray-400">' + reportDateTime(record.submittedAt) + ' · ' + esc(record.studentName || '') + '</p></div><span class="shrink-0 rounded-full bg-white px-3 py-1.5 text-xs font-black text-[#6B48FF]">' + record.scorePercent + '%</span></div></div>').join('');
+  const empty = '<div class="rounded-[1.4rem] border border-dashed border-gray-200 bg-[#F8F8FC] px-5 py-8 text-center text-sm font-bold text-gray-400">暂无作业记录。</div>';
+  return '<section class="card-solid overflow-hidden"><div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-5 md:flex-row md:items-center md:justify-between md:px-6"><div><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Homework Records</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">作业记录</h3></div><span class="rounded-full bg-[#F8F8FC] px-3 py-1 text-xs font-black text-gray-500">默认最近 5 次</span></div><div class="overflow-x-auto px-5 py-5 md:px-6">' + (rows ? '<table class="w-full min-w-[760px] border-separate border-spacing-y-2"><thead><tr class="text-left text-xs font-black uppercase tracking-[0.16em] text-gray-400"><th class="px-4 py-2">日期</th><th class="px-4 py-2">作业名称</th><th class="px-4 py-2">正确率</th><th class="px-4 py-2">用时</th><th class="px-4 py-2">错点</th></tr></thead><tbody>' + rows + '</tbody></table>' : empty) + (moreCards ? '<details class="mt-4 rounded-[1.25rem] bg-white"><summary class="cursor-pointer list-none rounded-full bg-[#F4F2FF] px-4 py-3 text-center text-sm font-black text-[#6B48FF] active-scale">展开更多作业记录</summary><div class="mt-3 grid gap-2">' + moreCards + '</div></details>' : '') + '</div></section>';
+}
 function oneReportStudents() {
   return (state.students || []).filter(s => studentTypeOf(s) === 'one_to_one').sort((a,b) => String(a.name || a.id).localeCompare(String(b.name || b.id)));
 }
@@ -1636,6 +1730,9 @@ function reportsPanelV2() {
       '<div class="card-solid overflow-hidden"><div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-5 md:flex-row md:items-center md:justify-between md:px-6"><div><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Trend</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">成绩趋势对比</h3></div><span class="rounded-full bg-[#F8F8FC] px-3 py-1 text-xs font-black text-gray-500">最多 5 条线</span></div><div class="space-y-4 px-5 py-5 md:px-6"><div data-report-compare-list class="flex flex-wrap gap-2">' + (chips || '<span class="text-sm font-bold text-gray-400">暂无可对比对象</span>') + '</div><div data-report-trend-chart>' + reportTrendSvg(data) + '</div></div></div>' +
       '<div class="card-solid overflow-hidden"><div class="border-b border-gray-100 px-5 py-5 md:px-6"><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Distribution</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">分数段分布</h3></div><div class="space-y-5 px-5 py-5 md:px-6"><div class="mx-auto flex h-44 w-44 items-center justify-center rounded-full bg-[#F8F8FC] shadow-inner"><div class="relative flex h-40 w-40 items-center justify-center rounded-full" style="background-image:' + reportPieBackground(data.buckets) + '"><div class="absolute inset-[28px] rounded-full bg-white shadow-inner"></div><div class="relative text-center"><p class="text-xs font-black text-gray-400">单元成绩</p><p class="mt-1 text-3xl font-black text-[#2D2A4A]">' + data.latestRows.length + '</p></div></div></div><div class="space-y-3">' + bucketRows + '</div></div></div>' +
     '</section>' +
+    reportIssueDiagnosisSection(data.processReports) +
+    reportLearningTrajectorySection(data) +
+    reportCompactHomeworkSection(data.processReports.length ? data.processReports : data.latestRows) +
     reportTableSection(cfg.viewMode === 'class' ? '班级成绩查看' : '学生成绩查看', cfg.viewMode === 'class' ? '班级' : '学生', summaryRows, cfg.viewMode === 'class', summaryCards) +
     grammarLeaderboardSection(data.processReports) +
     reportProcessSection(data.processReports) +
