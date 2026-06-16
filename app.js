@@ -1302,7 +1302,7 @@ function computeReports() {
   });
   const summaryRows = Array.from(summary.values()).map(row => ({ ...row, averageScore:reportAverage(row.scores), studentCount:row.studentIds.size, unitCount:row.lessonIds.size, submitCount:row.scores.length })).sort((a,b) => b.averageScore - a.averageScore || new Date(b.latestSubmittedAt || 0) - new Date(a.latestSubmittedAt || 0));
   const comparisonOptions = Array.from(new Map(latestRows.map(r => [reportEntityId(r, cfg.viewMode), { id:reportEntityId(r, cfg.viewMode), label:reportEntityLabel(r, cfg.viewMode) }])).values()).sort((a,b) => a.label.localeCompare(b.label));
-  const selected = cfg.selectedComparisonIds.length ? cfg.selectedComparisonIds.filter(id => comparisonOptions.some(o => o.id === id)) : comparisonOptions.slice(0,3).map(o => o.id);
+  const selected = cfg.selectedComparisonIds.length ? cfg.selectedComparisonIds.filter(id => comparisonOptions.some(o => o.id === id)) : comparisonOptions.map(o => o.id);
   const keys = reportDateKeys(cfg.startDate, cfg.endDate);
   const chart = selected.map((id, idx) => {
     const daily = new Map(keys.map(k => [k, []]));
@@ -1727,7 +1727,7 @@ function reportsPanelV2() {
       stat('平均正确率', cfg.loading ? '--' : data.stats.averageScore + '%', 'fa-chart-simple') +
     '</section>' +
     '<section class="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.55fr)]">' +
-      '<div class="card-solid overflow-hidden"><div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-5 md:flex-row md:items-center md:justify-between md:px-6"><div><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Trend</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">成绩趋势对比</h3></div><span class="rounded-full bg-[#F8F8FC] px-3 py-1 text-xs font-black text-gray-500">最多 5 条线</span></div><div class="space-y-4 px-5 py-5 md:px-6"><div data-report-compare-list class="flex flex-wrap gap-2">' + (chips || '<span class="text-sm font-bold text-gray-400">暂无可对比对象</span>') + '</div><div data-report-trend-chart>' + reportTrendSvg(data) + '</div></div></div>' +
+      '<div class="card-solid overflow-hidden"><div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-5 md:flex-row md:items-center md:justify-between md:px-6"><div><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Trend</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">成绩趋势对比</h3></div><span class="rounded-full bg-[#F8F8FC] px-3 py-1 text-xs font-black text-gray-500">可对比全部对象</span></div><div class="space-y-4 px-5 py-5 md:px-6"><div data-report-compare-list class="flex flex-wrap gap-2">' + (chips || '<span class="text-sm font-bold text-gray-400">暂无可对比对象</span>') + '</div><div data-report-trend-chart>' + reportTrendSvg(data) + '</div></div></div>' +
       '<div class="card-solid overflow-hidden"><div class="border-b border-gray-100 px-5 py-5 md:px-6"><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Distribution</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">分数段分布</h3></div><div class="space-y-5 px-5 py-5 md:px-6"><div class="mx-auto flex h-44 w-44 items-center justify-center rounded-full bg-[#F8F8FC] shadow-inner"><div class="relative flex h-40 w-40 items-center justify-center rounded-full" style="background-image:' + reportPieBackground(data.buckets) + '"><div class="absolute inset-[28px] rounded-full bg-white shadow-inner"></div><div class="relative text-center"><p class="text-xs font-black text-gray-400">单元成绩</p><p class="mt-1 text-3xl font-black text-[#2D2A4A]">' + data.latestRows.length + '</p></div></div></div><div class="space-y-3">' + bucketRows + '</div></div></div>' +
     '</section>' +
     reportIssueDiagnosisSection(data.processReports) +
@@ -2619,7 +2619,6 @@ function toggleReportCompare(entityId) {
   const data = computeReports();
   const current = cfg.selectedComparisonIds.length ? cfg.selectedComparisonIds.slice() : data.selected.slice();
   if (current.includes(entityId)) cfg.selectedComparisonIds = current.filter(id => id !== entityId);
-  else if (current.length >= 5) return showAlert('为了图表清晰，最多支持同时对比 5 个对象。', '提示');
   else cfg.selectedComparisonIds = current.concat(entityId);
   refreshReportTrendDom();
 }
