@@ -1091,7 +1091,7 @@ const REPORT_BUCKETS = [{ label:'90-100', min:90, max:100, color:'#059669' },{ l
 function dateInputValue(date) { const d = new Date(date); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
 function datetimeInputValue(date) { const d = new Date(date); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') + 'T' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); }
 function reportBoundary(value, isEnd) { if (!value) return null; const text = String(value); const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(text) ? text + (isEnd ? 'T23:59:59' : 'T00:00:00') : text); return Number.isNaN(d.getTime()) ? null : d; }
-function reportDefaults() { const end = new Date(); const start = new Date(); start.setDate(start.getDate() - 29); return { startDate:datetimeInputValue(start), endDate:datetimeInputValue(end), selectedLevelId:'all', selectedLessonId:'all', sourceFilter:'all', viewMode:'student', selectedOneStudentId:'', selectedComparisonIds:[], quizAttempts:[], diagnosticAttempts:[], loading:false, loaded:false, error:'' }; }
+function reportDefaults() { const end = new Date(); const start = new Date(); start.setDate(start.getDate() - 29); return { startDate:datetimeInputValue(start), endDate:datetimeInputValue(end), selectedLevelId:'all', selectedLessonId:'all', sourceFilter:'all', viewMode:'student', selectedOneStudentId:'', selectedWritingStudentId:'', selectedComparisonIds:[], quizAttempts:[], diagnosticAttempts:[], loading:false, loaded:false, error:'' }; }
 function reportCfg() { if (!state.report) state.report = reportDefaults(); if (/^\d{4}-\d{2}-\d{2}$/.test(state.report.startDate || '')) state.report.startDate += 'T00:00'; if (/^\d{4}-\d{2}-\d{2}$/.test(state.report.endDate || '')) state.report.endDate += 'T23:59'; state.report.sourceFilter = 'all'; return state.report; }
 function reportDateKeys(startValue, endValue) { const start = reportBoundary(startValue, false); const end = reportBoundary(endValue, true); if (!start || !end || start > end) return []; const keys = []; const cursor = new Date(start); cursor.setHours(0,0,0,0); while (cursor <= end) { keys.push(dateInputValue(cursor)); cursor.setDate(cursor.getDate()+1); } return keys; }
 function reportAverage(values) { const valid = values.filter(v => Number.isFinite(v)); return valid.length ? Math.round(valid.reduce((a,b) => a + b, 0) / valid.length) : 0; }
@@ -1699,7 +1699,7 @@ function reportsPanelV2() {
   const analysisCapsules = [
     ['fa-file-contract','text-blue-400','全景做题报告'],
     ['fa-chart-line','text-purple-400','纵向成长曲线'],
-    ['fa-chart-pie','text-emerald-400','横向雷达图'],
+    ['fa-pen-nib','text-emerald-400','写作跟踪'],
     ['fa-users-rays','text-orange-400','同伴分布对比']
   ].map(item => '<div class="card-solid p-5 text-center transition-transform hover:-translate-y-1"><i class="fa-solid ' + item[0] + ' mb-3 block text-3xl ' + item[1] + ' md:mb-4 md:text-4xl"></i><h3 class="mt-1 text-sm font-extrabold text-[#2D2A4A] md:text-base">' + item[2] + '</h3></div>').join('');
   return '<div class="tab-content active space-y-5 md:space-y-6">' +
@@ -1732,6 +1732,7 @@ function reportsPanelV2() {
     '</section>' +
     reportIssueDiagnosisSection(data.processReports) +
     reportLearningTrajectorySection(data) +
+    writingTrackingSection(data.processReports) +
     reportCompactHomeworkSection(data.processReports.length ? data.processReports : data.latestRows) +
     reportTableSection(cfg.viewMode === 'class' ? '班级成绩查看' : '学生成绩查看', cfg.viewMode === 'class' ? '班级' : '学生', summaryRows, cfg.viewMode === 'class', summaryCards) +
     grammarLeaderboardSection(data.processReports) +
@@ -1772,6 +1773,57 @@ function reportProcessSection(records) {
     return '<details class="rounded-[1.25rem] border border-gray-100 bg-[#F8F8FC] p-4 shadow-sm" open><summary class="cursor-pointer list-none"><div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between"><div class="min-w-0"><p class="text-base font-black text-[#2D2A4A]">' + esc(record.studentName) + ' · ' + esc(record.moduleTitle) + '</p><p class="mt-1 text-xs font-bold text-gray-400">' + esc(record.className) + ' · ' + reportDateTime(record.submittedAt) + '</p></div><div class="flex shrink-0 flex-wrap gap-2"><span class="rounded-full bg-white px-3 py-1.5 text-xs font-black text-[#6B48FF] shadow-sm">' + record.scorePercent + '%</span><span class="rounded-full bg-white px-3 py-1.5 text-xs font-black text-gray-500 shadow-sm">' + reportTimeText(p.durationSeconds) + '</span><button data-export-practice-report="' + esc(record.id) + '" class="inline-flex min-h-[28px] items-center gap-1 rounded-full bg-[#F4F2FF] px-3 py-1 text-xs font-black text-[#6B48FF] active-scale"><i class="fa-solid fa-file-pdf text-[10px]"></i>导出PDF</button>' + (record.logId ? '<button data-delete-report-record="' + esc(record.logId) + '" data-report-record-table="' + esc(record.reportTable || 'growth_logs') + '" data-report-record-title="' + esc(record.studentName + ' · ' + reportDateTime(record.submittedAt)) + '" class="inline-flex min-h-[28px] items-center gap-1 rounded-full bg-red-50 px-3 py-1 text-xs font-black text-red-500 active-scale"><i class="fa-solid fa-trash-can text-[10px]"></i>删除</button>' : '') + '</div></div></summary>' + (p.basicOnly ? '<div class="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-700">这条是旧提交记录，只保存了分数和正确题数；当时没有写入词组过程数据，所以无法还原每个词组的用时和错因。之后的新提交会显示完整明细。</div>' : '') + '<div class="mt-4 grid gap-3 md:grid-cols-4"><div class="rounded-xl bg-white px-3 py-3 text-center shadow-sm"><p class="text-[10px] font-black text-gray-400">词组总数</p><p class="mt-1 text-lg font-black text-[#2D2A4A]">' + p.totalPhrases + '</p></div><div class="rounded-xl bg-white px-3 py-3 text-center shadow-sm"><p class="text-[10px] font-black text-gray-400">首轮过关</p><p class="mt-1 text-lg font-black text-[#2D2A4A]">' + p.firstPass + '</p></div><div class="rounded-xl bg-white px-3 py-3 text-center shadow-sm"><p class="text-[10px] font-black text-gray-400">完形错次</p><p class="mt-1 text-lg font-black text-[#2D2A4A]">' + p.clozeWrongCount + '</p></div><div class="rounded-xl bg-white px-3 py-3 text-center shadow-sm"><p class="text-[10px] font-black text-gray-400">中文错次</p><p class="mt-1 text-lg font-black text-[#2D2A4A]">' + p.meaningWrongCount + '</p></div></div><div class="mt-4 space-y-3">' + weakRows + '</div>' + (attemptRows ? '<div class="mt-4 rounded-xl bg-white px-4 py-3 shadow-sm"><p class="mb-2 text-xs font-black uppercase tracking-[0.16em] text-gray-400">Recent Steps</p><div class="flex flex-wrap gap-2">' + attemptRows + '</div></div>' : '') + '</details>';
   }).join('');
   return '<section class="card-solid overflow-hidden"><div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-5 md:flex-row md:items-center md:justify-between md:px-6"><div><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Process Report</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">全景做题报告</h3></div><span class="rounded-full bg-[#F4F2FF] px-3 py-1 text-xs font-black text-[#6B48FF]">专项练习元数据</span></div><div class="space-y-3 px-4 py-4 md:px-6">' + (cards || empty) + '</div></section>';
+}
+function isWritingPracticeRecord(record) {
+  const meta = record?.metadata || {};
+  const metrics = meta.metrics && typeof meta.metrics === 'object' ? meta.metrics : {};
+  return meta.report_type === 'writing_feedback' || metrics.report_type === 'writing_feedback' || Boolean(meta.writing);
+}
+function writingPracticeInfo(record) {
+  const meta = record?.metadata || {};
+  const metrics = meta.metrics && typeof meta.metrics === 'object' ? meta.metrics : {};
+  const writing = meta.writing && typeof meta.writing === 'object' ? meta.writing : {};
+  const feedback = writing.feedback && typeof writing.feedback === 'object' ? writing.feedback : {};
+  const details = Array.isArray(feedback.details) ? feedback.details : [];
+  const attempts = Array.isArray(record?.processReport?.attempts) ? record.processReport.attempts : [];
+  const score15 = Number(metrics.score_15 ?? feedback.score ?? Math.round(Number(record?.scorePercent || 0) * 15 / 100));
+  return {
+    essayTitle:writing.essayTitle || metrics.essay_title || record?.moduleTitle || '写作默写',
+    prompt:writing.prompt || '',
+    model:writing.model || '',
+    userInput:writing.userInput || '',
+    overall:feedback.overall_comment || '',
+    details,
+    attempts,
+    wordCount:Number(metrics.word_count || 0),
+    errorCount:Number(metrics.error_count || details.filter(item => item.type === 'error').length || attempts.filter(item => !(item.correct === true || item.isCorrect === true)).length),
+    differenceCount:Number(metrics.difference_count || details.filter(item => item.type === 'difference').length || 0),
+    score15:Number.isFinite(score15) ? score15 : 0
+  };
+}
+function writingTrackingSection(records) {
+  const cfg = reportCfg();
+  const writingRecords = (records || []).filter(isWritingPracticeRecord).slice().sort((a,b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+  const empty = '<div class="rounded-[1.4rem] border border-dashed border-gray-200 bg-[#F8F8FC] px-5 py-8 text-center text-sm font-bold text-gray-400">暂无写作批改记录。Amy 或其他一对一学生完成新版写作默写后，这里会自动同步。</div>';
+  if (!writingRecords.length) return '<section class="card-solid overflow-hidden"><div class="border-b border-gray-100 px-5 py-5 md:px-6"><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Writing Tracking</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">写作跟踪</h3></div><div class="px-5 py-5 md:px-6">' + empty + '</div></section>';
+  const students = Array.from(new Map(writingRecords.map(r => [String(r.studentId), { id:String(r.studentId), name:r.studentName || String(r.studentId) }])).values()).sort((a,b) => a.name.localeCompare(b.name, 'zh-CN'));
+  if (!students.some(s => s.id === cfg.selectedWritingStudentId)) cfg.selectedWritingStudentId = students[0]?.id || '';
+  const selectedId = cfg.selectedWritingStudentId || students[0]?.id || '';
+  const selectedRecords = writingRecords.filter(r => String(r.studentId) === String(selectedId));
+  const studentOptions = students.map(s => '<option value="' + esc(s.id) + '" ' + (String(selectedId) === String(s.id) ? 'selected' : '') + '>' + esc(s.name) + '</option>').join('');
+  const latest = selectedRecords[0] || null;
+  const avgScore = reportAverage(selectedRecords.map(r => r.scorePercent));
+  const totalErrors = selectedRecords.reduce((sum, record) => sum + writingPracticeInfo(record).errorCount, 0);
+  const stat = (label, value, icon, tone) => '<div class="rounded-[1.2rem] bg-[#F8F8FC] px-4 py-4"><div class="flex items-center gap-3"><span class="flex h-9 w-9 items-center justify-center rounded-full ' + tone + '"><i class="fa-solid ' + icon + ' text-xs"></i></span><div><p class="text-[10px] font-black uppercase tracking-[0.16em] text-gray-400">' + label + '</p><p class="mt-1 text-lg font-black text-[#2D2A4A]">' + esc(value) + '</p></div></div></div>';
+  const cards = selectedRecords.map((record, index) => {
+    const info = writingPracticeInfo(record);
+    const detailRows = info.details.length ? info.details.map((detail, i) => {
+      const isError = detail.type === 'error';
+      return '<details class="rounded-xl bg-white px-4 py-3 shadow-sm" ' + (i < 2 ? 'open' : '') + '><summary class="cursor-pointer list-none"><div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between"><div class="min-w-0"><p class="text-sm font-black text-[#2D2A4A]">' + (i + 1) + '. ' + esc(isError ? '错误' : '表达差异') + '</p><p class="mt-1 line-clamp-2 text-xs font-bold leading-5 text-gray-500">' + esc(detail.student_sentence || '') + '</p></div><span class="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-black ' + (isError ? 'bg-red-50 text-red-500' : 'bg-blue-50 text-blue-600') + '">' + (isError ? 'Error' : 'Different') + '</span></div></summary><div class="mt-3 grid gap-3 border-t border-gray-100 pt-3 md:grid-cols-2"><div class="rounded-xl bg-red-50/70 px-3 py-3"><p class="text-[10px] font-black uppercase tracking-[0.14em] text-red-500">学生原句</p><p class="mt-2 text-sm font-bold leading-6 text-red-900">' + esc(detail.student_sentence || '') + '</p></div><div class="rounded-xl bg-emerald-50 px-3 py-3"><p class="text-[10px] font-black uppercase tracking-[0.14em] text-emerald-600">范文表达</p><p class="mt-2 text-sm font-bold leading-6 text-emerald-900">' + esc(detail.model_sentence || '') + '</p></div><div class="md:col-span-2 rounded-xl bg-[#F8F8FC] px-3 py-3 text-xs font-bold leading-6 text-gray-600"><p><span class="font-black text-[#2D2A4A]">错因/差异：</span>' + esc(detail.analysis || '') + '</p><p class="mt-1"><span class="font-black text-[#2D2A4A]">范文优势：</span>' + esc(detail.why_model_better || '') + '</p></div></div></details>';
+    }).join('') : '<div class="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-600">这次默写没有记录到错误或表达差异。</div>';
+    return '<details class="rounded-[1.35rem] border border-gray-100 bg-[#F8F8FC] p-4 shadow-sm" ' + (index < 2 ? 'open' : '') + '><summary class="cursor-pointer list-none"><div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"><div class="min-w-0"><p class="truncate text-base font-black text-[#2D2A4A]">' + esc(info.essayTitle) + '</p><p class="mt-1 text-xs font-bold text-gray-400">' + reportDateTime(record.submittedAt) + ' · 用时 ' + reportTimeText(record.processReport?.durationSeconds) + ' · ' + info.wordCount + ' 词</p></div><div class="flex flex-wrap gap-2 md:justify-end"><span class="rounded-full bg-white px-3 py-1.5 text-xs font-black text-[#6B48FF] shadow-sm">' + record.scorePercent + '%</span><span class="rounded-full bg-white px-3 py-1.5 text-xs font-black text-[#2D2A4A] shadow-sm">' + info.score15 + '/15</span><span class="rounded-full bg-red-50 px-3 py-1.5 text-xs font-black text-red-500">错误 ' + info.errorCount + '</span><span class="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-black text-blue-600">差异 ' + info.differenceCount + '</span><button data-export-practice-report="' + esc(record.id) + '" class="inline-flex min-h-[28px] items-center gap-1 rounded-full bg-[#F4F2FF] px-3 py-1 text-xs font-black text-[#6B48FF] active-scale"><i class="fa-solid fa-file-pdf text-[10px]"></i>PDF</button></div></div></summary><div class="mt-4 grid gap-4 border-t border-gray-100 pt-4 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]"><div class="space-y-3"><div class="rounded-xl bg-white px-4 py-3 shadow-sm"><p class="text-xs font-black uppercase tracking-[0.16em] text-gray-400">学生默写</p><p class="mt-2 whitespace-pre-wrap text-sm font-bold leading-7 text-[#2D2A4A]">' + esc(info.userInput || '未记录原文') + '</p></div><div class="rounded-xl bg-white px-4 py-3 shadow-sm"><p class="text-xs font-black uppercase tracking-[0.16em] text-gray-400">总评</p><p class="mt-2 text-sm font-bold leading-7 text-gray-600">' + esc(info.overall || '暂无总评') + '</p></div></div><div class="space-y-3">' + detailRows + '</div></div></details>';
+  }).join('');
+  return '<section class="card-solid overflow-hidden"><div class="flex flex-col gap-4 border-b border-gray-100 bg-gradient-to-r from-[#F8F8FC] via-white to-red-50 px-5 py-5 md:flex-row md:items-end md:justify-between md:px-6"><div><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Writing Tracking</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">写作跟踪</h3><p class="mt-2 text-sm font-bold text-gray-400">按学生查看每一次默写批改、错句、范文句和错因。</p></div><label class="min-w-[220px]"><span class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-gray-400">选择学生</span><select data-report-field="selectedWritingStudentId" class="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-black text-[#6B48FF] outline-none focus:border-[#6B48FF]">' + studentOptions + '</select></label></div><div class="grid gap-3 px-5 py-5 md:grid-cols-4 md:px-6">' + stat('提交次数', selectedRecords.length, 'fa-file-pen', 'bg-red-50 text-red-500') + stat('平均正确率', avgScore + '%', 'fa-chart-simple', 'bg-[#F4F2FF] text-[#6B48FF]') + stat('累计错误', totalErrors, 'fa-triangle-exclamation', 'bg-amber-50 text-amber-600') + stat('最近提交', latest ? reportDateTime(latest.submittedAt) : '--', 'fa-clock', 'bg-emerald-50 text-emerald-600') + '</div><div class="space-y-3 px-4 pb-5 md:px-6">' + (cards || empty) + '</div></section>';
 }
 function printableReportHtml(record, allRecords) {
   const p = record.processReport || {};
