@@ -1779,27 +1779,47 @@ function reportProcessSection(records) {
 function isWritingPracticeRecord(record) {
   const meta = record?.metadata || {};
   const metrics = meta.metrics && typeof meta.metrics === 'object' ? meta.metrics : {};
-  return meta.report_type === 'writing_feedback' || metrics.report_type === 'writing_feedback' || Boolean(meta.writing);
+  const nested = meta.raw_report && typeof meta.raw_report === 'object' ? meta.raw_report : {};
+  const nestedMetrics = nested.metrics && typeof nested.metrics === 'object' ? nested.metrics : {};
+  return meta.report_type === 'writing_feedback' || metrics.report_type === 'writing_feedback' || nested.report_type === 'writing_feedback' || nestedMetrics.report_type === 'writing_feedback' || Boolean(meta.writing) || Boolean(nested.writing);
+}
+function writingDetailFromAttempt(attempt) {
+  const ok = attempt && (attempt.correct === true || attempt.isCorrect === true);
+  return {
+    type:ok ? 'difference' : 'error',
+    student_sentence:attempt?.selected || attempt?.question || '',
+    model_sentence:attempt?.answer || '',
+    analysis:attempt?.explanation || '',
+    why_model_better:attempt?.why_model_better || attempt?.whyBetter || ''
+  };
 }
 function writingPracticeInfo(record) {
   const meta = record?.metadata || {};
+  const nested = meta.raw_report && typeof meta.raw_report === 'object' ? meta.raw_report : {};
   const metrics = meta.metrics && typeof meta.metrics === 'object' ? meta.metrics : {};
-  const writing = meta.writing && typeof meta.writing === 'object' ? meta.writing : {};
+  const nestedMetrics = nested.metrics && typeof nested.metrics === 'object' ? nested.metrics : {};
+  const mergedMetrics = { ...nestedMetrics, ...metrics };
+  const writing = meta.writing && typeof meta.writing === 'object' ? meta.writing : (nested.writing && typeof nested.writing === 'object' ? nested.writing : {});
   const feedback = writing.feedback && typeof writing.feedback === 'object' ? writing.feedback : {};
-  const details = Array.isArray(feedback.details) ? feedback.details : [];
-  const attempts = Array.isArray(record?.processReport?.attempts) ? record.processReport.attempts : [];
-  const score15 = Number(metrics.score_15 ?? feedback.score ?? Math.round(Number(record?.scorePercent || 0) * 15 / 100));
+  const attempts = Array.isArray(record?.processReport?.attempts) ? record.processReport.attempts : (Array.isArray(meta.attempts) ? meta.attempts : []);
+  const details = Array.isArray(feedback.details) && feedback.details.length ? feedback.details.map(item => ({
+    ...item,
+    student_sentence:item.student_sentence || item.student_text || item.question || item.selected || '',
+    model_sentence:item.model_sentence || item.suggested_text || item.answer || item.reference_model_text || '',
+    why_model_better:item.why_model_better || item.why_better || ''
+  })) : attempts.map(writingDetailFromAttempt);
+  const score15 = Number(mergedMetrics.score_15 ?? feedback.score ?? Math.round(Number(record?.scorePercent || 0) * 15 / 100));
   return {
-    essayTitle:writing.essayTitle || metrics.essay_title || record?.moduleTitle || '写作默写',
+    essayTitle:writing.essayTitle || writing.title || mergedMetrics.essay_title || record?.moduleTitle || '写作默写',
     prompt:writing.prompt || '',
     model:writing.model || '',
     userInput:writing.userInput || '',
     overall:feedback.overall_comment || '',
     details,
     attempts,
-    wordCount:Number(metrics.word_count || 0),
-    errorCount:Number(metrics.error_count || details.filter(item => item.type === 'error').length || attempts.filter(item => !(item.correct === true || item.isCorrect === true)).length),
-    differenceCount:Number(metrics.difference_count || details.filter(item => item.type === 'difference').length || 0),
+    wordCount:Number(mergedMetrics.word_count || writing.wordCount || 0),
+    errorCount:Number(mergedMetrics.error_count || details.filter(item => item.type === 'error').length || attempts.filter(item => !(item.correct === true || item.isCorrect === true)).length),
+    differenceCount:Number(mergedMetrics.difference_count || details.filter(item => item.type === 'difference').length || 0),
     score15:Number.isFinite(score15) ? score15 : 0
   };
 }
