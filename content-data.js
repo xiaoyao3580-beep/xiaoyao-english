@@ -68,6 +68,46 @@ window.XY_CONTENT_LEVELS = [
     "course_type": "coaching"
   },
   {
+    "id": "summer_phonics",
+    "code": "PHONICS",
+    "title": "绝美的语音课",
+    "subtitle": "Beautiful Phonics",
+    "icon": "fa-music",
+    "theme": "text-orange-700 bg-orange-50 border-orange-100",
+    "buttonTheme": "bg-orange-500 text-white shadow-md shadow-orange-500/20",
+    "course_type": "summer_phonics"
+  },
+  {
+    "id": "summer_xsc_grammar",
+    "code": "XSC-GRAMMAR",
+    "title": "小升初语法",
+    "subtitle": "Grammar Bridge",
+    "icon": "fa-seedling",
+    "theme": "text-indigo-700 bg-indigo-50 border-indigo-100",
+    "buttonTheme": "bg-indigo-500 text-white shadow-md shadow-indigo-500/20",
+    "course_type": "summer_xsc_grammar"
+  },
+  {
+    "id": "summer_primary_grammar",
+    "code": "PRIMARY-GRAMMAR",
+    "title": "小学高年级语法",
+    "subtitle": "Upper Primary",
+    "icon": "fa-shapes",
+    "theme": "text-emerald-700 bg-emerald-50 border-emerald-100",
+    "buttonTheme": "bg-emerald-500 text-white shadow-md shadow-emerald-500/20",
+    "course_type": "summer_primary_grammar"
+  },
+  {
+    "id": "summer_reading_analysis",
+    "code": "READING-ANALYSIS",
+    "title": "英语精读语料分析",
+    "subtitle": "Reading Analysis",
+    "icon": "fa-book-open-reader",
+    "theme": "text-pink-700 bg-pink-50 border-pink-100",
+    "buttonTheme": "bg-pink-500 text-white shadow-md shadow-pink-500/20",
+    "course_type": "summer_reading_analysis"
+  },
+  {
     "id": "swsy",
     "code": "SWSY",
     "title": "深外素养口语课",
@@ -103,6 +143,10 @@ window.XY_CONTENT_LEVELS = [
 window.XY_CONTENT_MODULES = {
   "one_to_one": [],
   "coaching": [],
+  "summer_phonics": [],
+  "summer_xsc_grammar": [],
+  "summer_primary_grammar": [],
+  "summer_reading_analysis": [],
   "summer-uk-2026": [],
   "a1": [
     {
