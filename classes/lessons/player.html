@@ -44,7 +44,7 @@
           const supabaseKey = 'sb_publishable_Bk22JrUqpC4nd5ucHr9I8A_mvPk3uXc';
           const query = new URL(supabaseUrl + '/rest/v1/homework');
           query.searchParams.set('id', 'eq.' + hwId);
-          query.searchParams.set('select', 'id,class_code,file,status');
+          query.searchParams.set('select', 'id,class_code,course_type,class_id,student_id,file,status');
           const response = await fetch(query.href, {
             headers: { apikey:supabaseKey, Authorization:'Bearer ' + supabaseKey },
             cache:'no-store'
@@ -52,13 +52,29 @@
           if (!response.ok) return;
           const rows = await response.json();
           const row = Array.isArray(rows) ? rows[0] : null;
-          const rowClass = String(row?.class_code || '').toLowerCase();
-          const requestedClass = String(classCode || '').toLowerCase();
+          const normalizeCourseType = value => {
+            const type = String(value || '').trim().replace(/-/g, '_').toLowerCase();
+            return ['one_to_one','coaching','summer_phonics','summer_xsc_grammar','summer_primary_grammar','summer_reading_analysis'].includes(type) ? type : '';
+          };
+          const normalizeClass = value => {
+            const raw = String(value || '').trim().replace(/_/g, '-').toLowerCase();
+            if (raw === 'adult') return 'others';
+            if (raw === 'others') return 'others';
+            const courseType = normalizeCourseType(raw);
+            return courseType || raw;
+          };
+          const requestedClass = normalizeClass(classCode);
+          const rowClass = normalizeClass(row?.class_code);
+          const rowClassId = normalizeClass(row?.class_id);
+          const rowCourseType = normalizeCourseType(row?.course_type);
+          const rowStudentId = String(row?.student_id || '').trim().toLowerCase();
+          const requestedStudentId = String(params.get('student') || params.get('student_id') || '').trim().toLowerCase();
           const classMatches =
             !requestedClass ||
             rowClass === requestedClass ||
-            (requestedClass === 'others' && rowClass === 'adult') ||
-            (requestedClass === 'adult' && rowClass === 'others');
+            rowClassId === requestedClass ||
+            rowCourseType === requestedClass ||
+            (requestedStudentId && rowStudentId && rowStudentId === requestedStudentId);
           if (row?.file && row.status !== 'closed' && row.status !== 'deleted' && classMatches) {
             localStorage.setItem('xy_remote_lesson:' + hwId, row.file);
             addCandidate(row.file);
