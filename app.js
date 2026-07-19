@@ -413,7 +413,10 @@ function homeworkVisibleToStudent(hw, student) {
 function homeworkMatchesLevel(hw, levelId, user) {
   if (!hw) return false;
   if (isSummerCourse(levelId)) {
-    if (hw.courseType === 'class') return normalizeClass(hw.classId || hw.classCode) === levelId;
+    if (hw.courseType === 'class') {
+      if (normalizeClass(hw.classId || hw.classCode) !== levelId) return false;
+      return user?.role === 'teacher' || classesOf(user).includes(levelId);
+    }
     if (hw.courseType !== levelId) return false;
     if (user?.role === 'teacher') return true;
     return hw.studentId ? homeworkVisibleToStudent(hw, user) : classesOf(user).includes(levelId);
@@ -614,7 +617,28 @@ async function loadTeacherData(showLoading = true) {
   return ensureTeacherTabData(state.teacherTab, showLoading);
 }
 async function loadStudentData(user) {
-  return user || currentUser();
+  const existing = user || currentUser();
+  if (!existing || existing.role !== 'student' || !sb) return existing;
+  try {
+    const result = await sb.from('students').select('*').eq('id', String(existing.id || '').toUpperCase()).maybeSingle();
+    if (result.error || !result.data) return existing;
+    const fresh = {
+      id: result.data.id,
+      role: 'student',
+      name: result.data.name,
+      classes: result.data.classes || [],
+      student_type: studentTypeOf(result.data)
+    };
+    const before = JSON.stringify(existing);
+    const after = JSON.stringify(fresh);
+    if (before !== after) {
+      localStorage.setItem('xy_user', after);
+      render();
+    }
+    return fresh;
+  } catch {
+    return existing;
+  }
 }
 async function loadData() {
   await loadHomeData(true);
