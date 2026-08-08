@@ -68,6 +68,16 @@ window.XY_CONTENT_LEVELS = [
     "course_type": "coaching"
   },
   {
+    "id": "ielts_custom_tools",
+    "code": "IELTS-TOOLS",
+    "title": "雅思定制工具",
+    "subtitle": "IELTS Toolkit",
+    "icon": "fa-compass-drafting",
+    "theme": "text-violet-700 bg-violet-50 border-violet-100",
+    "buttonTheme": "bg-violet-500 text-white shadow-md shadow-violet-500/20",
+    "course_type": "ielts_custom_tools"
+  },
+  {
     "id": "summer_phonics",
     "code": "PHONICS",
     "title": "绝美的语音课",
@@ -143,6 +153,7 @@ window.XY_CONTENT_LEVELS = [
 window.XY_CONTENT_MODULES = {
   "one_to_one": [],
   "coaching": [],
+  "ielts_custom_tools": [],
   "summer_phonics": [],
   "summer_xsc_grammar": [],
   "summer_primary_grammar": [],

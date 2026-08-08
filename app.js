@@ -7,10 +7,12 @@ const TEACHER = { id: 'xiaoyao', password: '929292', name: '肖瑶老师' };
 const CLASS_ALIAS = { 'junior-ability': 'ms', economist: 'econ', others: 'adult' };
 const REVERSE_ALIAS = { ms: 'junior-ability', econ: 'economist', adult: 'others' };
 const PRIVATE_COURSE_TYPES = ['one_to_one','coaching'];
+const CUSTOM_TOOL_COURSE_TYPES = ['ielts_custom_tools'];
 const SUMMER_SPECIAL_COURSE_TYPES = ['summer_phonics','summer_xsc_grammar','summer_primary_grammar','summer_reading_analysis'];
-const SPECIAL_COURSE_TYPES = PRIVATE_COURSE_TYPES.concat(SUMMER_SPECIAL_COURSE_TYPES);
+const CUSTOM_STUDY_COURSE_TYPES = PRIVATE_COURSE_TYPES.concat(CUSTOM_TOOL_COURSE_TYPES);
+const SPECIAL_COURSE_TYPES = CUSTOM_STUDY_COURSE_TYPES.concat(SUMMER_SPECIAL_COURSE_TYPES);
 const PERSONAL_COURSE_TYPES = PRIVATE_COURSE_TYPES;
-const HOME_LEVEL_ORDER = window.XY_HOME_LEVEL_ORDER || ['f2','a1','a1-plus','a2','a2-plus','junior-ability','swsy','others','economist','one_to_one','coaching','summer_phonics','summer_xsc_grammar','summer_primary_grammar','summer_reading_analysis'];
+const HOME_LEVEL_ORDER = window.XY_HOME_LEVEL_ORDER || ['f2','a1','a1-plus','a2','a2-plus','junior-ability','swsy','others','economist','one_to_one','coaching','ielts_custom_tools','summer_phonics','summer_xsc_grammar','summer_primary_grammar','summer_reading_analysis'];
 const state = { page: 'home', level: null, homeTab: 'courses', slide: 0, teacherTab: 'students', studentManageView: 'classes', selectedStudentId: '', students: [], homework: [], banners: [], bannerError: '', logs: [], practiceReports: [], reinforcementTasks: [], attendance: null, report: null, vote: null, pet: null, loading: true };
 const app = document.getElementById('app');
 const modalRoot = document.getElementById('modal-root');
@@ -98,6 +100,7 @@ const HOME_META = {
   'junior-ability':['Junior High Prep','import_contacts','bg-white','text-[#5827fc]'], economist:['Economist Reading','menu_book','bg-[#fdd400]/30','text-[#6d5a00]'],
   others:['Adult Speaking','record_voice_over','bg-[#ffc2cc]/55','text-[#b5084d]'],
   one_to_one:['1:1','fa-user-graduate','bg-[#e0f2fe]','text-[#2563eb]'], coaching:['RUN','fa-route','bg-[#dcfce7]','text-[#16a34a]'],
+  ielts_custom_tools:['IELTS','fa-compass-drafting','bg-[#f3e8ff]','text-[#7e22ce]'],
   summer_phonics:['Phonics','fa-music','bg-[#fff7ed]','text-[#ea580c]'],
   summer_xsc_grammar:['Grammar','fa-seedling','bg-[#eef2ff]','text-[#4f46e5]'],
   summer_primary_grammar:['Grammar+','fa-shapes','bg-[#f0fdf4]','text-[#16a34a]'],
@@ -115,6 +118,7 @@ const LEVEL_META = {
   others:['Adult Speaking','record_voice_over','from-[#8d2e60] via-[#bb4b83] to-[#ffc1da]','bg-[#ffc2cc]/55','text-[#b5084d]'],
   one_to_one:['Personal Lesson','fa-user-graduate','from-[#2563eb] via-[#38bdf8] to-[#bfdbfe]','bg-[#e0f2fe]','text-[#2563eb]','linear-gradient(135deg,#1d4ed8 0%,#2563eb 38%,#38bdf8 72%,#bfdbfe 100%)'],
   coaching:['Online Coaching','fa-route','from-[#16a34a] via-[#34d399] to-[#bbf7d0]','bg-[#dcfce7]','text-[#16a34a]','linear-gradient(135deg,#047857 0%,#16a34a 40%,#2dd4bf 75%,#bbf7d0 100%)'],
+  ielts_custom_tools:['IELTS Toolkit','fa-compass-drafting','from-[#7e22ce] via-[#a855f7] to-[#ddd6fe]','bg-[#f3e8ff]','text-[#7e22ce]','linear-gradient(135deg,#581c87 0%,#7e22ce 40%,#a855f7 72%,#ddd6fe 100%)'],
   summer_phonics:['Summer Phonics','fa-music','from-[#ea580c] via-[#fb923c] to-[#fed7aa]','bg-[#fff7ed]','text-[#ea580c]','linear-gradient(135deg,#c2410c 0%,#ea580c 42%,#fb923c 74%,#fed7aa 100%)'],
   summer_xsc_grammar:['Summer Grammar','fa-seedling','from-[#4f46e5] via-[#818cf8] to-[#c7d2fe]','bg-[#eef2ff]','text-[#4f46e5]','linear-gradient(135deg,#3730a3 0%,#4f46e5 42%,#818cf8 75%,#c7d2fe 100%)'],
   summer_primary_grammar:['Upper Primary Grammar','fa-shapes','from-[#16a34a] via-[#4ade80] to-[#bbf7d0]','bg-[#f0fdf4]','text-[#16a34a]','linear-gradient(135deg,#15803d 0%,#16a34a 42%,#4ade80 75%,#bbf7d0 100%)'],
@@ -401,6 +405,7 @@ const normalizeClass = c => {
 };
 const classesOf = u => (u && Array.isArray(u.classes) ? u.classes : []).map(normalizeClass);
 const isPersonalCourse = id => PERSONAL_COURSE_TYPES.includes(String(id || ''));
+const isCustomToolCourse = id => CUSTOM_TOOL_COURSE_TYPES.includes(String(id || ''));
 const isSummerCourse = id => SUMMER_SPECIAL_COURSE_TYPES.includes(String(id || ''));
 const isSpecialCourse = id => SPECIAL_COURSE_TYPES.includes(String(id || ''));
 const studentTypeOf = s => normalizeCourseType(s?.student_type || s?.studentType || (classesOf(s).length ? 'class' : 'class'));
@@ -413,6 +418,15 @@ function homeworkVisibleToStudent(hw, student) {
 function homeworkMatchesLevel(hw, levelId, user) {
   if (!hw) return false;
   if (isSummerCourse(levelId)) {
+    if (hw.courseType === 'class') {
+      if (normalizeClass(hw.classId || hw.classCode) !== levelId) return false;
+      return user?.role === 'teacher' || classesOf(user).includes(levelId);
+    }
+    if (hw.courseType !== levelId) return false;
+    if (user?.role === 'teacher') return true;
+    return hw.studentId ? homeworkVisibleToStudent(hw, user) : classesOf(user).includes(levelId);
+  }
+  if (isCustomToolCourse(levelId)) {
     if (hw.courseType === 'class') {
       if (normalizeClass(hw.classId || hw.classCode) !== levelId) return false;
       return user?.role === 'teacher' || classesOf(user).includes(levelId);
@@ -705,7 +719,7 @@ function homeCourseSection(title, levels, startIndex) {
   if (!levels.length) return '';
   return '<div class="motion-panel-enter pt-4 md:pt-5"><div class="mb-5 flex items-center gap-4 px-2 md:px-1"><span class="h-px flex-1 bg-gradient-to-r from-transparent via-[#d9dced] to-[#d9dced]"></span><span class="shrink-0 rounded-full bg-white/80 px-4 py-2 text-[10px] font-black uppercase tracking-[0.24em] text-[#74777c] shadow-sm ring-1 ring-white/70">' + esc(title) + '</span><span class="h-px flex-1 bg-gradient-to-l from-transparent via-[#d9dced] to-[#d9dced]"></span></div><div class="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-5 xl:grid-cols-4">' + levels.map((level, i) => card(level, startIndex + i)).join('') + '</div></div>';
 }
-function homePage() { const u = currentUser(); const all = orderedLevels(); const visible = state.homeTab === 'hub' && u && u.role !== 'teacher' ? all.filter(hasAccess) : all; const login = state.homeTab === 'hub' && !u ? '<section class="motion-panel-enter mx-auto max-w-xl rounded-[1.75rem] bg-white p-6 text-center shadow-[0_12px_40px_-5px_rgba(92,45,255,0.08)]"><div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#eff0f7] text-[#5827fc]"><span class="material-symbols-outlined text-[30px]">lock_open</span></div><h3 class="mt-4 text-xl font-bold text-[#2c2f33]">Login to open My Hub</h3><p class="mt-2 text-sm leading-6 text-[#595b61]">Sign in to see the course levels connected to this account.</p><button data-login class="motion-button mt-5 inline-flex min-h-[44px] items-center justify-center rounded-full bg-[#5827fc] px-6 py-3 text-xs font-bold uppercase tracking-[0.18em] text-white shadow-[0_10px_24px_-10px_rgba(88,39,252,0.52)]">Login</button></section>' : ''; const petContent = state.homeTab === 'hub' && u && u.role !== 'teacher' ? studentPetPanel() : ''; const petPanel = petContent ? '<div data-student-pet-panel class="mb-8">' + petContent + '</div>' : ''; const mainLevels = visible.filter(level => !isSpecialCourse(level.id)); const privateLevels = visible.filter(level => PRIVATE_COURSE_TYPES.includes(level.id)); const summerLevels = visible.filter(level => SUMMER_SPECIAL_COURSE_TYPES.includes(level.id)); const privateBlock = homeCourseSection('Custom Study', privateLevels, mainLevels.length); const summerBlock = homeCourseSection('暑期特色课', summerLevels, mainLevels.length + privateLevels.length); const grid = (state.homeTab === 'courses' || (state.homeTab === 'hub' && u)) ? '<section class="space-y-6 md:space-y-7"><div class="motion-panel-enter flex items-end justify-between px-2 md:px-1"><div><h2 class="text-2xl font-bold tracking-tight text-[#2c2f33] md:text-3xl">' + (state.homeTab === 'hub' ? 'My Courses' : 'All Courses') + '</h2><p class="text-sm text-[#595b61]">' + (state.homeTab === 'hub' ? 'Your available levels are shown here.' : 'View our full course collection here.') + '</p></div></div><div class="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-5 xl:grid-cols-4">' + mainLevels.map(card).join('') + '</div>' + privateBlock + summerBlock + '</section>' : ''; return '<div class="home-viewport-frame text-[#2c2f33]"><div class="pointer-events-none absolute inset-0" style="background-color:#f5f6fc;background-image:radial-gradient(circle at top center,rgba(122,95,255,0.2) 0%,rgba(122,95,255,0.08) 18%,rgba(245,246,252,0) 42%),radial-gradient(circle at bottom center,rgba(140,118,255,0.12) 0%,rgba(245,246,252,0) 34%),linear-gradient(180deg,#fcfcff 0%,#f5f6fc 36%,#f4f5fc 100%)"></div>' + topNav(false,'Courses') + '<div class="home-shell-lock absolute inset-0 w-full overflow-hidden bg-transparent text-[#2c2f33]"><main class="home-dashboard-shell motion-page-enter absolute inset-x-0 mx-auto w-full max-w-[74rem] overflow-y-auto overflow-x-hidden px-4 no-scrollbar sm:px-6 lg:px-8" style="top:0;bottom:0;padding-top:var(--home-shell-top-offset,calc(5rem + 0.75rem));padding-bottom:calc(7.5rem + env(safe-area-inset-bottom,0px));overscroll-behavior-x:none;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y">' + (state.homeTab === 'courses' ? carousel() : '') + login + petPanel + grid + '</main></div>' + bottomDock() + '</div>'; }
+function homePage() { const u = currentUser(); const all = orderedLevels(); const visible = state.homeTab === 'hub' && u && u.role !== 'teacher' ? all.filter(hasAccess) : all; const login = state.homeTab === 'hub' && !u ? '<section class="motion-panel-enter mx-auto max-w-xl rounded-[1.75rem] bg-white p-6 text-center shadow-[0_12px_40px_-5px_rgba(92,45,255,0.08)]"><div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#eff0f7] text-[#5827fc]"><span class="material-symbols-outlined text-[30px]">lock_open</span></div><h3 class="mt-4 text-xl font-bold text-[#2c2f33]">Login to open My Hub</h3><p class="mt-2 text-sm leading-6 text-[#595b61]">Sign in to see the course levels connected to this account.</p><button data-login class="motion-button mt-5 inline-flex min-h-[44px] items-center justify-center rounded-full bg-[#5827fc] px-6 py-3 text-xs font-bold uppercase tracking-[0.18em] text-white shadow-[0_10px_24px_-10px_rgba(88,39,252,0.52)]">Login</button></section>' : ''; const petContent = state.homeTab === 'hub' && u && u.role !== 'teacher' ? studentPetPanel() : ''; const petPanel = petContent ? '<div data-student-pet-panel class="mb-8">' + petContent + '</div>' : ''; const mainLevels = visible.filter(level => !isSpecialCourse(level.id)); const privateLevels = visible.filter(level => CUSTOM_STUDY_COURSE_TYPES.includes(level.id)); const summerLevels = visible.filter(level => SUMMER_SPECIAL_COURSE_TYPES.includes(level.id)); const privateBlock = homeCourseSection('Custom Study', privateLevels, mainLevels.length); const summerBlock = homeCourseSection('暑期特色课', summerLevels, mainLevels.length + privateLevels.length); const grid = (state.homeTab === 'courses' || (state.homeTab === 'hub' && u)) ? '<section class="space-y-6 md:space-y-7"><div class="motion-panel-enter flex items-end justify-between px-2 md:px-1"><div><h2 class="text-2xl font-bold tracking-tight text-[#2c2f33] md:text-3xl">' + (state.homeTab === 'hub' ? 'My Courses' : 'All Courses') + '</h2><p class="text-sm text-[#595b61]">' + (state.homeTab === 'hub' ? 'Your available levels are shown here.' : 'View our full course collection here.') + '</p></div></div><div class="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-5 xl:grid-cols-4">' + mainLevels.map(card).join('') + '</div>' + privateBlock + summerBlock + '</section>' : ''; return '<div class="home-viewport-frame text-[#2c2f33]"><div class="pointer-events-none absolute inset-0" style="background-color:#f5f6fc;background-image:radial-gradient(circle at top center,rgba(122,95,255,0.2) 0%,rgba(122,95,255,0.08) 18%,rgba(245,246,252,0) 42%),radial-gradient(circle at bottom center,rgba(140,118,255,0.12) 0%,rgba(245,246,252,0) 34%),linear-gradient(180deg,#fcfcff 0%,#f5f6fc 36%,#f4f5fc 100%)"></div>' + topNav(false,'Courses') + '<div class="home-shell-lock absolute inset-0 w-full overflow-hidden bg-transparent text-[#2c2f33]"><main class="home-dashboard-shell motion-page-enter absolute inset-x-0 mx-auto w-full max-w-[74rem] overflow-y-auto overflow-x-hidden px-4 no-scrollbar sm:px-6 lg:px-8" style="top:0;bottom:0;padding-top:var(--home-shell-top-offset,calc(5rem + 0.75rem));padding-bottom:calc(7.5rem + env(safe-area-inset-bottom,0px));overscroll-behavior-x:none;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y">' + (state.homeTab === 'courses' ? carousel() : '') + login + petPanel + grid + '</main></div>' + bottomDock() + '</div>'; }
 function levelModuleCard(item, index, meta, isTeacher) {
   const canOpen = item.isPublished || isTeacher;
   const visibleUploadedAttr = item.visibleUploaded ? ' data-visible-uploaded="1"' : '';
@@ -775,7 +789,7 @@ function teacherBottomNav() {
   return '<nav class="motion-dock-enter fixed inset-x-0 bottom-0 z-50 mx-auto flex w-full max-w-[42rem] items-center justify-around rounded-t-[3rem] border-t border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.72)_0%,rgba(255,255,255,0.92)_36%,rgba(239,240,247,0.96)_100%)] px-4 py-3 backdrop-blur-[18px] shadow-[0_-12px_40px_-8px_rgba(92,45,255,0.12)] sm:w-[calc(100%_-_2rem)] md:bottom-5 md:rounded-full md:border" style="padding-bottom:calc(0.75rem + env(safe-area-inset-bottom,0px));background-color:rgba(239,240,247,0.94)"><button data-route="home" class="motion-tab flex min-h-[44px] flex-col items-center justify-center px-4 py-2 md:px-6 text-[#74777c]"><span class="material-symbols-outlined">home</span><span class="mt-0.5 text-[10px] font-medium uppercase tracking-[0.18em]">Home</span></button><button data-route="teacher" class="motion-tab flex min-h-[44px] flex-col items-center justify-center rounded-full bg-[#5c2dff] px-4 py-2 text-white shadow-[0_8px_20px_-4px_rgba(92,45,255,0.4)] md:px-6"><span class="material-symbols-outlined">dashboard_customize</span><span class="mt-0.5 text-[10px] font-medium uppercase tracking-[0.18em]">Teacher</span></button></nav>';
 }
 function teacherPanel() { setTimeout(() => ensureTeacherTabData(state.teacherTab, false), 0); if (state.teacherTab === 'students') return studentsPanel(); if (state.teacherTab === 'homework') return homeworkUploadPanel(); if (state.teacherTab === 'banners') return bannersPanel(); if (state.teacherTab === 'attendance') return attendancePanel(); if (state.teacherTab === 'reports') return reportsPanelV2(); if (state.teacherTab === 'oneReports') return oneToOneReportsPanel(); if (state.teacherTab === 'economistReports') return economistReportsPanel(); if (state.teacherTab === 'vote') return voteResultsPanel(); if (state.teacherTab === 'pets') return petsPanel(); state.teacherTab = 'students'; return studentsPanel(); }
-function teacherClasses() { return orderedLevels().filter(l => !isPersonalCourse(l.id)).map((l, i) => ({ code:l.id, name:l.title, icon:['fa-face-smile','fa-graduation-cap','fa-star','fa-trophy','fa-wand-magic-sparkles','fa-comments','fa-book-open','fa-user-tie','fa-newspaper','fa-music','fa-seedling','fa-shapes','fa-book-open-reader'][i % 13] })); }
+function teacherClasses() { return orderedLevels().filter(l => !isPersonalCourse(l.id)).map((l, i) => ({ code:l.id, name:l.title, icon:l.icon || ['fa-face-smile','fa-graduation-cap','fa-star','fa-trophy','fa-wand-magic-sparkles','fa-comments','fa-book-open','fa-user-tie','fa-newspaper','fa-music','fa-seedling','fa-shapes','fa-book-open-reader'][i % 13] })); }
 function teacherPermissionCourses() {
   const classIcons = ['fa-face-smile','fa-graduation-cap','fa-star','fa-trophy','fa-wand-magic-sparkles','fa-comments','fa-book-open','fa-user-tie','fa-newspaper'];
   return orderedLevels().map((l, i) => ({
@@ -1038,6 +1052,7 @@ function courseTypeLabel(type) {
   const labels = {
     one_to_one:'一对一专属课',
     coaching:'线上陪跑课',
+    ielts_custom_tools:'雅思定制工具',
     summer_phonics:'绝美的语音课',
     summer_xsc_grammar:'小升初语法',
     summer_primary_grammar:'小学高年级语法',
@@ -1052,6 +1067,7 @@ function courseTypeIcon(type) {
   const icons = {
     one_to_one:'fa-user-graduate',
     coaching:'fa-person-running',
+    ielts_custom_tools:'fa-compass-drafting',
     summer_phonics:'fa-music',
     summer_xsc_grammar:'fa-seedling',
     summer_primary_grammar:'fa-shapes',
@@ -1093,7 +1109,7 @@ function updateHomeworkTargetFields(courseType) {
   const classSelect = document.getElementById('hw-class');
   const studentSelect = document.getElementById('hw-student');
   const needsStudent = isPersonalCourse(type);
-  if (isSummerCourse(type) && classSelect) classSelect.value = type;
+  if ((isSummerCourse(type) || isCustomToolCourse(type)) && classSelect) classSelect.value = type;
   if (classField) classField.classList.toggle('hidden', needsStudent);
   if (studentField) studentField.classList.toggle('hidden', !needsStudent);
   if (studentSelect && needsStudent) studentSelect.innerHTML = homeworkStudentOptions(type, studentSelect.value);
@@ -2386,8 +2402,9 @@ async function addHomework() {
   const selectedType = normalizeCourseType(document.getElementById('hw-course-type')?.value || 'class');
   const isPrivateTarget = isPersonalCourse(selectedType);
   const isSummerTarget = isSummerCourse(selectedType);
-  const courseType = isSummerTarget ? 'class' : selectedType;
-  const classCode = isPrivateTarget ? selectedType : (isSummerTarget ? selectedType : document.getElementById('hw-class').value);
+  const isToolTarget = isCustomToolCourse(selectedType);
+  const courseType = (isSummerTarget || isToolTarget) ? 'class' : selectedType;
+  const classCode = isPrivateTarget ? selectedType : ((isSummerTarget || isToolTarget) ? selectedType : document.getElementById('hw-class').value);
   const studentId = isPrivateTarget ? (document.getElementById('hw-student')?.value || '').trim() : '';
   const unit = document.getElementById('hw-unit').value.trim();
   const title = document.getElementById('hw-title').value.trim();
@@ -2466,7 +2483,7 @@ function showHomeworkEditor(id) {
   const hw = displayHomework().find(h => h.id === id);
   if (!hw) return showAlert('没有找到这条课程记录。', '无法编辑');
   const currentClass = normalizeClass(hw.classCode);
-  const currentType = hw.courseType === 'class' && isSummerCourse(currentClass) ? currentClass : normalizeCourseType(hw.courseType);
+  const currentType = hw.courseType === 'class' && (isSummerCourse(currentClass) || isCustomToolCourse(currentClass)) ? currentClass : normalizeCourseType(hw.courseType);
   const currentNeedsStudent = isPersonalCourse(currentType);
   const classOptions = teacherClasses().map(c => '<option value="' + esc(c.code) + '" ' + (currentClass === c.code ? 'selected' : '') + '>' + esc(c.name) + '</option>').join('');
   const typeOptions = '<option value="class" ' + (currentType === 'class' ? 'selected' : '') + '>普通班级作业</option>' + SPECIAL_COURSE_TYPES.map(type => '<option value="' + esc(type) + '" ' + (currentType === type ? 'selected' : '') + '>' + esc(courseTypeLabel(type)) + '</option>').join('');
@@ -2475,7 +2492,7 @@ function showHomeworkEditor(id) {
     const type = normalizeCourseType(e.target.value);
     const needsStudent = isPersonalCourse(type);
     const classSelect = document.getElementById('edit-hw-class');
-    if (isSummerCourse(type) && classSelect) classSelect.value = type;
+    if ((isSummerCourse(type) || isCustomToolCourse(type)) && classSelect) classSelect.value = type;
     document.getElementById('edit-hw-class-field')?.classList.toggle('hidden', needsStudent);
     document.getElementById('edit-hw-student-field')?.classList.toggle('hidden', !needsStudent);
     const studentSelect = document.getElementById('edit-hw-student');
@@ -2489,8 +2506,9 @@ async function saveHomeworkEdit() {
   const selectedType = normalizeCourseType(document.getElementById('edit-hw-course-type')?.value || old.courseType || 'class');
   const isPrivateTarget = isPersonalCourse(selectedType);
   const isSummerTarget = isSummerCourse(selectedType);
-  const courseType = isSummerTarget ? 'class' : selectedType;
-  const classCode = isPrivateTarget ? selectedType : (isSummerTarget ? selectedType : document.getElementById('edit-hw-class').value);
+  const isToolTarget = isCustomToolCourse(selectedType);
+  const courseType = (isSummerTarget || isToolTarget) ? 'class' : selectedType;
+  const classCode = isPrivateTarget ? selectedType : ((isSummerTarget || isToolTarget) ? selectedType : document.getElementById('edit-hw-class').value);
   const studentId = isPrivateTarget ? (document.getElementById('edit-hw-student')?.value || '').trim() : '';
   const unit = document.getElementById('edit-hw-unit').value.trim();
   const title = document.getElementById('edit-hw-title').value.trim();
