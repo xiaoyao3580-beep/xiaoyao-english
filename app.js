@@ -11,7 +11,7 @@ const SUMMER_SPECIAL_COURSE_TYPES = ['summer_phonics','summer_xsc_grammar','summ
 const SPECIAL_COURSE_TYPES = PRIVATE_COURSE_TYPES.concat(SUMMER_SPECIAL_COURSE_TYPES);
 const PERSONAL_COURSE_TYPES = PRIVATE_COURSE_TYPES;
 const HOME_LEVEL_ORDER = window.XY_HOME_LEVEL_ORDER || ['f2','a1','a1-plus','a2','a2-plus','junior-ability','swsy','others','economist','one_to_one','coaching','summer_phonics','summer_xsc_grammar','summer_primary_grammar','summer_reading_analysis'];
-const state = { page: 'home', level: null, homeTab: 'courses', slide: 0, teacherTab: 'students', studentManageView: 'classes', selectedStudentId: '', students: [], homework: [], banners: [], bannerError: '', logs: [], practiceReports: [], attendance: null, report: null, vote: null, pet: null, loading: true };
+const state = { page: 'home', level: null, homeTab: 'courses', slide: 0, teacherTab: 'students', studentManageView: 'classes', selectedStudentId: '', students: [], homework: [], banners: [], bannerError: '', logs: [], practiceReports: [], reinforcementTasks: [], attendance: null, report: null, vote: null, pet: null, loading: true };
 const app = document.getElementById('app');
 const modalRoot = document.getElementById('modal-root');
 let lastRenderScope = '';
@@ -1164,8 +1164,9 @@ const REPORT_BUCKETS = [{ label:'90-100', min:90, max:100, color:'#059669' },{ l
 function dateInputValue(date) { const d = new Date(date); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
 function datetimeInputValue(date) { const d = new Date(date); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') + 'T' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); }
 function reportBoundary(value, isEnd) { if (!value) return null; const text = String(value); const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(text) ? text + (isEnd ? 'T23:59:59' : 'T00:00:00') : text); return Number.isNaN(d.getTime()) ? null : d; }
-function reportDefaults() { const end = new Date(); const start = new Date(); start.setDate(start.getDate() - 29); return { startDate:datetimeInputValue(start), endDate:datetimeInputValue(end), selectedLevelId:'all', selectedLessonId:'all', sourceFilter:'all', viewMode:'student', selectedOneStudentId:'', selectedWritingStudentId:'', selectedComparisonIds:[], quizAttempts:[], diagnosticAttempts:[], loading:false, loaded:false, error:'' }; }
-function reportCfg() { if (!state.report) state.report = reportDefaults(); if (/^\d{4}-\d{2}-\d{2}$/.test(state.report.startDate || '')) state.report.startDate += 'T00:00'; if (/^\d{4}-\d{2}-\d{2}$/.test(state.report.endDate || '')) state.report.endDate += 'T23:59'; state.report.sourceFilter = 'all'; return state.report; }
+function reportDefaultClassCode() { return teacherClasses()[0]?.code || ''; }
+function reportDefaults() { const end = new Date(); const start = new Date(); start.setDate(start.getDate() - 29); return { startDate:datetimeInputValue(start), endDate:datetimeInputValue(end), selectedClassCode:reportDefaultClassCode(), selectedLevelId:'all', selectedLessonId:'all', sourceFilter:'all', viewMode:'student', selectedOneStudentId:'', selectedWritingStudentId:'', selectedComparisonIds:[], quizAttempts:[], diagnosticAttempts:[], loading:false, loaded:false, error:'' }; }
+function reportCfg() { if (!state.report) state.report = reportDefaults(); if (state.report.selectedClassCode === undefined) state.report.selectedClassCode = reportDefaultClassCode(); if (/^\d{4}-\d{2}-\d{2}$/.test(state.report.startDate || '')) state.report.startDate += 'T00:00'; if (/^\d{4}-\d{2}-\d{2}$/.test(state.report.endDate || '')) state.report.endDate += 'T23:59'; state.report.sourceFilter = 'all'; return state.report; }
 function reportDateKeys(startValue, endValue) { const start = reportBoundary(startValue, false); const end = reportBoundary(endValue, true); if (!start || !end || start > end) return []; const keys = []; const cursor = new Date(start); cursor.setHours(0,0,0,0); while (cursor <= end) { keys.push(dateInputValue(cursor)); cursor.setDate(cursor.getDate()+1); } return keys; }
 function reportAverage(values) { const valid = values.filter(v => Number.isFinite(v)); return valid.length ? Math.round(valid.reduce((a,b) => a + b, 0) / valid.length) : 0; }
 function reportScore(correct, total, explicit) { const t = Number(total) || 0; if (t > 0 && Number.isFinite(Number(correct))) return Math.round(((Number(correct) || 0) / t) * 100); const n = Number(explicit); return Number.isFinite(n) ? Math.max(0, Math.min(100, Math.round(n))) : 0; }
@@ -1228,6 +1229,23 @@ function reportFullDate(key) { const parts = String(key).split('-'); return Numb
 function reportShortDate(key) { const parts = String(key).split('-'); return Number(parts[1] || 1) + '.' + Number(parts[2] || 1); }
 function reportModuleMap() { const map = new Map(); orderedLevels().forEach(level => modulesByLevel(level.id).forEach(m => map.set(m.id, { id:m.id, levelId:level.id, levelTitle:level.title, title:m.title, unit:m.unitCode || m.unit || '' }))); displayHomework().forEach(h => map.set(h.id, { id:h.id, levelId:normalizeClass(h.classCode), levelTitle:levelById(normalizeClass(h.classCode))?.title || h.classCode, title:h.title, unit:h.unit || '' })); return map; }
 function reportClassLabel(code) { const c = teacherClasses().find(item => item.code === normalizeClass(code)); return c ? c.name : (code || '未分班'); }
+function reportClassOptions() { return teacherClasses().filter(c => c.code); }
+function reportSelectedClassCode() {
+  const cfg = reportCfg();
+  const options = reportClassOptions();
+  if (!options.length) return '';
+  if (!options.some(c => c.code === cfg.selectedClassCode)) cfg.selectedClassCode = options[0].code;
+  return cfg.selectedClassCode;
+}
+function reportRecordMatchesClass(record, classCode) {
+  const code = normalizeClass(classCode || '');
+  if (!code) return true;
+  const student = reportStudentMap().get(record.studentId);
+  const recordCodes = new Set([normalizeClass(record.levelId || ''), normalizeClass(record.classCode || '')].filter(Boolean));
+  classesOf(student).forEach(cls => recordCodes.add(cls));
+  const label = reportClassLabel(code);
+  return recordCodes.has(code) || String(record.className || '').split('/').map(s => s.trim()).includes(label);
+}
 function reportStudentMap() { return new Map(state.students.map(s => [s.id, s])); }
 function reportRecordQuality(record) { let score = 0; if (Number.isFinite(Number(record.correctCount)) && Number.isFinite(Number(record.totalCount)) && Number(record.totalCount) > 0) score += 4; if (Number(record.reportConfidence || 0) >= 2) score += 2; if (record.source === 'quiz' || record.source === 'diagnostic') score += 2; return score; }
 function isUnverifiedObserverReport(record) { return record.source === 'lesson' && record.reportNote === 'result-observer' && Number(record.reportConfidence || 0) < 2 && reportRecordQuality(record) === 0; }
@@ -1349,9 +1367,11 @@ function computeReports() {
   const cfg = reportCfg();
   const oneReportStudentIds = state.teacherTab === 'oneReports' ? new Set(oneReportStudents().map(s => String(s.id))) : null;
   const inReportScope = record => !oneReportStudentIds || oneReportStudentIds.has(String(record.studentId));
-  const rawRecords = rawReportRecords().filter(inReportScope);
+  const selectedClassCode = state.teacherTab === 'reports' ? reportSelectedClassCode() : '';
+  const inClassScope = record => reportRecordMatchesClass(record, selectedClassCode);
+  const rawRecords = rawReportRecords().filter(record => inReportScope(record) && inClassScope(record));
   const records = rawRecords.filter(record => !isUnverifiedObserverReport(record) && (cfg.sourceFilter === 'all' || record.source === cfg.sourceFilter) && (cfg.selectedLevelId === 'all' || record.levelId === cfg.selectedLevelId) && (cfg.selectedLessonId === 'all' || record.lessonId === cfg.selectedLessonId));
-  const allPracticeRecords = rawPracticeReportRecords().filter(record => inReportScope(record) && (cfg.selectedLevelId === 'all' || record.levelId === cfg.selectedLevelId || !record.levelId) && (cfg.selectedLessonId === 'all' || record.lessonId === cfg.selectedLessonId));
+  const allPracticeRecords = rawPracticeReportRecords().filter(record => inReportScope(record) && inClassScope(record) && (cfg.selectedLevelId === 'all' || record.levelId === cfg.selectedLevelId || !record.levelId) && (cfg.selectedLessonId === 'all' || record.lessonId === cfg.selectedLessonId));
   const writingReports = allPracticeRecords.filter(isWritingPracticeRecord);
   const practiceRecords = allPracticeRecords.filter(record => !isWritingPracticeRecord(record));
   const attemptCounts = new Map();
@@ -1402,7 +1422,7 @@ function computeReports() {
     return !practiceKeys.has(key);
   });
   const processReports = practiceRecords.concat(legacyProcessReports).sort((a,b) => new Date(b.submittedAt) - new Date(a.submittedAt));
-  return { records, latestRows, summaryRows, comparisonOptions, selected, keys, chart, buckets, processReports, writingReports, stats:{ studentCount, classCount, submitCount:latestRows.length, averageScore:reportAverage(latestRows.map(r => r.scorePercent)) }, lessons:reportLessonOptions(cfg, rawRecords) };
+  return { records, latestRows, summaryRows, comparisonOptions, selected, keys, chart, buckets, processReports, writingReports, selectedClassCode, selectedClassLabel:selectedClassCode ? reportClassLabel(selectedClassCode) : '全部班级', stats:{ studentCount, classCount, submitCount:latestRows.length, averageScore:reportAverage(latestRows.map(r => r.scorePercent)) }, lessons:reportLessonOptions(cfg, rawRecords) };
 }
 function economistPayload(row) {
   const candidates = reportObjectCandidates(row?.raw_report || row?.metadata || row?.summary || row || {});
@@ -1584,8 +1604,46 @@ function reportIssueTableRows(rows) {
     const actionTone = skill.stillWrong ? 'bg-[#6B48FF] text-white' : 'bg-[#F4F2FF] text-[#6B48FF]';
     const status = skill.stillWrong ? (skill.repeatedWrong ? '需补强' : '观察中') : '已补强';
     const statusCls = skill.stillWrong ? 'bg-red-50 text-red-500' : 'bg-emerald-50 text-emerald-600';
-    return '<tr class="bg-[#F8F8FC] align-top text-sm font-semibold text-gray-600 shadow-sm"><td class="rounded-l-[1.1rem] px-4 py-4"><div class="font-black text-[#2D2A4A]">' + esc(skill.label) + '</div><div class="mt-1 text-xs font-bold text-gray-400">' + (skill.repeatedWrong ? '反复错点' : '错点') + '</div></td><td class="px-4 py-4 text-red-500">' + skill.totalWrong + '次</td><td class="px-4 py-4 whitespace-nowrap">' + (skill.lastWrong ? reportDateTime(skill.lastWrong) : '--') + '</td><td class="px-4 py-4"><span class="rounded-full bg-white px-3 py-1.5 font-black text-[#2D2A4A] shadow-sm">' + skill.mastery + '%</span></td><td class="max-w-[19rem] px-4 py-4 leading-6">' + esc(reportIssueTypicalProblem(skill)) + '<div class="mt-1 text-xs font-bold text-gray-400">关联题型：' + esc(reportIssueType(skill)) + '</div><span class="mt-2 inline-flex rounded-full px-2.5 py-1 text-[11px] font-black ' + statusCls + '">' + status + '</span></td><td class="rounded-r-[1.1rem] px-4 py-4"><button data-toast="' + esc(action + '：后续可接入自动出题。') + '" class="rounded-full px-3 py-2 text-xs font-black active-scale ' + actionTone + '">' + action + '</button></td></tr>';
+    const actionButton = action === '生成补强题'
+      ? '<button data-open-reinforcement="' + esc(skill.key) + '" class="rounded-full px-3 py-2 text-xs font-black active-scale ' + actionTone + '">' + action + '</button>'
+      : '<button data-toast="' + esc(action + '：已记录为教学跟进。') + '" class="rounded-full px-3 py-2 text-xs font-black active-scale ' + actionTone + '">' + action + '</button>';
+    return '<tr class="bg-[#F8F8FC] align-top text-sm font-semibold text-gray-600 shadow-sm"><td class="rounded-l-[1.1rem] px-4 py-4"><div class="font-black text-[#2D2A4A]">' + esc(skill.label) + '</div><div class="mt-1 text-xs font-bold text-gray-400">' + (skill.repeatedWrong ? '反复错点' : '错点') + '</div></td><td class="px-4 py-4 text-red-500">' + skill.totalWrong + '次</td><td class="px-4 py-4 whitespace-nowrap">' + (skill.lastWrong ? reportDateTime(skill.lastWrong) : '--') + '</td><td class="px-4 py-4"><span class="rounded-full bg-white px-3 py-1.5 font-black text-[#2D2A4A] shadow-sm">' + skill.mastery + '%</span></td><td class="max-w-[19rem] px-4 py-4 leading-6">' + esc(reportIssueTypicalProblem(skill)) + '<div class="mt-1 text-xs font-bold text-gray-400">关联题型：' + esc(reportIssueType(skill)) + '</div><span class="mt-2 inline-flex rounded-full px-2.5 py-1 text-[11px] font-black ' + statusCls + '">' + status + '</span></td><td class="rounded-r-[1.1rem] px-4 py-4">' + actionButton + '</td></tr>';
   }).join('');
+}
+function reinforcementDraftFor(skill) {
+  const cfg = reportCfg();
+  const classCode = state.teacherTab === 'reports' ? reportSelectedClassCode() : '';
+  const count = skill.totalWrong >= 5 ? 10 : (skill.repeatedWrong ? 8 : 5);
+  const difficulty = skill.mastery < 60 ? '基础补强' : (skill.mastery < 80 ? '中阶巩固' : '迁移提升');
+  const typical = reportIssueTypicalProblem(skill);
+  const modules = reportIssueType(skill);
+  const prompt = [
+    '请为英语学生生成补强题。',
+    '班级/课程：' + (classCode ? reportClassLabel(classCode) : '当前筛选范围'),
+    '知识点：' + skill.label,
+    '题数：' + count,
+    '难度：' + difficulty,
+    '典型错因：' + typical,
+    '关联题型：' + modules,
+    '要求：先用预设题库同知识点题目；如果题库不足，再补生成新题。题目必须包含答案、解析、知识点标签、错因标签，并避免和原题高度重复。'
+  ].join('\n');
+  return { classCode, count, difficulty, typical, modules, prompt, source:'preset_first_ai_fill' };
+}
+function openReinforcementModal(skillKey) {
+  const data = computeReports();
+  const skill = grammarInsights(data.processReports || []).skills.find(s => String(s.key) === String(skillKey));
+  if (!skill) return showAlert('没有找到这个错点的详细数据。请先刷新报表。', '无法生成');
+  const draft = reinforcementDraftFor(skill);
+  const countOptions = [5,8,10,15,20].map(n => '<option value="' + n + '" ' + (draft.count === n ? 'selected' : '') + '>' + n + ' 题</option>').join('');
+  modalRoot.innerHTML = '<div class="fixed inset-0 z-[9999] flex items-center justify-center p-4"><div class="absolute inset-0 bg-black/40 backdrop-blur-sm" data-close-modal></div><div class="relative z-10 max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[32px] bg-white p-6 shadow-2xl motion-auth-panel-enter md:p-8"><div class="mb-6 flex items-start justify-between gap-4"><div><p class="text-[11px] font-black uppercase tracking-[0.22em] text-[#6B48FF]">Reinforcement Builder</p><h3 class="mt-1 text-[24px] font-black text-[#2D2A4A]">生成补强方案</h3><p class="mt-2 text-sm font-bold leading-6 text-gray-400">先调用预设题库；题库不足时再由后端自动补足，API key 不写在前端。</p></div><button data-close-modal class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#F8F8FC] text-gray-400 active-scale" aria-label="关闭"><i class="fa-solid fa-xmark"></i></button></div><input type="hidden" id="reinforce-skill-key" value="' + esc(skill.key) + '"><input type="hidden" id="reinforce-class-code" value="' + esc(draft.classCode) + '"><div class="grid gap-4 md:grid-cols-3"><label><span class="mb-2 ml-1 block text-xs font-black uppercase text-gray-400">知识点</span><input id="reinforce-skill-label" value="' + esc(skill.label) + '" class="w-full rounded-xl border border-gray-200 bg-[#F8F8FC] px-4 py-3 text-sm font-black text-[#2D2A4A] outline-none"></label><label><span class="mb-2 ml-1 block text-xs font-black uppercase text-gray-400">题量</span><select id="reinforce-count" class="w-full rounded-xl border border-gray-200 bg-[#F8F8FC] px-4 py-3 text-sm font-black text-[#6B48FF] outline-none">' + countOptions + '</select></label><label><span class="mb-2 ml-1 block text-xs font-black uppercase text-gray-400">难度</span><select id="reinforce-difficulty" class="w-full rounded-xl border border-gray-200 bg-[#F8F8FC] px-4 py-3 text-sm font-black text-[#6B48FF] outline-none"><option ' + (draft.difficulty === '基础补强' ? 'selected' : '') + '>基础补强</option><option ' + (draft.difficulty === '中阶巩固' ? 'selected' : '') + '>中阶巩固</option><option ' + (draft.difficulty === '迁移提升' ? 'selected' : '') + '>迁移提升</option></select></label></div><div class="mt-4 grid gap-4 md:grid-cols-2"><div class="rounded-2xl bg-red-50 p-4"><p class="text-xs font-black uppercase tracking-[0.16em] text-red-400">错因</p><p class="mt-2 text-sm font-bold leading-6 text-red-600">' + esc(draft.typical) + '</p></div><div class="rounded-2xl bg-[#F4F2FF] p-4"><p class="text-xs font-black uppercase tracking-[0.16em] text-[#6B48FF]/70">关联题型</p><p class="mt-2 text-sm font-bold leading-6 text-[#4B36B8]">' + esc(draft.modules) + '</p></div></div><label class="mt-4 block"><span class="mb-2 ml-1 block text-xs font-black uppercase text-gray-400">生成指令</span><textarea id="reinforce-prompt" rows="9" class="w-full rounded-2xl border border-gray-200 bg-[#F8F8FC] px-4 py-3 text-sm font-bold leading-6 text-[#2D2A4A] outline-none">' + esc(draft.prompt) + '</textarea></label><div class="mt-6 flex flex-col gap-3 sm:flex-row"><button data-copy-reinforcement-prompt class="flex-1 rounded-2xl bg-[#F4F2FF] py-4 text-base font-black text-[#6B48FF] active-scale"><i class="fa-solid fa-copy mr-2"></i>复制指令</button><button data-save-reinforcement-task class="flex-1 rounded-2xl bg-[#6B48FF] py-4 text-base font-black text-white shadow-lg shadow-[#6B48FF]/30 active-scale"><i class="fa-solid fa-wand-magic-sparkles mr-2"></i>保存草稿</button></div></div></div>';
+}
+function reinforcementTaskSection() {
+  if (state.teacherTab !== 'reports') return '';
+  const classCode = reportSelectedClassCode();
+  const rows = (state.reinforcementTasks || []).filter(row => normalizeClass(row.class_code || '') === classCode).sort((a,b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)).slice(0, 8);
+  const empty = '<div class="rounded-[1.4rem] border border-dashed border-gray-200 bg-[#F8F8FC] px-5 py-8 text-center text-sm font-bold text-gray-400">暂无补强草稿。后续可以从具体错题明细生成补强方案，并保存到这里。</div>';
+  const cards = rows.map(row => '<details class="rounded-[1.15rem] border border-gray-100 bg-[#F8F8FC] p-4 shadow-sm"><summary class="cursor-pointer list-none"><div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"><div class="min-w-0"><p class="truncate text-base font-black text-[#2D2A4A]">' + esc(row.skill_label || row.skill_key || '未命名知识点') + '</p><p class="mt-1 text-xs font-bold text-gray-400">' + reportDateTime(row.created_at) + ' · ' + esc(row.difficulty || '中阶巩固') + ' · ' + Number(row.target_count || 0) + ' 题</p></div><div class="flex flex-wrap gap-2 md:justify-end"><span class="rounded-full bg-white px-3 py-1.5 text-xs font-black text-[#6B48FF] shadow-sm">' + esc(row.status || 'draft') + '</span><span class="rounded-full bg-white px-3 py-1.5 text-xs font-black text-gray-500 shadow-sm">题库优先</span></div></div></summary><div class="mt-3 border-t border-gray-100 pt-3"><p class="whitespace-pre-wrap rounded-xl bg-white px-4 py-3 text-xs font-bold leading-6 text-gray-600 shadow-sm">' + esc(row.prompt || '') + '</p></div></details>').join('');
+  return '<section class="card-solid overflow-hidden"><div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-5 md:flex-row md:items-center md:justify-between md:px-6"><div><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Reinforcement Drafts</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">补强草稿</h3></div><span class="rounded-full bg-[#F4F2FF] px-3 py-1 text-xs font-black text-[#6B48FF]">' + esc(reportClassLabel(classCode)) + '</span></div><div class="space-y-3 px-4 py-4 md:px-6">' + (cards || empty) + '</div></section>';
 }
 function reportIssueDiagnosisSection(records) {
   const insights = grammarInsights(records);
@@ -1636,15 +1694,38 @@ function reportLearningTrajectorySection(data) {
 }
 function reportCompactHomeworkSection(records) {
   const sorted = (records || []).slice().sort((a,b) => new Date(b.submittedAt) - new Date(a.submittedAt));
-  const rows = sorted.slice(0, 5).map(record => {
+  const wrongDetail = record => {
+    const attempts = reportAttemptRows(record);
+    const wrongAttempts = attempts.filter(a => !(a.correct === true || a.isCorrect === true));
+    if (wrongAttempts.length) {
+      return wrongAttempts.slice(0, 30).map((attempt, index) => {
+        const question = reportAttemptQuestion(attempt) || '未记录题干';
+        const selected = reportAttemptSelected(attempt) || '空白';
+        const answer = reportAttemptAnswer(attempt) || '未记录';
+        const explanation = attempt.explanation || attempt.reason || attempt.analysis || attempt.feedback || '';
+        const section = reportAttemptSection(attempt, record);
+        return '<div class="rounded-xl bg-white px-4 py-3 shadow-sm"><div class="mb-2 flex flex-wrap items-center gap-2"><span class="rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-black text-red-500">错题 ' + (index + 1) + '</span><span class="rounded-full bg-[#F8F8FC] px-2.5 py-1 text-[11px] font-black text-gray-500">' + esc(section) + '</span>' + (reportAttemptDuration(attempt) ? '<span class="rounded-full bg-[#F8F8FC] px-2.5 py-1 text-[11px] font-black text-gray-500">用时 ' + reportTimeText(reportAttemptDuration(attempt)) + '</span>' : '') + '</div><p class="text-sm font-black leading-7 text-[#2D2A4A]">' + esc(question) + '</p><p class="mt-2 text-xs font-bold leading-6 text-gray-500">学生答案：<span class="font-black text-red-500">' + esc(selected) + '</span> · 正确答案：<span class="font-black text-emerald-600">' + esc(answer) + '</span></p>' + (explanation ? '<p class="mt-1 text-xs font-bold leading-6 text-gray-500">解析：' + esc(explanation) + '</p>' : '') + '</div>';
+      }).join('');
+    }
+    const weak = (record.processReport?.weakPhrases || []).filter(item => Number(item.clozeWrong || 0) || Number(item.meaningWrong || 0) || (Array.isArray(item.wrongQuestions) && item.wrongQuestions.length));
+    if (weak.length) {
+      return weak.slice(0, 20).map((item, index) => {
+        const examples = Array.isArray(item.wrongQuestions) && item.wrongQuestions.length ? item.wrongQuestions : [];
+        return '<details class="rounded-xl bg-white px-4 py-3 shadow-sm"><summary class="cursor-pointer list-none"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><p class="truncate text-sm font-black text-[#2D2A4A]">' + (index + 1) + '. ' + esc(item.phrase || item.skill || item.id || '未命名错点') + '</p><p class="mt-1 text-xs font-bold text-gray-400">完形错 ' + Number(item.clozeWrong || 0) + ' · 中文错 ' + Number(item.meaningWrong || 0) + '</p></div><span class="rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-black text-red-500">展开</span></div></summary><div class="mt-3 border-t border-gray-100 pt-3">' + (examples.length ? examples.slice(0,8).map(ex => '<div class="mb-2 rounded-xl bg-[#F8F8FC] px-3 py-2"><p class="text-xs font-black leading-5 text-[#2D2A4A]">' + esc(ex.question || ex.text || '') + '</p><p class="mt-1 text-xs font-bold text-gray-500">学生答案：' + esc(ex.selected || '空白') + ' · 正解：' + esc(ex.answer || '') + '</p>' + (ex.explanation ? '<p class="mt-1 text-xs font-bold text-gray-500">解析：' + esc(ex.explanation) + '</p>' : '') + '</div>').join('') : '<p class="text-xs font-bold text-gray-400">这个网页记录了错点次数，但没有保存题干。</p>') + '</div></details>';
+      }).join('');
+    }
+    const total = Number(record.totalCount || 0);
+    const wrong = total ? Math.max(0, total - Number(record.correctCount || 0)) : 0;
+    return '<div class="rounded-xl bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-700">这次提交只上报了分数' + (total ? '（错 ' + wrong + ' / ' + total + '）' : '') + '，没有上报具体题干和学生答案。需要在对应作业网页里补 metadata 才能看到完整错题。</div>';
+  };
+  const cards = sorted.slice(0, 30).map((record, index) => {
     const p = record.processReport || {};
     const skills = grammarInsights([record]).skills.filter(s => s.totalWrong).slice(0, 3).map(s => s.label).join('、');
-    const wrongText = skills || (p.weakPhrases || []).slice(0, 3).map(i => i.phrase || i.id).filter(Boolean).join('、') || '--';
-    return '<tr class="bg-[#F8F8FC] text-sm font-semibold text-gray-600 shadow-sm"><td class="rounded-l-[1.1rem] px-4 py-4 whitespace-nowrap">' + reportDateTime(record.submittedAt) + '</td><td class="px-4 py-4"><div class="font-black text-[#2D2A4A]">' + esc(record.moduleTitle || record.lessonId) + '</div><div class="mt-1 text-xs font-bold text-gray-400">' + esc(record.studentName || '') + '</div></td><td class="px-4 py-4"><span class="rounded-full bg-white px-3 py-1.5 font-black text-[#6B48FF] shadow-sm">' + record.scorePercent + '%</span></td><td class="px-4 py-4 whitespace-nowrap">' + reportTimeText(p.durationSeconds) + '</td><td class="rounded-r-[1.1rem] px-4 py-4 max-w-[18rem] truncate">' + esc(wrongText) + '</td></tr>';
+    const wrongText = skills || (p.weakPhrases || []).slice(0, 3).map(i => i.phrase || i.id).filter(Boolean).join('、') || (Number(record.totalCount || 0) ? '错 ' + Math.max(0, Number(record.totalCount || 0) - Number(record.correctCount || 0)) + ' 题' : '点击查看');
+    return '<details class="rounded-[1.2rem] border border-gray-100 bg-[#F8F8FC] p-4 shadow-sm" ' + (index < 5 ? 'open' : '') + '><summary class="cursor-pointer list-none"><div class="grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center"><div class="min-w-0"><p class="truncate text-base font-black text-[#2D2A4A]">' + esc(record.moduleTitle || record.lessonId || '未命名作业') + '</p><p class="mt-1 text-xs font-bold text-gray-400">' + esc(record.studentName || '') + ' · ' + reportDateTime(record.submittedAt) + ' · ' + esc(record.sourceLabel || '') + '</p></div><div class="flex flex-wrap gap-2 xl:justify-end"><span class="rounded-full bg-white px-3 py-1.5 text-xs font-black text-[#6B48FF] shadow-sm">' + record.scorePercent + '%</span><span class="rounded-full bg-white px-3 py-1.5 text-xs font-black text-gray-500 shadow-sm">' + (Number(record.totalCount || 0) ? record.correctCount + '/' + record.totalCount : '明细') + '</span><span class="rounded-full bg-white px-3 py-1.5 text-xs font-black text-gray-500 shadow-sm">' + reportTimeText(p.durationSeconds) + '</span><span class="rounded-full bg-red-50 px-3 py-1.5 text-xs font-black text-red-500">' + esc(wrongText) + '</span></div></div></summary><div class="mt-4 space-y-3 border-t border-gray-100 pt-4">' + wrongDetail(record) + '</div></details>';
   }).join('');
-  const moreCards = sorted.slice(5, 30).map(record => '<div class="rounded-xl bg-[#F8F8FC] px-4 py-3"><div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"><div class="min-w-0"><p class="truncate text-sm font-black text-[#2D2A4A]">' + esc(record.moduleTitle || record.lessonId) + '</p><p class="mt-1 text-xs font-bold text-gray-400">' + reportDateTime(record.submittedAt) + ' · ' + esc(record.studentName || '') + '</p></div><span class="shrink-0 rounded-full bg-white px-3 py-1.5 text-xs font-black text-[#6B48FF]">' + record.scorePercent + '%</span></div></div>').join('');
   const empty = '<div class="rounded-[1.4rem] border border-dashed border-gray-200 bg-[#F8F8FC] px-5 py-8 text-center text-sm font-bold text-gray-400">暂无作业记录。</div>';
-  return '<section class="card-solid overflow-hidden"><div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-5 md:flex-row md:items-center md:justify-between md:px-6"><div><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Homework Records</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">作业记录</h3></div><span class="rounded-full bg-[#F8F8FC] px-3 py-1 text-xs font-black text-gray-500">默认最近 5 次</span></div><div class="overflow-x-auto px-5 py-5 md:px-6">' + (rows ? '<table class="w-full min-w-[760px] border-separate border-spacing-y-2"><thead><tr class="text-left text-xs font-black uppercase tracking-[0.16em] text-gray-400"><th class="px-4 py-2">日期</th><th class="px-4 py-2">作业名称</th><th class="px-4 py-2">正确率</th><th class="px-4 py-2">用时</th><th class="px-4 py-2">错点</th></tr></thead><tbody>' + rows + '</tbody></table>' : empty) + (moreCards ? '<details class="mt-4 rounded-[1.25rem] bg-white"><summary class="cursor-pointer list-none rounded-full bg-[#F4F2FF] px-4 py-3 text-center text-sm font-black text-[#6B48FF] active-scale">展开更多作业记录</summary><div class="mt-3 grid gap-2">' + moreCards + '</div></details>' : '') + '</div></section>';
+  return '<section class="card-solid overflow-hidden"><div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-5 md:flex-row md:items-center md:justify-between md:px-6"><div><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Homework Records</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">作业记录与错题明细</h3></div><span class="rounded-full bg-[#F8F8FC] px-3 py-1 text-xs font-black text-gray-500">点开每次提交看错题</span></div><div class="space-y-3 px-4 py-4 md:px-6">' + (cards || empty) + '</div></section>';
 }
 function oneReportStudents() {
   return (state.students || []).filter(s => studentTypeOf(s) === 'one_to_one').sort((a,b) => String(a.name || a.id).localeCompare(String(b.name || b.id)));
@@ -1662,6 +1743,12 @@ function reportAttemptSelected(attempt) {
 }
 function reportAttemptAnswer(attempt) {
   return reportAnswerText(attempt?.correct_answer ?? attempt?.answer ?? attempt?.correctAnswer ?? attempt?.expected ?? '');
+}
+function reportAttemptPoint(attempt, record) {
+  return reportAnswerText(attempt?.knowledge_point ?? attempt?.knowledgePoint ?? attempt?.grammar_point ?? attempt?.grammarPoint ?? attempt?.test_point ?? attempt?.testPoint ?? attempt?.skill ?? attempt?.category ?? attempt?.tag ?? attempt?.section ?? record?.moduleTitle ?? '');
+}
+function reportAttemptThinking(attempt) {
+  return reportAnswerText(attempt?.thinking ?? attempt?.thought ?? attempt?.strategy ?? attempt?.rationale ?? attempt?.reason ?? attempt?.analysis ?? attempt?.explanation ?? attempt?.feedback ?? '');
 }
 function reportAttemptDuration(attempt) {
   const ms = Number(attempt?.duration_ms ?? attempt?.durationMs ?? attempt?.time_ms ?? 0);
@@ -1810,6 +1897,8 @@ function reportTrendSvg(data) { if (!data.chart.length) return '<div class="roun
 function reportsPanelV2() {
   const cfg = reportCfg();
   const data = computeReports();
+  const usesClassPartition = state.teacherTab === 'reports';
+  const classOpts = reportClassOptions().map(c => '<option value="' + esc(c.code) + '" ' + (cfg.selectedClassCode === c.code ? 'selected' : '') + '>' + esc(c.name) + '</option>').join('');
   const levelOpts = orderedLevels().map(l => '<option value="' + esc(l.id) + '" ' + (cfg.selectedLevelId === l.id ? 'selected' : '') + '>' + esc(l.title) + '</option>').join('');
   const lessonOpts = data.lessons.map(l => '<option value="' + esc(l.id) + '" ' + (cfg.selectedLessonId === l.id ? 'selected' : '') + '>' + esc(l.title) + '</option>').join('');
   const labelClass = 'text-[11px] md:text-[13px] font-bold text-gray-400 uppercase ml-1 mb-2 block';
@@ -1836,10 +1925,11 @@ function reportsPanelV2() {
     '<section class="grid grid-cols-2 gap-4 md:grid-cols-4">' + analysisCapsules + '</section>' +
     '<section class="card-solid overflow-hidden">' +
       '<div class="flex flex-col gap-4 border-b border-gray-100 bg-gradient-to-r from-[#F8F8FC] via-white to-[#F4F2FF] px-5 py-5 md:flex-row md:items-end md:justify-between md:px-6">' +
-        '<div class="min-w-0"><p class="text-xs font-black uppercase tracking-[0.3em] text-gray-400">Reports</p><h2 class="mt-3 text-2xl font-black text-[#2D2A4A] md:text-3xl">报表</h2></div>' +
+        '<div class="min-w-0"><p class="text-xs font-black uppercase tracking-[0.3em] text-gray-400">Reports</p><h2 class="mt-3 text-2xl font-black text-[#2D2A4A] md:text-3xl">报表' + (usesClassPartition && data.selectedClassLabel ? ' · ' + esc(data.selectedClassLabel) : '') + '</h2></div>' +
         '<button data-report-refresh class="inline-flex min-h-[40px] shrink-0 items-center justify-center rounded-full bg-white px-4 py-2 text-sm font-black text-[#6B48FF] shadow-sm active-scale">' + (cfg.loading ? '<i class="fa-solid fa-spinner fa-spin sm:mr-2"></i><span class="hidden sm:inline">同步中</span>' : '<i class="fa-solid fa-rotate sm:mr-2"></i><span class="hidden sm:inline">刷新</span>') + '</button>' +
       '</div>' +
       '<div class="px-5 py-5 md:px-6"><div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3">' +
+        (usesClassPartition ? field('班级 / 课程分区', '<select data-report-field="selectedClassCode" class="' + inputClass + '">' + classOpts + '</select>') : '') +
         field('开始日期', '<input data-report-field="startDate" type="datetime-local" value="' + esc(cfg.startDate) + '" max="' + esc(cfg.endDate) + '" class="' + inputClass + '">') +
         field('结束日期', '<input data-report-field="endDate" type="datetime-local" value="' + esc(cfg.endDate) + '" min="' + esc(cfg.startDate) + '" class="' + inputClass + '">') +
         field('课程', '<select data-report-field="selectedLevelId" class="' + inputClass + '"><option value="all">全部课程</option>' + levelOpts + '</select>') +
@@ -1860,14 +1950,10 @@ function reportsPanelV2() {
       '<div class="card-solid overflow-hidden"><div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-5 md:flex-row md:items-center md:justify-between md:px-6"><div><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Trend</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">成绩趋势对比</h3></div><span class="rounded-full bg-[#F8F8FC] px-3 py-1 text-xs font-black text-gray-500">可对比全部对象</span></div><div class="space-y-4 px-5 py-5 md:px-6"><div data-report-compare-list class="flex flex-wrap gap-2">' + (chips || '<span class="text-sm font-bold text-gray-400">暂无可对比对象</span>') + '</div><div data-report-trend-chart>' + reportTrendSvg(data) + '</div></div></div>' +
       '<div class="card-solid overflow-hidden"><div class="border-b border-gray-100 px-5 py-5 md:px-6"><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Distribution</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">分数段分布</h3></div><div class="space-y-5 px-5 py-5 md:px-6"><div class="mx-auto flex h-44 w-44 items-center justify-center rounded-full bg-[#F8F8FC] shadow-inner"><div class="relative flex h-40 w-40 items-center justify-center rounded-full" style="background-image:' + reportPieBackground(data.buckets) + '"><div class="absolute inset-[28px] rounded-full bg-white shadow-inner"></div><div class="relative text-center"><p class="text-xs font-black text-gray-400">单元成绩</p><p class="mt-1 text-3xl font-black text-[#2D2A4A]">' + data.latestRows.length + '</p></div></div></div><div class="space-y-3">' + bucketRows + '</div></div></div>' +
     '</section>' +
-    reportIssueDiagnosisSection(data.processReports) +
-    reportLearningTrajectorySection(data) +
-    writingTrackingSection(data.writingReports) +
-    reportCompactHomeworkSection(data.processReports.length ? data.processReports : data.latestRows) +
     reportTableSection(cfg.viewMode === 'class' ? '班级成绩查看' : '学生成绩查看', cfg.viewMode === 'class' ? '班级' : '学生', summaryRows, cfg.viewMode === 'class', summaryCards) +
-    grammarLeaderboardSection(data.processReports) +
-    reportProcessSection(data.processReports) +
-    reportDetailSection(detailRows, detailCards) +
+    reportCompactHomeworkSection(data.processReports.length ? data.processReports : data.latestRows) +
+    writingTrackingSection(data.writingReports) +
+    reinforcementTaskSection() +
     '</div>';
 }
 function reportTableSection(title, firstHead, rows, hasStudentCount, mobileCards) { const empty = '<div class="rounded-[1.4rem] border border-dashed border-gray-200 bg-[#F8F8FC] px-5 py-8 text-center text-sm font-bold text-gray-400">暂无成绩数据。</div>'; return '<section class="card-solid overflow-hidden"><div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-5 md:flex-row md:items-center md:justify-between md:px-6"><div><p class="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Ranking</p><h3 class="mt-2 text-xl font-black text-[#2D2A4A]">' + title + '</h3></div></div><div class="space-y-3 px-4 py-4 md:hidden">' + (mobileCards || empty) + '</div><div class="hidden px-5 py-5 md:block md:px-6">' + (rows ? '<table class="w-full min-w-[760px] border-separate border-spacing-y-2"><thead><tr class="text-left text-xs font-black uppercase tracking-[0.16em] text-gray-400"><th class="px-4 py-2">' + firstHead + '</th><th class="px-4 py-2">平均正确率</th><th class="px-4 py-2">提交次数</th><th class="px-4 py-2">覆盖单元</th>' + (hasStudentCount ? '<th class="px-4 py-2">学生数</th>' : '') + '<th class="px-4 py-2">最近提交</th></tr></thead><tbody>' + rows + '</tbody></table>' : empty) + '</div></section>'; }
@@ -1981,11 +2067,16 @@ function printableReportHtml(record, allRecords) {
   const skillRows = insights.skills.slice(0, 12).map((skill, index) => '<tr><td>' + (index + 1) + '</td><td>' + esc(skill.label) + '</td><td>' + skill.totalWrong + '</td><td>' + skill.mastery + '%</td><td>' + (skill.firstWrong ? reportDateTime(skill.firstWrong) : '--') + '</td><td>' + (skill.repeatedWrong ? '反复错' : '未反复') + '</td><td>' + (skill.stillWrong ? '最近仍错' : '最近转对/稳定') + '</td></tr>').join('');
   const weakRows = (p.weakPhrases || []).map((item, index) => {
     const examples = Array.isArray(item.wrongQuestions) && item.wrongQuestions.length ? item.wrongQuestions : (Array.isArray(item.examples) ? item.examples : []);
-    const exampleRows = examples.slice(0, 8).map(ex => '<div class="sample"><b>题目：</b>' + esc(ex.question || ex.en || ex.text || '') + '<br><b>答案：</b>' + esc(ex.selected || '空白') + ' / ' + esc(ex.answer || '') + '<br><b>解析：</b>' + esc(ex.explanation || ex.zh || ex.cn || '') + (ex.duration_ms ? '<br><b>用时：</b>' + reportTimeText(Number(ex.duration_ms || 0) / 1000) : '') + '</div>').join('');
-    return '<section class="block"><h3>' + (index + 1) + '. ' + esc(item.phrase || item.id || '语法点') + '</h3><p>错次：' + reportItemWrongCount(item) + ' · 尝试：' + Number(item.clozeAttempts || item.meaningAttempts || 0) + ' · 复习/补强：' + Number(item.studyCount || 0) + ' · 用时：' + reportTimeText(item.clozeTimeSeconds || 0) + '</p>' + (exampleRows || '<p>暂无错题样本。</p>') + '</section>';
+    const exampleRows = examples.slice(0, 8).map(ex => {
+      const duration = Number(ex.duration_ms ?? ex.durationMs ?? ex.time_ms ?? 0) > 0 ? reportTimeText(Number(ex.duration_ms ?? ex.durationMs ?? ex.time_ms) / 1000) : reportTimeText(Number(ex.duration_seconds ?? ex.durationSeconds ?? ex.time_seconds ?? 0));
+      const point = reportAnswerText(ex.knowledge_point ?? ex.knowledgePoint ?? ex.grammar_point ?? ex.grammarPoint ?? ex.test_point ?? ex.testPoint ?? ex.skill ?? ex.category ?? item.phrase ?? item.id ?? '');
+      const thinking = reportAnswerText(ex.thinking ?? ex.thought ?? ex.strategy ?? ex.rationale ?? ex.reason ?? ex.analysis ?? ex.explanation ?? ex.zh ?? ex.cn ?? '');
+      return '<div class="sample"><b>题目：</b>' + esc(ex.question || ex.en || ex.text || '') + '<br><b>本题用时：</b>' + esc(duration || '--') + '<br><b>考核点：</b>' + esc(point || '未记录') + '<br><b>学生答案 / 正解：</b>' + esc(ex.selected || '空白') + ' / ' + esc(ex.answer || '') + '<br><b>解题思路：</b>' + esc(thinking || '未记录') + '<br><b>解析：</b>' + esc(ex.explanation || ex.zh || ex.cn || '') + '</div>';
+    }).join('');
+    return '<section class="block"><h3>' + (index + 1) + '. ' + esc(item.phrase || item.id || '语法点') + '</h3><p>错次：' + reportItemWrongCount(item) + ' · 尝试：' + Number(item.clozeAttempts || item.meaningAttempts || 0) + ' · 复习/补强：' + Number(item.studyCount || 0) + ' · 词组/考点用时：' + reportTimeText(item.clozeTimeSeconds || 0) + '</p>' + (exampleRows || '<p>暂无错题样本。</p>') + '</section>';
   }).join('');
-  const attemptRows = (p.attempts || []).map((attempt, index) => '<tr><td>' + (index + 1) + '</td><td>' + esc(reportProcessPhaseLabel(attempt.phase || attempt.stage)) + '</td><td>' + esc(attempt.phrase || attempt.skill || attempt.category || '') + '</td><td>' + (attempt.correct === true || attempt.isCorrect === true ? '对' : '错') + '</td><td>' + esc(attempt.question || '') + '</td><td>' + esc(attempt.selected || '') + '</td><td>' + esc(attempt.answer || '') + '</td><td>' + reportTimeText(Number(attempt.duration_ms || attempt.durationMs || 0) / 1000) + '</td></tr>').join('');
-  return '<!doctype html><html><head><meta charset="utf-8"><title>' + esc(record.studentName + ' 全景做题报告') + '</title><style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#222;margin:32px;line-height:1.55}h1{font-size:26px;margin:0 0 6px}h2{margin-top:28px;border-bottom:2px solid #eee;padding-bottom:8px}h3{margin:0 0 6px}.muted{color:#777}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:18px 0}.stat{border:1px solid #eee;border-radius:12px;padding:12px}.stat b{display:block;font-size:22px;color:#6B48FF}table{width:100%;border-collapse:collapse;margin:10px 0 18px}th,td{border:1px solid #eee;padding:8px;text-align:left;vertical-align:top;font-size:12px}th{background:#f7f7fb}.block{border:1px solid #eee;border-radius:14px;padding:14px;margin:12px 0;break-inside:avoid}.sample{background:#fafafa;border-radius:10px;padding:10px;margin:8px 0;font-size:12px}.toolbar{position:sticky;top:0;background:white;padding:0 0 12px;margin-bottom:12px}.toolbar button{border:0;border-radius:999px;background:#6B48FF;color:white;padding:10px 16px;font-weight:800}@media print{.toolbar{display:none}body{margin:18mm}.block{break-inside:avoid}}</style></head><body><div class="toolbar"><button onclick="window.print()">保存为 PDF</button></div><h1>' + esc(record.studentName) + ' · 全景做题报告</h1><p class="muted">' + esc(record.moduleTitle) + ' · ' + reportDateTime(record.submittedAt) + '</p><div class="grid"><div class="stat">正确率<b>' + record.scorePercent + '%</b></div><div class="stat">总用时<b>' + reportTimeText(p.durationSeconds) + '</b></div><div class="stat">首轮过关<b>' + p.firstPass + '</b></div><div class="stat">错次<b>' + p.clozeWrongCount + '</b></div></div><h2>语法错误排行榜</h2><table><thead><tr><th>#</th><th>语法点</th><th>错次</th><th>掌握率</th><th>首次出错</th><th>反复</th><th>最近状态</th></tr></thead><tbody>' + (skillRows || '<tr><td colspan="7">暂无语法错题数据</td></tr>') + '</tbody></table><h2>本次错题与解析</h2>' + (weakRows || '<p>本次没有明显薄弱点。</p>') + '<h2>做题步骤明细</h2><table><thead><tr><th>#</th><th>阶段</th><th>考点</th><th>结果</th><th>题目</th><th>学生答案</th><th>正解</th><th>用时</th></tr></thead><tbody>' + (attemptRows || '<tr><td colspan="8">暂无步骤数据</td></tr>') + '</tbody></table></body></html>';
+  const attemptRows = reportAttemptRows(record).map((attempt, index) => '<tr><td>' + (index + 1) + '</td><td>' + esc(reportProcessPhaseLabel(attempt.phase || attempt.stage || attempt.section || attempt.part)) + '</td><td>' + esc(reportAttemptPoint(attempt, record) || '未记录') + '</td><td>' + (attempt.correct === true || attempt.isCorrect === true ? '对' : '错') + '</td><td>' + esc(reportAttemptQuestion(attempt)) + '</td><td>' + esc(reportAttemptSelected(attempt)) + '</td><td>' + esc(reportAttemptAnswer(attempt)) + '</td><td>' + reportTimeText(reportAttemptDuration(attempt)) + '</td><td>' + esc(reportAttemptThinking(attempt) || '未记录') + '</td></tr>').join('');
+  return '<!doctype html><html><head><meta charset="utf-8"><title>' + esc(record.studentName + ' 全景做题报告') + '</title><style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#222;margin:32px;line-height:1.55}h1{font-size:26px;margin:0 0 6px}h2{margin-top:28px;border-bottom:2px solid #eee;padding-bottom:8px}h3{margin:0 0 6px}.muted{color:#777}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:18px 0}.stat{border:1px solid #eee;border-radius:12px;padding:12px}.stat b{display:block;font-size:22px;color:#6B48FF}table{width:100%;border-collapse:collapse;margin:10px 0 18px;table-layout:auto}th,td{border:1px solid #eee;padding:8px;text-align:left;vertical-align:top;font-size:11px;word-break:break-word}th{background:#f7f7fb}.block{border:1px solid #eee;border-radius:14px;padding:14px;margin:12px 0;break-inside:avoid}.sample{background:#fafafa;border-radius:10px;padding:10px;margin:8px 0;font-size:12px}.toolbar{position:sticky;top:0;background:white;padding:0 0 12px;margin-bottom:12px}.toolbar button{border:0;border-radius:999px;background:#6B48FF;color:white;padding:10px 16px;font-weight:800}@media print{.toolbar{display:none}body{margin:12mm}.block{break-inside:avoid}th,td{font-size:10px;padding:6px}}</style></head><body><div class="toolbar"><button onclick="window.print()">保存为 PDF</button></div><h1>' + esc(record.studentName) + ' · 全景做题报告</h1><p class="muted">' + esc(record.moduleTitle) + ' · ' + reportDateTime(record.submittedAt) + '</p><div class="grid"><div class="stat">正确率<b>' + record.scorePercent + '%</b></div><div class="stat">总用时<b>' + reportTimeText(p.durationSeconds) + '</b></div><div class="stat">首轮过关<b>' + p.firstPass + '</b></div><div class="stat">错次<b>' + p.clozeWrongCount + '</b></div></div><h2>语法错误排行榜</h2><table><thead><tr><th>#</th><th>语法点</th><th>错次</th><th>掌握率</th><th>首次出错</th><th>反复</th><th>最近状态</th></tr></thead><tbody>' + (skillRows || '<tr><td colspan="7">暂无语法错题数据</td></tr>') + '</tbody></table><h2>本次错题与解析</h2>' + (weakRows || '<p>本次没有明显薄弱点。</p>') + '<h2>做题步骤明细</h2><table><thead><tr><th>#</th><th>阶段</th><th>考核点</th><th>结果</th><th>题目</th><th>学生答案</th><th>正解</th><th>本题用时</th><th>解题思路</th></tr></thead><tbody>' + (attemptRows || '<tr><td colspan="9">暂无步骤数据</td></tr>') + '</tbody></table></body></html>';
 }
 function exportPracticeReport(recordId) {
   const data = computeReports();
@@ -2787,17 +2878,19 @@ async function loadReportData(showDone = true) {
   cfg.loading = true;
   cfg.error = '';
   render();
-  const [logs, practiceReports] = await Promise.all([
+  const [logs, practiceReports, reinforcementTasks] = await Promise.all([
     fetchOptionalTable('growth_logs', '*', 'created_at', cfg),
-    fetchOptionalTable('student_practice_reports', '*', 'created_at', cfg)
+    fetchOptionalTable('student_practice_reports', '*', 'created_at', cfg),
+    fetchOptionalTable('reinforcement_tasks', '*', 'created_at', cfg)
   ]);
-  const errors = [logs.error, practiceReports.error].filter(Boolean);
+  const errors = [logs.error, practiceReports.error, reinforcementTasks.error].filter(Boolean);
   if (errors.length) cfg.error = errors.map(e => e.message).join(' / ');
   else if (logs.truncated || practiceReports.truncated) cfg.error = '当前日期范围数据较多，已先加载最近 ' + (cfg.maxRows || 3000) + ' 条。缩小日期范围可以查看更完整的数据。';
   cfg.quizAttempts = [];
   cfg.diagnosticAttempts = [];
   if (!logs.error) state.logs = logs.data || state.logs;
   if (!practiceReports.error) state.practiceReports = practiceReports.data || state.practiceReports;
+  if (!reinforcementTasks.error) state.reinforcementTasks = reinforcementTasks.data || state.reinforcementTasks;
   cfg.loaded = true;
   cfg.loading = false;
   render();
@@ -2821,8 +2914,12 @@ async function deleteReportRecord(id, label = '', table = 'growth_logs') {
 function updateReportField(field, value) {
   const cfg = reportCfg();
   cfg[field] = value;
+  if (field === 'selectedClassCode') {
+    cfg.selectedLevelId = 'all';
+    cfg.selectedLessonId = 'all';
+  }
   if (field === 'selectedLevelId') cfg.selectedLessonId = 'all';
-  if (['selectedLevelId','selectedLessonId','sourceFilter','viewMode','startDate','endDate'].includes(field)) cfg.selectedComparisonIds = [];
+  if (['selectedClassCode','selectedLevelId','selectedLessonId','sourceFilter','viewMode','startDate','endDate'].includes(field)) cfg.selectedComparisonIds = [];
   render();
   if (field === 'startDate' || field === 'endDate') loadReportData(false);
 }
@@ -3285,6 +3382,48 @@ async function savePetRewardRule(key) {
   await loadPetData(false);
   toast('奖励规则已保存。');
 }
+async function copyReinforcementPrompt() {
+  const text = document.getElementById('reinforce-prompt')?.value || '';
+  if (!text) return;
+  try {
+    await navigator.clipboard?.writeText(text);
+    toast('补强指令已复制');
+  } catch {
+    showAlert(text, '补强指令');
+  }
+}
+async function saveReinforcementTask() {
+  if (currentUser()?.role !== 'teacher') return;
+  const skillKey = document.getElementById('reinforce-skill-key')?.value || '';
+  const skillLabel = document.getElementById('reinforce-skill-label')?.value || '';
+  const classCode = document.getElementById('reinforce-class-code')?.value || '';
+  const targetCount = Math.max(1, Number(document.getElementById('reinforce-count')?.value || 8));
+  const difficulty = document.getElementById('reinforce-difficulty')?.value || '中阶巩固';
+  const prompt = document.getElementById('reinforce-prompt')?.value || '';
+  if (!skillKey || !skillLabel || !prompt) return showAlert('补强方案缺少知识点或生成指令。', '无法保存');
+  if (!sb) return showAlert('当前页面没有连接到 Supabase，已无法保存到后台。', '保存失败');
+  const payload = {
+    class_code: classCode ? dbClass(classCode) : null,
+    class_label: classCode ? reportClassLabel(classCode) : '',
+    skill_key: skillKey,
+    skill_label: skillLabel,
+    target_count: targetCount,
+    difficulty,
+    source_strategy: 'preset_first_ai_fill',
+    prompt,
+    status: 'draft',
+    created_at: new Date().toISOString()
+  };
+  const result = await sb.from('reinforcement_tasks').insert(payload).select('*').single();
+  if (result.error) {
+    if (result.error.code === '42P01' || result.error.code === 'PGRST205') return showAlert('补强方案表还没建立。请先在 Supabase SQL Editor 执行 supabase-reinforcement-setup.sql，然后再保存。', '需要先建表');
+    return showAlert(result.error.message, '保存失败');
+  }
+  state.reinforcementTasks = [result.data || payload].concat(state.reinforcementTasks || []);
+  closeModal();
+  render();
+  toast('补强方案草稿已保存');
+}
 function showConfirm(msg, title, okText, okClass, onConfirm) {
   window.__xy_confirm_action = async () => {
     window.__xy_confirm_action = null;
@@ -3392,7 +3531,7 @@ document.addEventListener('touchstart', e => {
   if (open) prefetchLesson(open.dataset.moduleId, open.dataset.file);
 }, { passive:true });
 window.addEventListener('pageshow', clearLessonLaunchOverlay);
-document.addEventListener('click', e => { if (e.target.closest('button,a,[data-route],[data-toast],[data-home-tab],[data-slide-index],[data-carousel-slide],[data-login],[data-logout],[data-open-lesson],[data-teacher-tab],[data-open-pet-switch]') && !suppressCarouselClick) playClick(); const route = e.target.closest('[data-route]'); if (route) return routeTo(route.dataset.route, route.dataset.level || null, true); const t = e.target.closest('[data-toast]'); if (t) return toast(t.dataset.toast); const homeTab = e.target.closest('[data-home-tab]'); if (homeTab) { state.homeTab = homeTab.dataset.homeTab; return render(); } const dot = e.target.closest('[data-slide-index]'); if (dot) return updateCarousel(Number(dot.dataset.slideIndex) || 0); const slide = e.target.closest('[data-carousel-slide]'); if (slide) return openCarouselSlide(Number(slide.dataset.carouselSlide) || 0); if (e.target.closest('[data-login]')) return showLogin(); if (e.target.closest('[data-logout]')) return logout(); const open = e.target.closest('[data-open-lesson]'); if (open) return openLesson(open.dataset.moduleId, open.dataset.file, open.dataset.visibleUploaded === '1'); const tab = e.target.closest('[data-teacher-tab]'); if (tab) { state.teacherTab = tab.dataset.teacherTab; render(); setTimeout(() => document.querySelector('[data-teacher-tab="' + state.teacherTab + '"]')?.scrollIntoView({ behavior:'smooth', inline:'center', block:'nearest' }), 40); return; } const chip = e.target.closest('[data-toggle-chip]'); if (chip) { chip.classList.toggle('selected'); return; } if (e.target.closest('[data-regen-pwd]')) return regenPwd(); if (e.target.closest('[data-save-student]') || e.target.closest('[data-add-student]')) return addStudent(); const studentInfo = e.target.closest('[data-student-info]'); if (studentInfo) return showStudentInfo(studentInfo.dataset.studentInfo); const delStudent = e.target.closest('[data-delete-student]'); if (delStudent) return deleteStudent(delStudent.dataset.deleteStudent); const pub = e.target.closest('[data-publish-lesson]'); if (pub) return syncLesson(pub.dataset.publishLesson, 'open'); if (e.target.closest('[data-add-homework]')) return addHomework(); if (e.target.closest('[data-migrate-lessons]')) return migrateRegistryLessonsToStorage(); const editHw = e.target.closest('[data-edit-homework]'); if (editHw) return showHomeworkEditor(editHw.dataset.editHomework); if (e.target.closest('[data-save-homework-edit]')) return saveHomeworkEdit(); if (e.target.closest('[data-close-old-hw]')) return closeAllOldHw(); const delHw = e.target.closest('[data-delete-homework]'); if (delHw) return deleteHomework(delHw.dataset.deleteHomework); if (e.target.closest('[data-generate-attendance]')) return generateAttendance(); const exempt = e.target.closest('[data-open-exempt]'); if (exempt) return openExemptModal(exempt.dataset.openExempt, exempt.dataset.studentName); const applyExemptBtn = e.target.closest('[data-apply-exempt]'); if (applyExemptBtn) return applyExempt(applyExemptBtn.dataset.applyExempt, applyExemptBtn.dataset.studentName); if (e.target.closest('[data-report-refresh]')) return loadReportData(true); const econStudent = e.target.closest('[data-report-economist-student]'); if (econStudent) { reportCfg().selectedEconomistStudentId = econStudent.dataset.reportEconomistStudent || 'all'; return render(); } const exportPractice = e.target.closest('[data-export-practice-report]'); if (exportPractice) { e.preventDefault(); e.stopPropagation(); return exportPracticeReport(exportPractice.dataset.exportPracticeReport); } const deleteReport = e.target.closest('[data-delete-report-record]'); if (deleteReport) { e.preventDefault(); e.stopPropagation(); return deleteReportRecord(deleteReport.dataset.deleteReportRecord, deleteReport.dataset.reportRecordTitle || '', deleteReport.dataset.reportRecordTable || 'growth_logs'); } const compare = e.target.closest('[data-report-compare]'); if (compare) return toggleReportCompare(compare.dataset.reportCompare); if (e.target.closest('[data-confirm-action]') && window.__xy_confirm_action) return window.__xy_confirm_action(); const previewBanner = e.target.closest('[data-preview-banner]'); if (previewBanner) return showBannerPreview(previewBanner.dataset.previewBanner); const editBanner = e.target.closest('[data-edit-banner]'); if (editBanner) return showBannerEditor(editBanner.dataset.editBanner); if (e.target.closest('[data-save-banner-edit]')) return saveBannerEdit(); if (e.target.closest('[data-add-banner]')) return addBanner(); const bannerPageStep = e.target.closest('[data-banner-page-step]'); if (bannerPageStep) return shiftBannerPage(bannerPageStep.dataset.bannerPageStep, Number(bannerPageStep.dataset.bannerPageDelta)); const delBanner = e.target.closest('[data-delete-banner]'); if (delBanner) return deleteBanner(delBanner.dataset.deleteBanner); if (e.target.closest('[data-do-login]')) return doLogin(); if (e.target.closest('[data-close-modal]')) return closeModal(); });
+document.addEventListener('click', e => { if (e.target.closest('button,a,[data-route],[data-toast],[data-home-tab],[data-slide-index],[data-carousel-slide],[data-login],[data-logout],[data-open-lesson],[data-teacher-tab],[data-open-pet-switch]') && !suppressCarouselClick) playClick(); const route = e.target.closest('[data-route]'); if (route) return routeTo(route.dataset.route, route.dataset.level || null, true); const t = e.target.closest('[data-toast]'); if (t) return toast(t.dataset.toast); const homeTab = e.target.closest('[data-home-tab]'); if (homeTab) { state.homeTab = homeTab.dataset.homeTab; return render(); } const dot = e.target.closest('[data-slide-index]'); if (dot) return updateCarousel(Number(dot.dataset.slideIndex) || 0); const slide = e.target.closest('[data-carousel-slide]'); if (slide) return openCarouselSlide(Number(slide.dataset.carouselSlide) || 0); if (e.target.closest('[data-login]')) return showLogin(); if (e.target.closest('[data-logout]')) return logout(); const open = e.target.closest('[data-open-lesson]'); if (open) return openLesson(open.dataset.moduleId, open.dataset.file, open.dataset.visibleUploaded === '1'); const tab = e.target.closest('[data-teacher-tab]'); if (tab) { state.teacherTab = tab.dataset.teacherTab; render(); setTimeout(() => document.querySelector('[data-teacher-tab="' + state.teacherTab + '"]')?.scrollIntoView({ behavior:'smooth', inline:'center', block:'nearest' }), 40); return; } const chip = e.target.closest('[data-toggle-chip]'); if (chip) { chip.classList.toggle('selected'); return; } if (e.target.closest('[data-regen-pwd]')) return regenPwd(); if (e.target.closest('[data-save-student]') || e.target.closest('[data-add-student]')) return addStudent(); const studentInfo = e.target.closest('[data-student-info]'); if (studentInfo) return showStudentInfo(studentInfo.dataset.studentInfo); const delStudent = e.target.closest('[data-delete-student]'); if (delStudent) return deleteStudent(delStudent.dataset.deleteStudent); const pub = e.target.closest('[data-publish-lesson]'); if (pub) return syncLesson(pub.dataset.publishLesson, 'open'); if (e.target.closest('[data-add-homework]')) return addHomework(); if (e.target.closest('[data-migrate-lessons]')) return migrateRegistryLessonsToStorage(); const editHw = e.target.closest('[data-edit-homework]'); if (editHw) return showHomeworkEditor(editHw.dataset.editHomework); if (e.target.closest('[data-save-homework-edit]')) return saveHomeworkEdit(); if (e.target.closest('[data-close-old-hw]')) return closeAllOldHw(); const delHw = e.target.closest('[data-delete-homework]'); if (delHw) return deleteHomework(delHw.dataset.deleteHomework); if (e.target.closest('[data-generate-attendance]')) return generateAttendance(); const exempt = e.target.closest('[data-open-exempt]'); if (exempt) return openExemptModal(exempt.dataset.openExempt, exempt.dataset.studentName); const applyExemptBtn = e.target.closest('[data-apply-exempt]'); if (applyExemptBtn) return applyExempt(applyExemptBtn.dataset.applyExempt, applyExemptBtn.dataset.studentName); if (e.target.closest('[data-report-refresh]')) return loadReportData(true); const reinforce = e.target.closest('[data-open-reinforcement]'); if (reinforce) { e.preventDefault(); e.stopPropagation(); return openReinforcementModal(reinforce.dataset.openReinforcement); } if (e.target.closest('[data-copy-reinforcement-prompt]')) return copyReinforcementPrompt(); if (e.target.closest('[data-save-reinforcement-task]')) return saveReinforcementTask(); const econStudent = e.target.closest('[data-report-economist-student]'); if (econStudent) { reportCfg().selectedEconomistStudentId = econStudent.dataset.reportEconomistStudent || 'all'; return render(); } const exportPractice = e.target.closest('[data-export-practice-report]'); if (exportPractice) { e.preventDefault(); e.stopPropagation(); return exportPracticeReport(exportPractice.dataset.exportPracticeReport); } const deleteReport = e.target.closest('[data-delete-report-record]'); if (deleteReport) { e.preventDefault(); e.stopPropagation(); return deleteReportRecord(deleteReport.dataset.deleteReportRecord, deleteReport.dataset.reportRecordTitle || '', deleteReport.dataset.reportRecordTable || 'growth_logs'); } const compare = e.target.closest('[data-report-compare]'); if (compare) return toggleReportCompare(compare.dataset.reportCompare); if (e.target.closest('[data-confirm-action]') && window.__xy_confirm_action) return window.__xy_confirm_action(); const previewBanner = e.target.closest('[data-preview-banner]'); if (previewBanner) return showBannerPreview(previewBanner.dataset.previewBanner); const editBanner = e.target.closest('[data-edit-banner]'); if (editBanner) return showBannerEditor(editBanner.dataset.editBanner); if (e.target.closest('[data-save-banner-edit]')) return saveBannerEdit(); if (e.target.closest('[data-add-banner]')) return addBanner(); const bannerPageStep = e.target.closest('[data-banner-page-step]'); if (bannerPageStep) return shiftBannerPage(bannerPageStep.dataset.bannerPageStep, Number(bannerPageStep.dataset.bannerPageDelta)); const delBanner = e.target.closest('[data-delete-banner]'); if (delBanner) return deleteBanner(delBanner.dataset.deleteBanner); if (e.target.closest('[data-do-login]')) return doLogin(); if (e.target.closest('[data-close-modal]')) return closeModal(); });
 document.addEventListener('touchstart', e => { const carousel = e.target.closest('[data-carousel]'); if (!carousel) return; const touch = e.touches && e.touches[0]; if (!touch) return; if (carouselSuppressTimer) clearTimeout(carouselSuppressTimer); suppressCarouselClick = false; carouselStartX = touch.clientX; carouselStartY = touch.clientY; }, { passive:true });
 document.addEventListener('touchend', e => { const carousel = e.target.closest('[data-carousel]'); if (!carousel) return; const touch = e.changedTouches && e.changedTouches[0]; if (!touch) return; const dx = touch.clientX - carouselStartX; const dy = touch.clientY - carouselStartY; const ax = Math.abs(dx); const ay = Math.abs(dy); if (ax < 56 || ax <= ay + 12) { suppressCarouselClick = false; return; } suppressCarouselClick = true; if (carouselSuppressTimer) clearTimeout(carouselSuppressTimer); carouselSuppressTimer = setTimeout(() => { suppressCarouselClick = false; carouselSuppressTimer = null; }, 260); updateCarousel(state.slide + (dx < 0 ? 1 : -1)); }, { passive:true });
 document.addEventListener('visibilitychange', () => { if (document.hidden) stopCarouselAuto(); else { clearLessonLaunchOverlay(); scheduleCarouselAuto(); } });
