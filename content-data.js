@@ -48,6 +48,14 @@ window.XY_CONTENT_LEVELS = [
     "buttonTheme": "bg-emerald-500 text-white shadow-md shadow-emerald-500/20"
   },
   {
+    "id": "b1",
+    "code": "B1",
+    "title": "TALENT B1",
+    "icon": "fa-chess-knight",
+    "theme": "text-cyan-700 bg-cyan-50 border-cyan-100",
+    "buttonTheme": "bg-cyan-500 text-white shadow-md shadow-cyan-500/20"
+  },
+  {
     "id": "one_to_one",
     "code": "ONE-TO-ONE",
     "title": "一对一专属课",
@@ -159,6 +167,7 @@ window.XY_CONTENT_MODULES = {
   "summer_primary_grammar": [],
   "summer_reading_analysis": [],
   "summer-uk-2026": [],
+  "b1": [],
   "a1": [
     {
       "id": "a2-reading-tool",
