@@ -144,7 +144,7 @@ window.XY_CONTENT_LEVELS = [
   {
     "id": "economist",
     "code": "GRAMMAR",
-    "title": "高中语法\n与写作",
+    "title": "高中语法与写作",
     "icon": "fa-pen-nib",
     "theme": "text-indigo-700 bg-indigo-50 border-indigo-100",
     "buttonTheme": "bg-indigo-500 text-white shadow-md shadow-indigo-500/20"
