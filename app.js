@@ -13,6 +13,7 @@ const SUMMER_SPECIAL_COURSE_TYPES = ['summer_phonics','summer_xsc_grammar','summ
 const CUSTOM_STUDY_COURSE_TYPES = PRIVATE_COURSE_TYPES.concat(CUSTOM_TOOL_COURSE_TYPES);
 const SPECIAL_COURSE_TYPES = CUSTOM_STUDY_COURSE_TYPES.concat(SUMMER_SPECIAL_COURSE_TYPES);
 const PERSONAL_COURSE_TYPES = PRIVATE_COURSE_TYPES;
+const STUDENT_SCOPED_CLASS_TYPES = ['economist'];
 const HOME_LEVEL_ORDER = window.XY_HOME_LEVEL_ORDER || ['f2','a1','a1-plus','a2','a2-plus','b1','junior-ability','swsy','others','economist','one_to_one','coaching','ielts_custom_tools','summer_phonics','summer_xsc_grammar','summer_primary_grammar','summer_reading_analysis'];
 const state = { page: 'home', level: null, homeTab: 'courses', slide: 0, teacherTab: 'students', studentManageView: 'classes', selectedStudentId: '', students: [], homework: [], banners: [], bannerError: '', logs: [], practiceReports: [], reinforcementTasks: [], attendance: null, report: null, vote: null, pet: null, loading: true };
 const app = document.getElementById('app');
@@ -98,7 +99,7 @@ const HOME_META = {
   f2:['Foundation','child_care','bg-[#ffc2cc]','text-[#b5084d]'], a1:['Starter','school','bg-[#e7e4ff]','text-[#5827fc]'],
   'a1-plus':['Beginner+','star','bg-[#fdd400]','text-[#594a00]'], a2:['Intermediate','emoji_events','bg-[#a192ff]','text-[#5827fc]'],
   'a2-plus':['Advanced Int.','auto_awesome','bg-[#d9ffe9]','text-[#18a76e]'], b1:['B1 Bridge','fa-chess-knight','bg-[#cffafe]','text-[#0891b2]'], swsy:['Speaking','forum','bg-[#ffc2cc]/70','text-[#b5084d]'],
-  'junior-ability':['Junior High Prep','import_contacts','bg-white','text-[#5827fc]'], economist:['Economist Reading','menu_book','bg-[#fdd400]/30','text-[#6d5a00]'],
+  'junior-ability':['Junior High Prep','import_contacts','bg-white','text-[#5827fc]'], economist:['Grammar & Writing','fa-pen-nib','bg-[#e0e7ff]','text-[#4f46e5]'],
   others:['Adult Speaking','record_voice_over','bg-[#ffc2cc]/55','text-[#b5084d]'],
   one_to_one:['1:1','fa-user-graduate','bg-[#e0f2fe]','text-[#2563eb]'], coaching:['RUN','fa-route','bg-[#dcfce7]','text-[#16a34a]'],
   ielts_custom_tools:['IELTS','fa-compass-drafting','bg-[#f3e8ff]','text-[#7e22ce]'],
@@ -116,7 +117,7 @@ const LEVEL_META = {
   b1:['B1 Bridge','fa-chess-knight','from-[#0891b2] via-[#22d3ee] to-[#cffafe]','bg-[#cffafe]','text-[#0891b2]','linear-gradient(135deg,#155e75 0%,#0891b2 42%,#22d3ee 74%,#cffafe 100%)'],
   swsy:['Speaking Studio','forum','from-[#b5084d] via-[#d9447e] to-[#ffc3d1]','bg-[#ffc2cc]/70','text-[#b5084d]'],
   'junior-ability':['Junior High Prep','import_contacts','from-[#5827fc] via-[#6f48ff] to-[#b5a9ff]','bg-white','text-[#5827fc]'],
-  economist:['Economist Reading','menu_book','from-[#866500] via-[#b58d00] to-[#ffe27b]','bg-[#fdd400]/30','text-[#6d5a00]'],
+  economist:['Grammar & Writing','fa-pen-nib','from-[#312e81] via-[#4f46e5] to-[#a5b4fc]','bg-[#e0e7ff]','text-[#4f46e5]','linear-gradient(135deg,#312e81 0%,#4f46e5 50%,#a5b4fc 100%)'],
   others:['Adult Speaking','record_voice_over','from-[#8d2e60] via-[#bb4b83] to-[#ffc1da]','bg-[#ffc2cc]/55','text-[#b5084d]'],
   one_to_one:['Personal Lesson','fa-user-graduate','from-[#2563eb] via-[#38bdf8] to-[#bfdbfe]','bg-[#e0f2fe]','text-[#2563eb]','linear-gradient(135deg,#1d4ed8 0%,#2563eb 38%,#38bdf8 72%,#bfdbfe 100%)'],
   coaching:['Online Coaching','fa-route','from-[#16a34a] via-[#34d399] to-[#bbf7d0]','bg-[#dcfce7]','text-[#16a34a]','linear-gradient(135deg,#047857 0%,#16a34a 40%,#2dd4bf 75%,#bbf7d0 100%)'],
@@ -414,7 +415,10 @@ const studentTypeOf = s => normalizeCourseType(s?.student_type || s?.studentType
 const studentMatchesId = (student, id) => String(student?.id || '').trim().toUpperCase() === String(id || '').trim().toUpperCase();
 function homeworkVisibleToStudent(hw, student) {
   if (!hw || !student) return false;
-  if (hw.courseType === 'class') return Boolean(hw.classId && classesOf(student).includes(normalizeClass(hw.classId)));
+  if (hw.courseType === 'class') {
+    const classMatch = Boolean(hw.classId && classesOf(student).includes(normalizeClass(hw.classId)));
+    return hw.studentId ? classMatch && studentMatchesId(student, hw.studentId) : classMatch;
+  }
   return Boolean(hw.studentId && studentMatchesId(student, hw.studentId));
 }
 function homeworkMatchesLevel(hw, levelId, user) {
@@ -442,7 +446,9 @@ function homeworkMatchesLevel(hw, levelId, user) {
     if (user?.role === 'teacher') return true;
     return homeworkVisibleToStudent(hw, user);
   }
-  return hw.courseType === 'class' && normalizeClass(hw.classId || hw.classCode) === levelId;
+  if (hw.courseType !== 'class' || normalizeClass(hw.classId || hw.classCode) !== levelId) return false;
+  if (user?.role === 'teacher') return true;
+  return homeworkVisibleToStudent(hw, user);
 }
 const isAbsoluteUrl = value => /^https?:\/\//i.test(String(value || '').trim());
 const normalizeLessonFile = file => String(file || '').trim().replace(/^classes\//,'');
@@ -548,7 +554,7 @@ function normalizeHomeworkRows(rows) {
       classCode:classId,
       courseType,
       classId:courseType === 'class' ? classId : '',
-      studentId:courseType === 'class' ? '' : studentId,
+      studentId,
       unit:h.unit,
       title:h.title,
       date:h.date,
@@ -784,7 +790,7 @@ function levelPage() {
 function teacherPage() {
   const u = currentUser();
   if (!u || u.role !== 'teacher') { setTimeout(showLogin,0); return homePage(); }
-  const tabs = [['students','学生管理','fa-user-graduate'],['homework','作业管理','fa-book'],['banners','主页宣传','fa-image'],['attendance','考勤管理','fa-calendar-check'],['reports','报表','fa-chart-line'],['oneReports','一对一诊断','fa-user-check'],['economistReports','经济学人视察','fa-magnifying-glass-chart'],['vote','选题管理','fa-square-poll-vertical'],['pets','宠物管理','fa-paw']];
+  const tabs = [['students','学生管理','fa-user-graduate'],['homework','作业管理','fa-book'],['banners','主页宣传','fa-image'],['attendance','考勤管理','fa-calendar-check'],['reports','报表','fa-chart-line'],['oneReports','一对一诊断','fa-user-check'],['economistReports','高中语法与写作视察','fa-magnifying-glass-chart'],['vote','选题管理','fa-square-poll-vertical'],['pets','宠物管理','fa-paw']];
   const tabBtns = tabs.map(t => {
     const active = state.teacherTab === t[0];
     return '<button data-teacher-tab="' + t[0] + '" class="shrink-0 rounded-full px-5 py-3.5 text-[14px] font-extrabold transition-all duration-200 shadow-sm flex items-center gap-2 active-scale md:shrink md:px-5 md:text-[14px] lg:px-6 ' + (active ? 'scale-[1.02] bg-[#6B48FF] text-white shadow-lg shadow-[#6B48FF]/30 ring-4 ring-[#6B48FF]/10' : 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50') + '"><i class="fa-solid ' + t[2] + '"></i><span class="whitespace-nowrap">' + t[1] + '</span>' + (active ? '<span class="ml-0.5 h-2 w-2 rounded-full bg-white/90 shadow-sm"></span>' : '') + '</button>';
@@ -1072,8 +1078,33 @@ function courseTypeLabel(type) {
   };
   return labels[type] || '普通班级作业';
 }
+function scopedClassLabel(type) {
+  const labels = { economist:'高中语法与写作' };
+  return labels[normalizeClass(type)] || reportClassLabel(type);
+}
+function classStudentTargetValue(classCode) {
+  return 'student_scope:' + normalizeClass(classCode);
+}
+function parseHomeworkTarget(value) {
+  const raw = String(value || 'class').trim();
+  if (raw.startsWith('student_scope:')) {
+    const classCode = normalizeClass(raw.slice('student_scope:'.length));
+    return { selectedType:raw, courseType:'class', classCode, needsStudent:true, scopedClass:true };
+  }
+  const selectedType = normalizeCourseType(raw);
+  const isPrivateTarget = isPersonalCourse(selectedType);
+  const isSummerTarget = isSummerCourse(selectedType);
+  const isToolTarget = isCustomToolCourse(selectedType);
+  const classCode = isPrivateTarget ? selectedType : ((isSummerTarget || isToolTarget) ? selectedType : '');
+  return { selectedType, courseType:(isSummerTarget || isToolTarget) ? 'class' : selectedType, classCode, needsStudent:isPrivateTarget, scopedClass:false };
+}
 function courseTypeShortLabel(type) {
   return courseTypeLabel(type).replace('专属课','').replace('课','');
+}
+function homeworkStudentGroupLabel(courseType) {
+  const raw = String(courseType || '').trim();
+  if (raw.startsWith('student_scope:')) return scopedClassLabel(raw.slice('student_scope:'.length));
+  return courseTypeLabel(courseType);
 }
 function courseTypeIcon(type) {
   const icons = {
@@ -1088,21 +1119,35 @@ function courseTypeIcon(type) {
   return icons[type] || 'fa-book';
 }
 function studentMatchesCourseType(student, courseType) {
-  const type = normalizeCourseType(courseType);
-  if (type === 'class') return studentTypeOf(student) === 'class';
+  const raw = String(courseType || '').trim();
+  const scoped = raw.startsWith('student_scope:') ? normalizeClass(raw.slice('student_scope:'.length)) : '';
+  if (scoped) return classesOf(student).includes(scoped);
+  const type = normalizeCourseType(raw);
+  if (type === 'class') {
+    const classCode = normalizeClass(raw);
+    return classCode && classCode !== 'class' ? classesOf(student).includes(classCode) : studentTypeOf(student) === 'class';
+  }
   return studentTypeOf(student) === type || classesOf(student).includes(type);
 }
 function studentOptionLabel(student, courseType = '') {
   const type = studentTypeOf(student);
   const permissions = classesOf(student).filter(isSpecialCourse);
-  const target = normalizeCourseType(courseType);
-  const hasTargetPermission = target !== 'class' && permissions.includes(target);
-  const typeLabel = type === 'one_to_one' ? '一对一' : (type === 'coaching' ? '陪跑' : (hasTargetPermission ? courseTypeShortLabel(target) + '权限' : '班课'));
+  const raw = String(courseType || '').trim();
+  const scoped = raw.startsWith('student_scope:') ? normalizeClass(raw.slice('student_scope:'.length)) : '';
+  const target = normalizeCourseType(raw);
+  const hasTargetPermission = scoped ? classesOf(student).includes(scoped) : (target !== 'class' && permissions.includes(target));
+  const targetLabel = scoped ? scopedClassLabel(scoped) : courseTypeShortLabel(target);
+  const typeLabel = type === 'one_to_one' ? '一对一' : (type === 'coaching' ? '陪跑' : (hasTargetPermission ? targetLabel + '权限' : '班课'));
   const extra = type === 'class' && permissions.length && !hasTargetPermission ? ' + ' + permissions.map(courseTypeShortLabel).join('/') : '';
   return (student.name || student.id) + ' · ' + student.id + ' · ' + typeLabel + extra;
 }
 function homeworkOwnerLabel(hw) {
-  if (hw.courseType === 'class') return teacherClasses().find(c => c.code === normalizeClass(hw.classId || hw.classCode))?.name || hw.classCode || '普通班级';
+  if (hw.courseType === 'class') {
+    const className = teacherClasses().find(c => c.code === normalizeClass(hw.classId || hw.classCode))?.name || hw.classCode || '普通班级';
+    if (!hw.studentId) return className;
+    const student = state.students.find(s => studentMatchesId(s, hw.studentId));
+    return className + ' · 专属 · ' + (student ? (student.name || student.id) + ' (' + student.id + ')' : hw.studentId);
+  }
   const student = state.students.find(s => studentMatchesId(s, hw.studentId));
   return courseTypeLabel(hw.courseType) + ' · ' + (student ? (student.name || student.id) + ' (' + student.id + ')' : (hw.studentId || '未指定学生'));
 }
@@ -1111,17 +1156,18 @@ function homeworkStudentOptions(courseType, selectedId = '') {
   const others = state.students.filter(s => !studentMatchesCourseType(s, courseType));
   const option = s => '<option value="' + esc(s.id) + '" ' + (studentMatchesId(s, selectedId) ? 'selected' : '') + '>' + esc(studentOptionLabel(s, courseType)) + '</option>';
   return '<option value="">请选择学生</option>' +
-    (primary.length ? '<optgroup label="' + esc(courseTypeLabel(courseType)) + '">' + primary.map(option).join('') + '</optgroup>' : '') +
+    (primary.length ? '<optgroup label="' + esc(homeworkStudentGroupLabel(courseType)) + '">' + primary.map(option).join('') + '</optgroup>' : '') +
     (others.length ? '<optgroup label="全部学生">' + others.map(option).join('') + '</optgroup>' : '');
 }
 function updateHomeworkTargetFields(courseType) {
-  const type = normalizeCourseType(courseType);
+  const target = parseHomeworkTarget(courseType);
+  const type = target.selectedType;
   const classField = document.getElementById('hw-class-field');
   const studentField = document.getElementById('hw-student-field');
   const classSelect = document.getElementById('hw-class');
   const studentSelect = document.getElementById('hw-student');
-  const needsStudent = isPersonalCourse(type);
-  if ((isSummerCourse(type) || isCustomToolCourse(type)) && classSelect) classSelect.value = type;
+  const needsStudent = target.needsStudent;
+  if ((isSummerCourse(type) || isCustomToolCourse(type) || target.scopedClass) && classSelect) classSelect.value = target.classCode || type;
   if (classField) classField.classList.toggle('hidden', needsStudent);
   if (studentField) studentField.classList.toggle('hidden', !needsStudent);
   if (studentSelect && needsStudent) studentSelect.innerHTML = homeworkStudentOptions(type, studentSelect.value);
@@ -1137,7 +1183,7 @@ function homeworkUploadPanel() {
     const unitHtml = units.map(u => {
       const unitItems = classHw.filter(h => (h.unit || 'Unit') === u);
       const openUnitCount = unitItems.filter(h => h.status === 'open').length;
-      const items = unitItems.map(hw => { const fileState = homeworkFileState(hw.file); return '<div class="flex items-center justify-between gap-4 border-b border-gray-50 py-3 pl-5 last:border-0"><div class="min-w-0"><p class="truncate pr-3 text-[14px] font-bold text-[#2D2A4A] md:text-[16px]">' + esc(hw.title) + '</p><p class="mt-1 truncate text-[11px] font-black ' + fileState[1] + '"><i class="fa-solid ' + fileState[2] + ' mr-1.5"></i>' + esc(fileState[0]) + '</p></div><div class="flex shrink-0 items-center gap-3"><button data-edit-homework="' + esc(hw.id) + '" class="flex h-9 w-9 items-center justify-center rounded-full bg-[#F4F2FF] text-[#6B48FF] shadow-sm transition-colors active-scale hover:bg-[#6B48FF] hover:text-white" aria-label="编辑课程"><i class="fa-solid fa-pen text-sm"></i></button><button data-delete-homework="' + esc(hw.id) + '" class="flex h-9 w-9 items-center justify-center rounded-full bg-red-50 text-red-500 shadow-sm transition-colors active-scale hover:bg-red-500 hover:text-white" aria-label="删除课程"><i class="fa-solid fa-trash-can text-sm"></i></button><label class="toggle"><input type="checkbox" ' + (hw.status === 'open' ? 'checked' : '') + ' data-toggle-lesson="' + esc(hw.id) + '"><span class="slider"></span></label></div></div>'; }).join('');
+      const items = unitItems.map(hw => { const fileState = homeworkFileState(hw.file); return '<div class="flex items-center justify-between gap-4 border-b border-gray-50 py-3 pl-5 last:border-0"><div class="min-w-0"><p class="truncate pr-3 text-[14px] font-bold text-[#2D2A4A] md:text-[16px]">' + esc(hw.title) + '</p>' + (hw.studentId ? '<p class="mt-1 truncate text-[11px] font-black text-[#6B48FF]">' + esc(homeworkOwnerLabel(hw)) + '</p>' : '') + '<p class="mt-1 truncate text-[11px] font-black ' + fileState[1] + '"><i class="fa-solid ' + fileState[2] + ' mr-1.5"></i>' + esc(fileState[0]) + '</p></div><div class="flex shrink-0 items-center gap-3"><button data-edit-homework="' + esc(hw.id) + '" class="flex h-9 w-9 items-center justify-center rounded-full bg-[#F4F2FF] text-[#6B48FF] shadow-sm transition-colors active-scale hover:bg-[#6B48FF] hover:text-white" aria-label="编辑课程"><i class="fa-solid fa-pen text-sm"></i></button><button data-delete-homework="' + esc(hw.id) + '" class="flex h-9 w-9 items-center justify-center rounded-full bg-red-50 text-red-500 shadow-sm transition-colors active-scale hover:bg-red-500 hover:text-white" aria-label="删除课程"><i class="fa-solid fa-trash-can text-sm"></i></button><label class="toggle"><input type="checkbox" ' + (hw.status === 'open' ? 'checked' : '') + ' data-toggle-lesson="' + esc(hw.id) + '"><span class="slider"></span></label></div></div>'; }).join('');
       return '<div class="mb-4 overflow-hidden rounded-[1.25rem] border border-[#F4F2FF] bg-white shadow-sm"><div class="flex items-center justify-between gap-4 bg-[#F4F2FF] px-5 py-3"><span class="min-w-0"><span class="block truncate text-[13px] font-extrabold text-[#2D2A4A] md:text-[14px]">' + esc(u) + '</span><span class="mt-0.5 block text-[11px] font-bold text-[#6B48FF]/70">' + unitItems.length + ' 个课程 · ' + openUnitCount + ' 个开放</span></span></div><div class="px-2">' + items + '</div></div>';
     }).join('');
     const classOpenCount = classHw.filter(h => h.status === 'open').length;
@@ -1151,8 +1197,9 @@ function homeworkUploadPanel() {
     return '<details class="group mb-4 overflow-hidden rounded-[1.35rem] border border-gray-100 bg-white shadow-sm"><summary class="flex min-h-[64px] cursor-pointer list-none items-center justify-between gap-4 bg-[#F4F2FF] px-5 py-4"><span class="flex min-w-0 items-center gap-3"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#6B48FF] shadow-sm"><i class="fa-solid ' + courseTypeIcon(type) + ' text-sm"></i></span><span class="min-w-0"><span class="block truncate text-sm font-extrabold text-[#2D2A4A] md:text-base">' + esc(courseTypeLabel(type)) + '</span><span class="mt-0.5 block text-xs font-bold text-[#6B48FF]/70">' + itemsForType.length + ' 个课程 · ' + openTypeCount + ' 个开放</span></span></span><i class="fa-solid fa-chevron-down shrink-0 text-xs text-[#6B48FF] transition-transform group-open:rotate-180"></i></summary><div class="bg-white px-2">' + items + '</div></details>';
   }).join('');
   const classOptions = teacherClasses().map(c => '<option value="' + esc(c.code) + '">' + esc(c.name) + '</option>').join('');
-  const typeOptions = '<option value="class">普通班级作业</option>' + SPECIAL_COURSE_TYPES.map(type => '<option value="' + esc(type) + '">' + esc(courseTypeLabel(type)) + '</option>').join('');
-  return '<div class="tab-content active"><div class="mb-4 flex flex-col gap-3 px-1 sm:flex-row sm:items-end sm:justify-between"><h2 class="text-xl font-extrabold text-[#2D2A4A] md:text-2xl">在线大纲 (<span id="ui-hw-count" class="text-[#00BFA5]">' + openCount + '</span>)</h2><div class="flex flex-wrap gap-2"><button id="btn-migrate-lessons" data-migrate-lessons class="rounded-lg bg-[#F4F2FF] px-4 py-2 text-sm font-bold text-[#6B48FF] active-scale">同步内置课程到后端</button><button data-close-old-hw class="rounded-lg bg-red-50 px-4 py-2 text-sm font-bold text-red-500 active-scale">一键关闭旧作业</button></div></div><div id="homework-list-scroll" data-preserve-scroll="homework-list" class="mb-10 max-h-[500px] overflow-y-auto overflow-x-hidden hide-scrollbar">' + (byClass + personalGroups || '<div class="card-solid p-6 text-center text-sm text-gray-400">暂无作业</div>') + '</div><h2 class="mb-4 pl-1 text-xl font-extrabold text-[#2D2A4A] md:text-2xl">上传课程文件</h2><div class="card-solid p-6 pb-10 md:p-8"><div class="mb-5"><label class="mb-2 ml-1 block text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">作业类型</label><select id="hw-course-type" class="w-full rounded-xl border border-gray-200 bg-[#F8F8FC] px-5 py-4 text-base font-bold text-[#6B48FF] outline-none">' + typeOptions + '</select></div><div id="hw-class-field" class="mb-5"><label class="mb-2 ml-1 block text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">班级 (Class Code)</label><select id="hw-class" class="w-full rounded-xl border border-gray-200 bg-[#F8F8FC] px-5 py-4 text-base font-bold text-[#6B48FF] outline-none">' + classOptions + '</select></div><div id="hw-student-field" class="mb-5 hidden"><label class="mb-2 ml-1 block text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">学生（姓名 + 账号）</label><select id="hw-student" class="w-full rounded-xl border border-gray-200 bg-[#F8F8FC] px-5 py-4 text-base font-bold text-[#6B48FF] outline-none">' + homeworkStudentOptions('one_to_one') + '</select><p class="mt-2 px-1 text-[12px] font-medium leading-5 text-gray-400">一对一/陪跑默认优先显示对应类型学生，也可从全部学生中选择。</p></div><div class="mb-5 grid gap-5 md:grid-cols-2"><div><label class="mb-2 ml-1 block text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">单元 (Unit)</label><input type="text" id="hw-unit" placeholder="U1" class="w-full rounded-xl border border-gray-200 bg-[#F8F8FC] px-5 py-4 text-base font-medium outline-none"></div><div><label class="mb-2 ml-1 block text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">标题 (Title)</label><input type="text" id="hw-title" placeholder="Food & Drink" class="w-full rounded-xl border border-gray-200 bg-[#F8F8FC] px-5 py-4 text-base font-medium outline-none"></div></div><div class="mb-8"><label class="mb-2 ml-1 block text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">上传 HTML 文件</label><input type="file" id="hw-upload" accept=".html,text/html" class="w-full rounded-xl border border-dashed border-[#C9C3FF] bg-[#F8F8FC] px-5 py-4 text-sm font-bold text-[#2D2A4A] file:mr-4 file:rounded-full file:border-0 file:bg-[#6B48FF] file:px-4 file:py-2 file:text-sm file:font-bold file:text-white"><p class="mt-2 px-1 text-[12px] font-medium leading-5 text-gray-400">选择 HTML 文件后会上传到 Supabase Storage：' + LESSON_UPLOAD_BUCKET + '。</p></div><button id="btn-add-hw" data-add-homework class="w-full rounded-xl bg-[#00BFA5] py-4 text-base font-bold text-white shadow-lg active-scale">上传并发布课程</button></div></div>';
+  const scopedOptions = STUDENT_SCOPED_CLASS_TYPES.map(type => '<option value="' + esc(classStudentTargetValue(type)) + '">' + esc(scopedClassLabel(type) + ' · 指定学生作业') + '</option>').join('');
+  const typeOptions = '<option value="class">普通班级作业</option>' + scopedOptions + SPECIAL_COURSE_TYPES.map(type => '<option value="' + esc(type) + '">' + esc(courseTypeLabel(type)) + '</option>').join('');
+  return '<div class="tab-content active"><div class="mb-4 flex flex-col gap-3 px-1 sm:flex-row sm:items-end sm:justify-between"><h2 class="text-xl font-extrabold text-[#2D2A4A] md:text-2xl">在线大纲 (<span id="ui-hw-count" class="text-[#00BFA5]">' + openCount + '</span>)</h2><div class="flex flex-wrap gap-2"><button id="btn-migrate-lessons" data-migrate-lessons class="rounded-lg bg-[#F4F2FF] px-4 py-2 text-sm font-bold text-[#6B48FF] active-scale">同步内置课程到后端</button><button data-close-old-hw class="rounded-lg bg-red-50 px-4 py-2 text-sm font-bold text-red-500 active-scale">一键关闭旧作业</button></div></div><div id="homework-list-scroll" data-preserve-scroll="homework-list" class="mb-10 max-h-[500px] overflow-y-auto overflow-x-hidden hide-scrollbar">' + (byClass + personalGroups || '<div class="card-solid p-6 text-center text-sm text-gray-400">暂无作业</div>') + '</div><h2 class="mb-4 pl-1 text-xl font-extrabold text-[#2D2A4A] md:text-2xl">上传课程文件</h2><div class="card-solid p-6 pb-10 md:p-8"><div class="mb-5"><label class="mb-2 ml-1 block text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">作业类型</label><select id="hw-course-type" class="w-full rounded-xl border border-gray-200 bg-[#F8F8FC] px-5 py-4 text-base font-bold text-[#6B48FF] outline-none">' + typeOptions + '</select></div><div id="hw-class-field" class="mb-5"><label class="mb-2 ml-1 block text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">班级 (Class Code)</label><select id="hw-class" class="w-full rounded-xl border border-gray-200 bg-[#F8F8FC] px-5 py-4 text-base font-bold text-[#6B48FF] outline-none">' + classOptions + '</select></div><div id="hw-student-field" class="mb-5 hidden"><label class="mb-2 ml-1 block text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">学生（姓名 + 账号）</label><select id="hw-student" class="w-full rounded-xl border border-gray-200 bg-[#F8F8FC] px-5 py-4 text-base font-bold text-[#6B48FF] outline-none">' + homeworkStudentOptions('one_to_one') + '</select><p class="mt-2 px-1 text-[12px] font-medium leading-5 text-gray-400">一对一/陪跑会优先显示对应学生；高中语法与写作专属作业会优先显示该课程已开通学生。</p></div><div class="mb-5 grid gap-5 md:grid-cols-2"><div><label class="mb-2 ml-1 block text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">单元 (Unit)</label><input type="text" id="hw-unit" placeholder="U1" class="w-full rounded-xl border border-gray-200 bg-[#F8F8FC] px-5 py-4 text-base font-medium outline-none"></div><div><label class="mb-2 ml-1 block text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">标题 (Title)</label><input type="text" id="hw-title" placeholder="Food & Drink" class="w-full rounded-xl border border-gray-200 bg-[#F8F8FC] px-5 py-4 text-base font-medium outline-none"></div></div><div class="mb-8"><label class="mb-2 ml-1 block text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">上传 HTML 文件</label><input type="file" id="hw-upload" accept=".html,text/html" class="w-full rounded-xl border border-dashed border-[#C9C3FF] bg-[#F8F8FC] px-5 py-4 text-sm font-bold text-[#2D2A4A] file:mr-4 file:rounded-full file:border-0 file:bg-[#6B48FF] file:px-4 file:py-2 file:text-sm file:font-bold file:text-white"><p class="mt-2 px-1 text-[12px] font-medium leading-5 text-gray-400">选择 HTML 文件后会上传到 Supabase Storage：' + LESSON_UPLOAD_BUCKET + '。</p></div><button id="btn-add-hw" data-add-homework class="w-full rounded-xl bg-[#00BFA5] py-4 text-base font-bold text-white shadow-lg active-scale">上传并发布课程</button></div></div>';
 }
 function defaultBannerList() { return SLIDES.map(s => '<div class="card-solid mb-4 flex items-center gap-4 p-4"><button data-preview-banner="' + esc(s[6]) + '" class="h-16 w-28 shrink-0 overflow-hidden rounded-xl bg-gray-100 shadow-sm active-scale" aria-label="预览应急宣传图"><img src="' + esc(slideImageUrl(s)) + '" loading="lazy" decoding="async" class="h-full w-full object-cover"></button><div class="min-w-0 flex-1"><p class="truncate text-[15px] font-bold text-[#2D2A4A] md:text-[16px]">' + esc(s[1].join(' ')) + '</p><p class="mt-1 truncate text-[11px] text-gray-400 md:text-[13px]">Tag: ' + esc(s[0]) + '</p><p class="mt-1 truncate text-[11px] font-bold text-[#6B48FF] md:text-[13px]">应急 fallback，仅在后端无可用卡片时显示</p></div><button data-preview-banner="' + esc(s[6]) + '" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#F4F2FF] text-[#6B48FF] shadow-sm transition-colors active-scale hover:bg-[#6B48FF] hover:text-white" aria-label="预览"><i class="fa-solid fa-eye text-sm"></i></button></div>').join(''); }
 function bannerPositionOptions(value) {
@@ -1227,7 +1274,7 @@ function attendanceSubmissionsInRange(rows, start, end) {
 function attendanceSubmissionMap(rows) {
   const map = new Map();
   const modules = reportModuleMap();
-  const levelLabel = id => ({ f2:'F2', a1:'A1', 'a1-plus':'A1+', a2:'A2', 'a2-plus':'A2+', swsy:'SWSY', 'junior-ability':'Junior', economist:'Economist', others:'Others' }[normalizeClass(id)] || String(id || '未分类').toUpperCase());
+  const levelLabel = id => ({ f2:'F2', a1:'A1', 'a1-plus':'A1+', a2:'A2', 'a2-plus':'A2+', swsy:'SWSY', 'junior-ability':'Junior', economist:'高中语法与写作', others:'Others' }[normalizeClass(id)] || String(id || '未分类').toUpperCase());
   (rows || []).forEach(row => {
     const id = submissionStudentId(row);
     if (!id) return;
@@ -1508,8 +1555,8 @@ function economistReportsPanel() {
     return '<details class="rounded-[1.5rem] border border-gray-100 bg-[#F8F8FC] p-4 shadow-sm" ' + (index < 2 ? 'open' : '') + '><summary class="cursor-pointer list-none"><div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center"><div class="min-w-0"><p class="truncate text-base font-black text-[#2D2A4A]">' + esc(row.studentName) + ' · ' + esc(row.articleTitle) + '</p><p class="mt-1 text-xs font-bold text-gray-400">' + reportDateTime(row.submittedAt) + ' · ' + esc(row.eventType) + ' · 用时 ' + reportTimeText(row.durationSeconds) + ' · 阅读 ' + reportTimeText(row.readingSeconds) + '</p></div><div class="flex flex-wrap gap-2 lg:justify-end"><span class="rounded-full bg-white px-3 py-1.5 text-xs font-black text-[#6B48FF] shadow-sm">完成 ' + row.completionPct + '%</span><span class="rounded-full bg-white px-3 py-1.5 text-xs font-black text-[#2D2A4A] shadow-sm">写作 ' + row.writingReviewed + '/' + (row.writing.length || 0) + '</span><span class="rounded-full bg-white px-3 py-1.5 text-xs font-black text-[#2D2A4A] shadow-sm">勾画 ' + row.highlights.length + '</span>' + (row.id ? '<button data-delete-report-record="' + esc(row.id) + '" data-report-record-table="student_practice_reports" data-report-record-title="' + esc(row.studentName + ' · ' + row.articleTitle + ' · ' + reportDateTime(row.submittedAt)) + '" class="inline-flex min-h-[28px] items-center gap-1 rounded-full bg-red-50 px-3 py-1 text-xs font-black text-red-500 active-scale"><i class="fa-solid fa-trash-can text-[10px]"></i>删除</button>' : '') + '</div></div></summary><div class="mt-4 grid gap-4 border-t border-gray-100 pt-4 xl:grid-cols-[0.78fr_1.22fr]"><div class="space-y-4"><div class="rounded-2xl bg-white p-4 shadow-sm"><p class="mb-3 text-xs font-black uppercase tracking-[0.16em] text-gray-400">词汇考核</p><div class="flex flex-wrap gap-2">' + vocab + '</div></div><div class="rounded-2xl bg-white p-4 shadow-sm"><p class="mb-3 text-xs font-black uppercase tracking-[0.16em] text-gray-400">阅读勾画</p><div class="space-y-2">' + highlights + '</div></div></div><div class="space-y-3"><p class="text-xs font-black uppercase tracking-[0.16em] text-gray-400">写作批改详情</p>' + writing + '</div></div></details>';
   }).join('');
   const cards = Array.from(latestByStudent.values()).sort((a,b) => a.studentName.localeCompare(b.studentName, 'zh-CN')).map(row => '<button data-report-economist-student="' + esc(row.studentId) + '" class="w-full rounded-2xl border px-4 py-3 text-left active-scale ' + (cfg.selectedEconomistStudentId === row.studentId ? 'border-[#6B48FF] bg-[#F4F2FF]' : 'border-gray-100 bg-white') + '"><strong class="text-sm text-[#2D2A4A]">' + esc(row.studentName) + '</strong><p class="mt-1 text-xs font-bold text-gray-400">最近 ' + reportDateTime(row.submittedAt) + ' · ' + row.completionPct + '%</p></button>').join('');
-  const empty = cfg.loading ? '正在同步报告数据...' : (cfg.error || '还没有读到经济学人阅读器的提交记录。学生用大站账号打开作业并完成/批改后，这里会自动出现。');
-  return '<div class="space-y-5 md:space-y-6"><section class="card-solid overflow-hidden"><div class="bg-gradient-to-r from-[#2D2A4A] via-[#5B49CC] to-[#8A76FF] px-5 py-6 text-white md:px-7"><p class="text-xs font-black uppercase tracking-[0.3em] text-white/65">Economist Reading Inspector</p><div class="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"><div><h2 class="text-2xl font-black md:text-3xl">经济学人班作业视察</h2><p class="mt-2 max-w-2xl text-sm font-bold leading-7 text-white/75">只读取经济学人阅读器上报的词汇、写作、阅读勾画和完成度，不影响其它班级原有报表。</p></div><button data-report-refresh class="inline-flex min-h-[40px] items-center justify-center rounded-full bg-white px-4 py-2 text-[12px] font-black text-[#6B48FF] shadow-sm active-scale"><i class="fa-solid fa-rotate mr-2"></i>同步数据</button></div></div><div class="grid gap-4 p-5 md:grid-cols-4 md:p-6"><label class="md:col-span-2"><span class="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-gray-400">学生</span><select data-report-field="selectedEconomistStudentId" class="w-full rounded-2xl border border-gray-200 bg-[#F8F8FC] px-4 py-3 text-sm font-black text-[#2D2A4A] outline-none">' + options + '</select></label><label><span class="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-gray-400">开始</span><input type="datetime-local" data-report-field="startDate" value="' + esc(cfg.startDate) + '" class="w-full rounded-2xl border border-gray-200 bg-[#F8F8FC] px-4 py-3 text-sm font-black text-[#2D2A4A] outline-none"></label><label><span class="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-gray-400">结束</span><input type="datetime-local" data-report-field="endDate" value="' + esc(cfg.endDate) + '" class="w-full rounded-2xl border border-gray-200 bg-[#F8F8FC] px-4 py-3 text-sm font-black text-[#2D2A4A] outline-none"></label></div></section><section class="grid gap-4 md:grid-cols-4"><div class="card-solid p-5"><p class="text-xs font-black text-gray-400">学生数</p><p class="mt-2 text-3xl font-black text-[#2D2A4A]">' + new Set(filtered.map(r => r.studentId)).size + '</p></div><div class="card-solid p-5"><p class="text-xs font-black text-gray-400">记录数</p><p class="mt-2 text-3xl font-black text-[#2D2A4A]">' + filtered.length + '</p></div><div class="card-solid p-5"><p class="text-xs font-black text-gray-400">平均完成度</p><p class="mt-2 text-3xl font-black text-[#6B48FF]">' + avg + '%</p></div><div class="card-solid p-5"><p class="text-xs font-black text-gray-400">写作批改</p><p class="mt-2 text-3xl font-black text-[#2D2A4A]">' + filtered.reduce((s,r)=>s+r.writingReviewed,0) + '</p></div></section><section class="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)]"><aside class="card-solid p-4"><p class="mb-3 text-xs font-black uppercase tracking-[0.18em] text-gray-400">学生快速查看</p><div class="space-y-2">' + (cards || '<div class="rounded-2xl bg-[#F8F8FC] p-4 text-sm font-bold text-gray-400">暂无学生记录</div>') + '</div></aside><main class="card-solid p-4 md:p-5"><div class="space-y-4">' + (detail || '<div class="rounded-[1.5rem] bg-[#F8F8FC] p-8 text-center text-sm font-bold text-gray-400">' + esc(empty) + '</div>') + '</div></main></section></div>';
+  const empty = cfg.loading ? '正在同步报告数据...' : (cfg.error || '还没有读到高中语法与写作课程的提交记录。学生用大站账号打开作业并完成/批改后，这里会自动出现。');
+  return '<div class="space-y-5 md:space-y-6"><section class="card-solid overflow-hidden"><div class="bg-gradient-to-r from-[#2D2A4A] via-[#5B49CC] to-[#8A76FF] px-5 py-6 text-white md:px-7"><p class="text-xs font-black uppercase tracking-[0.3em] text-white/65">Grammar & Writing Inspector</p><div class="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"><div><h2 class="text-2xl font-black md:text-3xl">高中语法与写作作业视察</h2><p class="mt-2 max-w-2xl text-sm font-bold leading-7 text-white/75">读取本课程上报的词汇、写作、阅读勾画和完成度，不影响其它班级原有报表。</p></div><button data-report-refresh class="inline-flex min-h-[40px] items-center justify-center rounded-full bg-white px-4 py-2 text-[12px] font-black text-[#6B48FF] shadow-sm active-scale"><i class="fa-solid fa-rotate mr-2"></i>同步数据</button></div></div><div class="grid gap-4 p-5 md:grid-cols-4 md:p-6"><label class="md:col-span-2"><span class="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-gray-400">学生</span><select data-report-field="selectedEconomistStudentId" class="w-full rounded-2xl border border-gray-200 bg-[#F8F8FC] px-4 py-3 text-sm font-black text-[#2D2A4A] outline-none">' + options + '</select></label><label><span class="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-gray-400">开始</span><input type="datetime-local" data-report-field="startDate" value="' + esc(cfg.startDate) + '" class="w-full rounded-2xl border border-gray-200 bg-[#F8F8FC] px-4 py-3 text-sm font-black text-[#2D2A4A] outline-none"></label><label><span class="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-gray-400">结束</span><input type="datetime-local" data-report-field="endDate" value="' + esc(cfg.endDate) + '" class="w-full rounded-2xl border border-gray-200 bg-[#F8F8FC] px-4 py-3 text-sm font-black text-[#2D2A4A] outline-none"></label></div></section><section class="grid gap-4 md:grid-cols-4"><div class="card-solid p-5"><p class="text-xs font-black text-gray-400">学生数</p><p class="mt-2 text-3xl font-black text-[#2D2A4A]">' + new Set(filtered.map(r => r.studentId)).size + '</p></div><div class="card-solid p-5"><p class="text-xs font-black text-gray-400">记录数</p><p class="mt-2 text-3xl font-black text-[#2D2A4A]">' + filtered.length + '</p></div><div class="card-solid p-5"><p class="text-xs font-black text-gray-400">平均完成度</p><p class="mt-2 text-3xl font-black text-[#6B48FF]">' + avg + '%</p></div><div class="card-solid p-5"><p class="text-xs font-black text-gray-400">写作批改</p><p class="mt-2 text-3xl font-black text-[#2D2A4A]">' + filtered.reduce((s,r)=>s+r.writingReviewed,0) + '</p></div></section><section class="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)]"><aside class="card-solid p-4"><p class="mb-3 text-xs font-black uppercase tracking-[0.18em] text-gray-400">学生快速查看</p><div class="space-y-2">' + (cards || '<div class="rounded-2xl bg-[#F8F8FC] p-4 text-sm font-bold text-gray-400">暂无学生记录</div>') + '</div></aside><main class="card-solid p-4 md:p-5"><div class="space-y-4">' + (detail || '<div class="rounded-[1.5rem] bg-[#F8F8FC] p-8 text-center text-sm font-bold text-gray-400">' + esc(empty) + '</div>') + '</div></main></section></div>';
 }
 function reportSkillKey(item) { return String(item?.id || item?.skill || item?.phrase || item?.category || 'unknown').trim() || 'unknown'; }
 function reportSkillLabel(item) { return String(item?.phrase || item?.skillLabel || item?.meaning || item?.id || '未命名语法点').trim() || '未命名语法点'; }
@@ -2388,7 +2435,7 @@ function homeworkPayload(id, status, fallback) {
   const module = found ? found.module : source;
   const courseType = normalizeCourseType(source.courseType || existing?.courseType || 'class');
   const classCode = courseType === 'class' ? normalizeClass(found ? found.levelId : (source.classId || source.classCode || existing?.classCode || '')) : courseType;
-  const studentId = courseType === 'class' ? '' : String(source.studentId || existing?.studentId || '').trim();
+  const studentId = String(source.studentId || existing?.studentId || '').trim();
   const unit = source.unit || (found ? module.unitCode : module.unit) || 'Unit';
   const title = source.title || module.title || id;
   const file = normalizeLessonFile(source.file || existing?.file || (found ? module.localPath : module.file) || '');
@@ -2415,28 +2462,24 @@ async function syncLesson(id, status, control) {
   toast('已同步');
 }
 async function addHomework() {
-  const selectedType = normalizeCourseType(document.getElementById('hw-course-type')?.value || 'class');
-  const isPrivateTarget = isPersonalCourse(selectedType);
-  const isSummerTarget = isSummerCourse(selectedType);
-  const isToolTarget = isCustomToolCourse(selectedType);
-  const courseType = (isSummerTarget || isToolTarget) ? 'class' : selectedType;
-  const classCode = isPrivateTarget ? selectedType : ((isSummerTarget || isToolTarget) ? selectedType : document.getElementById('hw-class').value);
-  const studentId = isPrivateTarget ? (document.getElementById('hw-student')?.value || '').trim() : '';
+  const target = parseHomeworkTarget(document.getElementById('hw-course-type')?.value || 'class');
+  const courseType = target.courseType;
+  const classCode = target.classCode || document.getElementById('hw-class').value;
+  const studentId = target.needsStudent ? (document.getElementById('hw-student')?.value || '').trim() : '';
   const unit = document.getElementById('hw-unit').value.trim();
   const title = document.getElementById('hw-title').value.trim();
   const uploadInput = document.getElementById('hw-upload');
   const uploadFile = uploadInput && uploadInput.files ? uploadInput.files[0] : null;
-  if (!isPrivateTarget && !classCode) return showAlert('请选择班级。', '提示');
-  if (isPrivateTarget && !studentId) return showAlert('请选择学生。', '提示');
+  if (!classCode) return showAlert('请选择班级。', '提示');
+  if (target.needsStudent && !studentId) return showAlert('请选择学生。', '提示');
   if (!unit || !title || !uploadFile) return showAlert('请填写单元、标题，并上传 HTML 文件。', '提示');
-  const id = lessonRecordId(isPrivateTarget ? studentId + '-' + courseType : classCode, unit, title);
+  const id = lessonRecordId(studentId ? classCode + '-' + studentId : classCode, unit, title);
   const btn = document.getElementById('btn-add-hw');
   const previousLabel = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = '正在上传...'; btn.classList.add('opacity-70'); }
   try {
     const savedFile = (await uploadLessonFile(classCode, id, uploadFile)).file;
-    const classId = !isPrivateTarget ? classCode : null;
-    const result = await sb.from('homework').upsert({ id, class_code:dbClass(classCode), course_type:courseType, class_id:classId ? dbClass(classId) : null, student_id:studentId || null, unit, title, date:new Date().toISOString(), file:savedFile, status:'open' });
+    const result = await sb.from('homework').upsert({ id, class_code:dbClass(classCode), course_type:courseType, class_id:courseType === 'class' ? dbClass(classCode) : null, student_id:studentId || null, unit, title, date:new Date().toISOString(), file:savedFile, status:'open' });
     if (result.error) throw new Error('保存失败: ' + result.error.message);
     await loadData();
     showAlert('课程文件已上传并发布，学生端单元列表会自动显示。', '保存完成');
@@ -2499,16 +2542,19 @@ function showHomeworkEditor(id) {
   const hw = displayHomework().find(h => h.id === id);
   if (!hw) return showAlert('没有找到这条课程记录。', '无法编辑');
   const currentClass = normalizeClass(hw.classCode);
-  const currentType = hw.courseType === 'class' && (isSummerCourse(currentClass) || isCustomToolCourse(currentClass)) ? currentClass : normalizeCourseType(hw.courseType);
-  const currentNeedsStudent = isPersonalCourse(currentType);
+  const currentScopedClass = hw.courseType === 'class' && hw.studentId && STUDENT_SCOPED_CLASS_TYPES.includes(currentClass);
+  const currentType = currentScopedClass ? classStudentTargetValue(currentClass) : (hw.courseType === 'class' && (isSummerCourse(currentClass) || isCustomToolCourse(currentClass)) ? currentClass : normalizeCourseType(hw.courseType));
+  const currentNeedsStudent = currentScopedClass || isPersonalCourse(currentType);
   const classOptions = teacherClasses().map(c => '<option value="' + esc(c.code) + '" ' + (currentClass === c.code ? 'selected' : '') + '>' + esc(c.name) + '</option>').join('');
-  const typeOptions = '<option value="class" ' + (currentType === 'class' ? 'selected' : '') + '>普通班级作业</option>' + SPECIAL_COURSE_TYPES.map(type => '<option value="' + esc(type) + '" ' + (currentType === type ? 'selected' : '') + '>' + esc(courseTypeLabel(type)) + '</option>').join('');
+  const scopedOptions = STUDENT_SCOPED_CLASS_TYPES.map(type => '<option value="' + esc(classStudentTargetValue(type)) + '" ' + (currentType === classStudentTargetValue(type) ? 'selected' : '') + '>' + esc(scopedClassLabel(type) + ' · 指定学生作业') + '</option>').join('');
+  const typeOptions = '<option value="class" ' + (currentType === 'class' ? 'selected' : '') + '>普通班级作业</option>' + scopedOptions + SPECIAL_COURSE_TYPES.map(type => '<option value="' + esc(type) + '" ' + (currentType === type ? 'selected' : '') + '>' + esc(courseTypeLabel(type)) + '</option>').join('');
   modalRoot.innerHTML = '<div class="fixed inset-0 z-[9999] flex items-center justify-center p-4"><div class="absolute inset-0 bg-black/40 backdrop-blur-sm" data-close-modal></div><div class="relative z-10 max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[32px] bg-white p-6 shadow-2xl motion-auth-panel-enter md:p-8"><div class="mb-6 flex items-start justify-between gap-4"><div><p class="text-[11px] font-black uppercase tracking-[0.24em] text-gray-400">Course Editor</p><h3 class="mt-2 text-[24px] font-black text-[#2D2A4A]">编辑课程</h3></div><button data-close-modal class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#F8F8FC] text-gray-400 active-scale"><i class="fa-solid fa-xmark"></i></button></div><input type="hidden" id="edit-hw-id" value="' + esc(hw.id) + '"><div class="grid gap-5 md:grid-cols-2"><label><span class="mb-2 ml-1 block text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">作业类型</span><select id="edit-hw-course-type" class="w-full rounded-xl border border-gray-200 bg-[#F8F8FC] px-5 py-4 text-base font-bold text-[#6B48FF] outline-none">' + typeOptions + '</select></label><label><span class="mb-2 ml-1 block text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">状态</span><select id="edit-hw-status" class="w-full rounded-xl border border-gray-200 bg-[#F8F8FC] px-5 py-4 text-base font-bold text-[#6B48FF] outline-none"><option value="open" ' + (hw.status === 'open' ? 'selected' : '') + '>开放</option><option value="closed" ' + (hw.status === 'closed' ? 'selected' : '') + '>隐藏/关闭</option></select></label></div><div id="edit-hw-class-field" class="mt-5 ' + (currentNeedsStudent ? 'hidden' : '') + '"><label><span class="mb-2 ml-1 block text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">班级</span><select id="edit-hw-class" class="w-full rounded-xl border border-gray-200 bg-[#F8F8FC] px-5 py-4 text-base font-bold text-[#6B48FF] outline-none">' + classOptions + '</select></label></div><div id="edit-hw-student-field" class="mt-5 ' + (currentNeedsStudent ? '' : 'hidden') + '"><label><span class="mb-2 ml-1 block text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">学生（姓名 + 账号）</span><select id="edit-hw-student" class="w-full rounded-xl border border-gray-200 bg-[#F8F8FC] px-5 py-4 text-base font-bold text-[#6B48FF] outline-none">' + homeworkStudentOptions(currentNeedsStudent ? currentType : 'one_to_one', hw.studentId) + '</select></label></div><div class="mt-5 grid gap-5 md:grid-cols-2"><label><span class="mb-2 ml-1 block text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">单元</span><input id="edit-hw-unit" value="' + esc(hw.unit || '') + '" class="w-full rounded-xl border border-gray-200 bg-[#F8F8FC] px-5 py-4 text-base font-medium outline-none"></label><label><span class="mb-2 ml-1 block text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">标题</span><input id="edit-hw-title" value="' + esc(hw.title || '') + '" class="w-full rounded-xl border border-gray-200 bg-[#F8F8FC] px-5 py-4 text-base font-medium outline-none"></label></div><label class="mt-5 block"><span class="mb-2 ml-1 block text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">当前链接/路径</span><input id="edit-hw-file" value="' + esc(normalizeLessonFile(hw.file || '')) + '" class="w-full rounded-xl border border-gray-200 bg-[#F8F8FC] px-5 py-4 text-base font-medium outline-none"></label><label class="mt-5 block"><span class="mb-2 ml-1 block text-[11px] font-bold uppercase text-gray-400 md:text-[13px]">替换 HTML 文件（可选）</span><input id="edit-hw-upload" type="file" accept=".html,text/html" class="w-full rounded-xl border border-dashed border-[#C9C3FF] bg-[#F8F8FC] px-5 py-4 text-sm font-bold text-[#2D2A4A] file:mr-4 file:rounded-full file:border-0 file:bg-[#6B48FF] file:px-4 file:py-2 file:text-sm file:font-bold file:text-white"><p class="mt-2 px-1 text-[12px] font-medium leading-5 text-gray-400">选择新文件后会替换课程链接；若旧文件位于 ' + LESSON_UPLOAD_BUCKET + '，保存成功后会同步删除旧文件。</p></label><div class="mt-7 flex flex-col gap-3 sm:flex-row"><button data-close-modal class="flex-1 rounded-2xl bg-gray-100 py-4 text-base font-bold text-gray-600 active-scale">取消</button><button id="btn-save-hw-edit" data-save-homework-edit class="flex-1 rounded-2xl bg-[#6B48FF] py-4 text-base font-bold text-white shadow-lg shadow-[#6B48FF]/30 active-scale">保存修改</button></div></div></div>';
   document.getElementById('edit-hw-course-type')?.addEventListener('change', e => {
-    const type = normalizeCourseType(e.target.value);
-    const needsStudent = isPersonalCourse(type);
+    const target = parseHomeworkTarget(e.target.value);
+    const type = target.selectedType;
+    const needsStudent = target.needsStudent;
     const classSelect = document.getElementById('edit-hw-class');
-    if ((isSummerCourse(type) || isCustomToolCourse(type)) && classSelect) classSelect.value = type;
+    if ((isSummerCourse(type) || isCustomToolCourse(type) || target.scopedClass) && classSelect) classSelect.value = target.classCode || type;
     document.getElementById('edit-hw-class-field')?.classList.toggle('hidden', needsStudent);
     document.getElementById('edit-hw-student-field')?.classList.toggle('hidden', !needsStudent);
     const studentSelect = document.getElementById('edit-hw-student');
@@ -2519,21 +2565,18 @@ async function saveHomeworkEdit() {
   const id = document.getElementById('edit-hw-id').value;
   const old = displayHomework().find(h => h.id === id);
   if (!old) return showAlert('没有找到这条课程记录。', '无法保存');
-  const selectedType = normalizeCourseType(document.getElementById('edit-hw-course-type')?.value || old.courseType || 'class');
-  const isPrivateTarget = isPersonalCourse(selectedType);
-  const isSummerTarget = isSummerCourse(selectedType);
-  const isToolTarget = isCustomToolCourse(selectedType);
-  const courseType = (isSummerTarget || isToolTarget) ? 'class' : selectedType;
-  const classCode = isPrivateTarget ? selectedType : ((isSummerTarget || isToolTarget) ? selectedType : document.getElementById('edit-hw-class').value);
-  const studentId = isPrivateTarget ? (document.getElementById('edit-hw-student')?.value || '').trim() : '';
+  const target = parseHomeworkTarget(document.getElementById('edit-hw-course-type')?.value || old.courseType || 'class');
+  const courseType = target.courseType;
+  const classCode = target.classCode || document.getElementById('edit-hw-class').value;
+  const studentId = target.needsStudent ? (document.getElementById('edit-hw-student')?.value || '').trim() : '';
   const unit = document.getElementById('edit-hw-unit').value.trim();
   const title = document.getElementById('edit-hw-title').value.trim();
   const status = document.getElementById('edit-hw-status').value;
   const uploadInput = document.getElementById('edit-hw-upload');
   const uploadFile = uploadInput && uploadInput.files ? uploadInput.files[0] : null;
   let file = document.getElementById('edit-hw-file').value.trim();
-  if (!isPrivateTarget && !classCode) return showAlert('请选择班级。', '提示');
-  if (isPrivateTarget && !studentId) return showAlert('请选择学生。', '提示');
+  if (!classCode) return showAlert('请选择班级。', '提示');
+  if (target.needsStudent && !studentId) return showAlert('请选择学生。', '提示');
   if (!unit || !title || (!file && !uploadFile)) return showAlert('请填写单元、标题，并保留或替换课程文件。', '提示');
   const btn = document.getElementById('btn-save-hw-edit');
   if (btn) { btn.disabled = true; btn.textContent = uploadFile ? '正在替换...' : '正在保存...'; btn.classList.add('opacity-70'); }

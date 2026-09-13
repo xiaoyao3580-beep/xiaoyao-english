@@ -143,11 +143,11 @@ window.XY_CONTENT_LEVELS = [
   },
   {
     "id": "economist",
-    "code": "ECONOMIST",
-    "title": "《经济学人》\n精品课",
-    "icon": "fa-newspaper",
-    "theme": "text-rose-700 bg-rose-50 border-rose-100",
-    "buttonTheme": "bg-rose-500 text-white shadow-md shadow-rose-500/20"
+    "code": "GRAMMAR",
+    "title": "高中语法\n与写作",
+    "icon": "fa-pen-nib",
+    "theme": "text-indigo-700 bg-indigo-50 border-indigo-100",
+    "buttonTheme": "bg-indigo-500 text-white shadow-md shadow-indigo-500/20"
   },
   {
     "id": "others",
